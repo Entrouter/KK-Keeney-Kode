@@ -16,3 +16,23 @@ thiserror = "1"
 
 [dev-dependencies]
 hex = "0.4"
+criterion = { version = "0.5", features = ["html_reports"] }
+ratatui = "0.29"
+crossterm = "0.28"
+rpassword = "5"
+
+[[bench]]
+name = "kk_bench"
+harness = false
+
+[[example]]
+name = "visual"
+path = "examples/visual.rs"
+
+[[example]]
+name = "proof"
+path = "examples/proof.rs"
+
+[[example]]
+name = "kk-journal"
+path = "examples/kk_journal.rs"
