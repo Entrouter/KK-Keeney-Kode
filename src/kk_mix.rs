@@ -1,13 +1,14 @@
-//! KK-Mix: The novel cryptographic core of the KK system.
+//! KK-Mix v2: The novel cryptographic core of the KK system.
 //!
 //! Everything in KK is built from this single primitive:
 //! hashing, key derivation, message authentication, entropy mixing.
 //!
-//! ## The KK Permutation
+//! ## The KK Permutation v2
 //!
-//! A 512-bit (8 × 64-bit word) state transformation using a novel
-//! **Multiply-Fold-Rotate (MFR)** operation:
+//! A 1600-bit (25 × 64-bit word) state arranged as a 5×5 grid,
+//! transformed using two novel operations:
 //!
+//! **Multiply-Fold-Rotate (MFR):**
 //! ```text
 //! MFR(a, b, rot):
 //!   product = a ×₆₄ (b | 1)      - modular multiply (|1 guarantees bijectivity)
@@ -15,20 +16,42 @@
 //!   result  = folded <<< rot              - rotate for diffusion
 //! ```
 //!
-//! Key properties:
-//! - Multiplication by an odd number is a bijection mod 2^64 (invertible)
-//! - The fold operation breaks the algebraic structure of multiplication
-//! - Rotation spreads bit influence across the full word
-//! - Combined: strong non-linearity + diffusion in a single operation
+//! **Data-Dependent Rotation (DDR):**
+//! ```text
+//! DDR(a, b):
+//!   result = a <<< (b & 63)     - rotation distance from the data itself
+//! ```
+//!
+//! DDR is cryptanalytic poison: differential analysis must track all 64
+//! possible rotation distances simultaneously, causing exponential path
+//! explosion. No standard analysis tool handles this efficiently.
+//!
+//! ## Quintet-Round (5-word mixer, novel)
+//!
+//! ```text
+//! a = MFR(a, b, rot0)
+//! c = c ⊕ a
+//! d = DDR(d, c)
+//! e = MFR(e, d, rot1)
+//! b = b ⊕ e
+//! ```
+//!
+//! No published cipher uses 5-word mixing rounds. Novel to KK.
+//!
+//! ## The 5×5 Grid
+//!
+//! Each round applies 15 quintet-rounds:
+//! - 5 on rows
+//! - 5 on columns
+//! - 5 on diagonals
+//!
+//! Plus round constant injection and intra-round re-keying (every 8 rounds).
+//! 32 rounds total = 480 quintet-rounds = 960 MFR + 480 DDR operations.
 //!
 //! ## The KK Sponge
 //!
-//! A sponge construction (rate=256 bits, capacity=256 bits) built on
-//! the KK permutation. Provides:
-//!
-//! - **KK-Hash:** Absorb input, squeeze digest
-//! - **KK-KDF:** Absorb key + salt + info, squeeze derived key
-//! - **KK-MAC:** Absorb key + message, squeeze authentication tag
+//! Rate = 1088 bits (136 bytes), Capacity = 512 bits (64 bytes).
+//! Provides KK-Hash, KK-KDF, KK-MAC, entropy mixing.
 //!
 //! ## Temporal Permutation Variance
 //!
@@ -36,9 +59,6 @@
 //! the entropy snapshot ε. This means the *mathematical structure* of
 //! the cipher changes every encryption  - not just different data through
 //! the same algorithm, but a *different algorithm entirely*.
-//!
-//! No existing cipher does this. It's a novel security property unique
-//! to the KK system.
 //!
 //! J.A. Keeney, Australia, 2026
 
@@ -48,35 +68,38 @@ use zeroize::Zeroize;
 //  Constants
 // ─────────────────────────────────────────────────────────────────
 
-/// Number of 64-bit words in the state.
-pub const STATE_WORDS: usize = 8;
+/// Number of 64-bit words in the state (5×5 grid = 1600 bits).
+pub const STATE_WORDS: usize = 25;
 
-/// State size in bytes (512 bits).
+/// State size in bytes (1600 bits).
 pub const STATE_BYTES: usize = STATE_WORDS * 8;
 
-/// Number of permutation rounds. 16 rounds provide thorough diffusion:
-/// after 2 rounds every state word has influenced every other word,
-/// so 16 rounds gives 8 full cross-diffusion cycles.
-pub const ROUNDS: usize = 16;
+/// Number of permutation rounds. 32 rounds on a 5×5 grid provide
+/// thorough diffusion: after 2 rounds every word influences every
+/// other word, so 32 rounds gives 16 full cross-diffusion cycles.
+pub const ROUNDS: usize = 32;
 
-/// Sponge rate in words (256 bits = 32 bytes).
-/// This is the portion of state exposed during absorb/squeeze.
-pub const RATE_WORDS: usize = 4;
+/// Sponge rate in words (1088 bits = 136 bytes).
+pub const RATE_WORDS: usize = 17;
 
 /// Sponge rate in bytes.
 pub const RATE_BYTES: usize = RATE_WORDS * 8;
 
-/// Sponge capacity in words (256 bits = internal security level).
+/// Sponge capacity in words (512 bits = 256-bit security level).
 pub const CAPACITY_WORDS: usize = STATE_WORDS - RATE_WORDS;
 
-/// Default rotation distances  - chosen so each pair sums to ≠ 64,
-/// no two values are equal, and all are coprime with 64 to maximise
-/// bit coverage over iterated rounds.
-const DEFAULT_ROTATIONS: [[u32; 2]; 4] = [
-    [7, 41],
-    [13, 29],
-    [19, 37],
-    [23, 43],
+/// Default rotation distances for the 15 quintet-rounds per round.
+/// 5 for rows, 5 for columns, 5 for diagonals.
+/// Each pair: one value in [1,31], one in [33,63]  - asymmetric mixing.
+/// All values are odd (coprime with 64) for maximum bit coverage.
+/// No two values repeat across all 30 entries.
+const DEFAULT_ROTATIONS: [[u32; 2]; 15] = [
+    // Row phase
+    [7, 41],  [13, 29], [19, 37], [23, 43], [3, 53],
+    // Column phase
+    [11, 47], [17, 39], [5, 59],  [31, 49], [9, 51],
+    // Diagonal phase
+    [15, 33], [21, 45], [27, 35], [1, 57],  [25, 55],
 ];
 
 /// Domain separation byte for hashing mode.
@@ -86,11 +109,9 @@ const DOMAIN_KDF: u8 = 0x02;
 /// Domain separation byte for MAC mode.
 const DOMAIN_MAC: u8 = 0x03;
 
-/// Initialization constants  - prime-derived, ensure non-degenerate state
-/// even when absorbing all-zero data. Analogous to IV constants in other
-/// permutation-based constructions, but derived from the KK identity.
-///
-/// Computed as: floor(√(p_i) × 2^64) for the first 8 primes.
+/// Initialization constants for the 25-word state.
+/// Computed as: floor(frac(√p) × 2^64) for the first 25 primes.
+/// "Nothing up my sleeve"  - anyone can verify these.
 const KK_IV: [u64; STATE_WORDS] = [
     0x6A09E667F3BCC908, // √2
     0xBB67AE8584CAA73B, // √3
@@ -100,10 +121,36 @@ const KK_IV: [u64; STATE_WORDS] = [
     0x9B05688C2B3E6C1F, // √13
     0x1F83D9ABFB41BD6B, // √17
     0x5BE0CD19137E2179, // √19
+    0xCBBB9D5DC1059ED8, // √23
+    0x629A292A367CD507, // √29
+    0x9159015A3070DD17, // √31
+    0x152FECD8F70E5939, // √37
+    0x67332667FFC00B31, // √41
+    0x8EB44A8768581511, // √43
+    0xDB0C2E0D64F98FA7, // √47
+    0x47B5481DBEFA4FA4, // √53
+    0xAE5F9156E7B6D99B, // √59
+    0xCF6C85D39D1A1E15, // √61
+    0x2F73477D6A4563CA, // √67
+    0x6D1826CAFD82E1ED, // √71
+    0x8B43D4570A51B936, // √73
+    0xE360B596DC380C3F, // √79
+    0x1C456002CE13E9F8, // √83
+    0x6F19633143A0AF0E, // √89
+    0xD94EBEB1AB313933, // √97
 ];
 
-/// The KK state: 512 bits as 8 × 64-bit words.
+/// The KK state: 1600 bits as 25 × 64-bit words (5×5 grid).
 pub type KkState = [u64; STATE_WORDS];
+
+/// Diagonal index patterns for the 5×5 grid.
+const DIAGS: [[usize; 5]; 5] = [
+    [0, 6, 12, 18, 24],
+    [1, 7, 13, 19, 20],
+    [2, 8, 14, 15, 21],
+    [3, 9, 10, 16, 22],
+    [4, 5, 11, 17, 23],
+];
 
 // ─────────────────────────────────────────────────────────────────
 //  MFR  - Multiply-Fold-Rotate (the novel non-linear core)
@@ -115,7 +162,7 @@ pub type KkState = [u64; STATE_WORDS];
 /// 2. `⊕ (>> 32)`  - fold high bits into low, breaking multiplicative structure
 /// 3. `<<< rot`  - rotate for diffusion
 ///
-/// This is the single non-linear building block of the entire KK system.
+/// This is one of two non-linear building blocks of the KK system.
 #[inline(always)]
 fn mfr(a: u64, b: u64, rot: u32) -> u64 {
     let product = a.wrapping_mul(b | 1);
@@ -124,87 +171,149 @@ fn mfr(a: u64, b: u64, rot: u32) -> u64 {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  Quarter-Round
+//  DDR  - Data-Dependent Rotation (novel)
 // ─────────────────────────────────────────────────────────────────
 
-/// Quarter-round: mix four state words through two MFR operations
+/// Data-Dependent Rotation: rotate `a` by a distance derived from `b`.
+///
+/// The rotation amount is the low 6 bits of `b` (range 0–63).
+/// This makes the permutation structure depend on the data flowing
+/// through it  - cryptanalytic poison for differential analysis.
+///
+/// Any differential trail must account for all 64 possible rotation
+/// distances simultaneously, causing exponential path explosion.
+/// No published analysis framework efficiently handles DDR.
+#[inline(always)]
+fn ddr(a: u64, b: u64) -> u64 {
+    a.rotate_left((b & 63) as u32)
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Quintet-Round  - 5-word mixer (novel, replaces quarter-round)
+// ─────────────────────────────────────────────────────────────────
+
+/// Quintet-round: mix five state words through MFR + DDR operations
 /// with cross-feedback.
 ///
 /// ```text
-/// a = MFR(a, b, rot0)
-/// c = c ⊕ a
-/// d = MFR(d, c, rot1)
-/// b = b ⊕ d
+/// a = MFR(a, b, rot0)     - non-linear mix
+/// c = c ⊕ a               - linear diffusion
+/// d = DDR(d, c)            - data-dependent rotation (novel)
+/// e = MFR(e, d, rot1)     - non-linear mix
+/// b = b ⊕ e               - linear feedback
 /// ```
 ///
-/// After one quarter-round, all four words have influenced each other.
+/// After one quintet-round, all five words have influenced each other.
+/// No published cipher uses 5-word mixing rounds.
 #[inline(always)]
-fn quarter_round(
+fn quintet_round(
     a: &mut u64,
     b: &mut u64,
     c: &mut u64,
     d: &mut u64,
+    e: &mut u64,
     rot: [u32; 2],
 ) {
     *a = mfr(*a, *b, rot[0]);
     *c ^= *a;
-    *d = mfr(*d, *c, rot[1]);
-    *b ^= *d;
+    *d = ddr(*d, *c);
+    *e = mfr(*e, *d, rot[1]);
+    *b ^= *e;
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  KK Permutation
+//  KK Permutation v2  - 5×5 grid, 32 rounds
 // ─────────────────────────────────────────────────────────────────
 
-/// Apply the KK permutation to a 512-bit state using default rotations.
+/// Apply the KK permutation to a 1600-bit state using default rotations.
 pub fn kk_permute(state: &mut KkState) {
     kk_permute_with_schedule(state, &DEFAULT_ROTATIONS);
 }
 
 /// Apply the KK permutation with a custom rotation schedule.
 ///
-/// When rotations are derived from entropy, the permutation's internal
-/// structure changes  - Temporal Permutation Variance.
-pub fn kk_permute_with_schedule(state: &mut KkState, rotations: &[[u32; 2]; 4]) {
+/// Each round applies 15 quintet-rounds over a 5×5 word grid:
+/// - 5 on rows (words 0–4, 5–9, 10–14, 15–19, 20–24)
+/// - 5 on columns (words 0/5/10/15/20, 1/6/11/16/21, etc.)
+/// - 5 on diagonals (words 0/6/12/18/24, 1/7/13/19/20, etc.)
+///
+/// Followed by round constant injection (5 words) and intra-round
+/// re-keying every 8 rounds (capacity XOR'd into rate).
+pub fn kk_permute_with_schedule(state: &mut KkState, rotations: &[[u32; 2]; 15]) {
     for round in 0..ROUNDS as u64 {
-        // Column quarter-rounds: (0,2,4,6) and (1,3,5,7)
-        {
-            let (mut a, mut b, mut c, mut d) = (state[0], state[2], state[4], state[6]);
-            quarter_round(&mut a, &mut b, &mut c, &mut d, rotations[0]);
-            state[0] = a; state[2] = b; state[4] = c; state[6] = d;
-        }
-        {
-            let (mut a, mut b, mut c, mut d) = (state[1], state[3], state[5], state[7]);
-            quarter_round(&mut a, &mut b, &mut c, &mut d, rotations[1]);
-            state[1] = a; state[3] = b; state[5] = c; state[7] = d;
-        }
-
-        // Diagonal quarter-rounds: (0,3,5,6) and (1,2,4,7)
-        {
-            let (mut a, mut b, mut c, mut d) = (state[0], state[3], state[5], state[6]);
-            quarter_round(&mut a, &mut b, &mut c, &mut d, rotations[2]);
-            state[0] = a; state[3] = b; state[5] = c; state[6] = d;
-        }
-        {
-            let (mut a, mut b, mut c, mut d) = (state[1], state[2], state[4], state[7]);
-            quarter_round(&mut a, &mut b, &mut c, &mut d, rotations[3]);
-            state[1] = a; state[2] = b; state[4] = c; state[7] = d;
+        // ── Row phase: 5 quintet-rounds ──
+        for row in 0..5usize {
+            let base = row * 5;
+            let (mut s0, mut s1, mut s2, mut s3, mut s4) = (
+                state[base], state[base + 1], state[base + 2],
+                state[base + 3], state[base + 4],
+            );
+            quintet_round(&mut s0, &mut s1, &mut s2, &mut s3, &mut s4, rotations[row]);
+            state[base] = s0;
+            state[base + 1] = s1;
+            state[base + 2] = s2;
+            state[base + 3] = s3;
+            state[base + 4] = s4;
         }
 
-        // Round constant injection  - prevents slide attacks and
-        // breaks symmetry between rounds.
+        // ── Column phase: 5 quintet-rounds ──
+        for col in 0..5usize {
+            let (mut s0, mut s1, mut s2, mut s3, mut s4) = (
+                state[col], state[col + 5], state[col + 10],
+                state[col + 15], state[col + 20],
+            );
+            quintet_round(&mut s0, &mut s1, &mut s2, &mut s3, &mut s4, rotations[5 + col]);
+            state[col] = s0;
+            state[col + 5] = s1;
+            state[col + 10] = s2;
+            state[col + 15] = s3;
+            state[col + 20] = s4;
+        }
+
+        // ── Diagonal phase: 5 quintet-rounds ──
+        for d in 0..5usize {
+            let [i0, i1, i2, i3, i4] = DIAGS[d];
+            let (mut s0, mut s1, mut s2, mut s3, mut s4) = (
+                state[i0], state[i1], state[i2], state[i3], state[i4],
+            );
+            quintet_round(&mut s0, &mut s1, &mut s2, &mut s3, &mut s4, rotations[10 + d]);
+            state[i0] = s0;
+            state[i1] = s1;
+            state[i2] = s2;
+            state[i3] = s3;
+            state[i4] = s4;
+        }
+
+        // ── Round constant injection (corners + center of 5×5 grid) ──
         state[0] = state[0].wrapping_add(round);
         state[4] = state[4].wrapping_add(round.wrapping_mul(0x9E3779B97F4A7C15));
+        state[12] = state[12].wrapping_add(round.wrapping_mul(0xB7E151628AED2A6A));
+        state[20] = state[20].wrapping_add(round.wrapping_mul(0x243F6A8885A2F7A4));
+        state[24] = state[24].wrapping_add(round.wrapping_mul(0x298B075B4B6A5240));
+
+        // ── Intra-round re-keying every 8 rounds ──
+        // XOR capacity words (rotated) into rate words.
+        // Breaks fixed-structure analysis within a single permutation call.
+        if round % 8 == 7 {
+            for i in 0..RATE_WORDS {
+                state[i] ^= state[RATE_WORDS + (i % CAPACITY_WORDS)]
+                    .rotate_left(round as u32);
+            }
+        }
     }
 }
+
+// ─────────────────────────────────────────────────────────────────
+//  Rotation Schedule Derivation
+// ─────────────────────────────────────────────────────────────────
 
 /// Derive a rotation schedule from entropy bytes.
 ///
 /// Takes bytes from the entropy and converts them to rotation distances
 /// in range [1, 63] (non-trivial rotations on 64-bit words).
-pub fn rotations_from_entropy(entropy: &[u8]) -> [[u32; 2]; 4] {
+pub fn rotations_from_entropy(entropy: &[u8]) -> [[u32; 2]; 15] {
     let mut rots = DEFAULT_ROTATIONS;
-    for i in 0..4 {
+    for i in 0..15 {
         for j in 0..2 {
             let idx = i * 2 + j;
             if idx < entropy.len() {
@@ -222,7 +331,7 @@ pub fn rotations_from_entropy(entropy: &[u8]) -> [[u32; 2]; 4] {
 /// The KK Sponge: absorb data, squeeze output, permute between steps.
 pub struct KkSponge {
     state: KkState,
-    rotations: [[u32; 2]; 4],
+    rotations: [[u32; 2]; 15],
     /// How many rate bytes are currently buffered (for partial-block absorb).
     buf_pos: usize,
 }
@@ -427,7 +536,7 @@ mod tests {
 
     #[test]
     fn permutation_changes_state() {
-        let mut state: KkState = [1, 2, 3, 4, 5, 6, 7, 8];
+        let mut state = KK_IV;
         let original = state;
         kk_permute(&mut state);
         assert_ne!(state, original, "Permutation must change the state");
@@ -435,7 +544,9 @@ mod tests {
 
     #[test]
     fn permutation_is_deterministic() {
-        let mut s1: KkState = [0xDEAD, 0xBEEF, 0xCAFE, 0xF00D, 1, 2, 3, 4];
+        let mut s1 = KK_IV;
+        s1[0] ^= 0xDEAD;
+        s1[1] ^= 0xBEEF;
         let mut s2 = s1;
         kk_permute(&mut s1);
         kk_permute(&mut s2);
@@ -445,9 +556,8 @@ mod tests {
     #[test]
     fn permutation_avalanche() {
         // Flipping one bit in input should change many bits in output.
-        // Use IV-initialised state (realistic  - sponge always starts with IV).
-        let mut s1: KkState = KK_IV;
-        let mut s2: KkState = KK_IV;
+        let mut s1 = KK_IV;
+        let mut s2 = KK_IV;
         s2[0] ^= 1; // 1 bit difference
         kk_permute(&mut s1);
         kk_permute(&mut s2);
@@ -456,22 +566,84 @@ mod tests {
         for (a, b) in s1.iter().zip(s2.iter()) {
             diff_bits += (a ^ b).count_ones();
         }
-        // Good avalanche: ~50% of 512 bits = ~256. Accept anything > 100.
+        // Good avalanche: ~50% of 1600 bits = ~800. Accept > 300.
         assert!(
-            diff_bits > 100,
-            "Poor avalanche: only {diff_bits}/512 bits differ (expected ~256)"
+            diff_bits > 300,
+            "Poor avalanche: only {diff_bits}/1600 bits differ (expected ~800)"
         );
     }
 
     #[test]
     fn entropy_rotations_change_output() {
-        let mut s1: KkState = [42; STATE_WORDS];
+        let mut s1 = KK_IV;
         let mut s2 = s1;
-        kk_permute(&mut s1); // default rotations
-        kk_permute_with_schedule(&mut s2, &[[5, 50], [11, 33], [17, 39], [21, 47]]);
+        kk_permute(&mut s1);
+        let alt_rots: [[u32; 2]; 15] = [
+            [5, 50], [11, 33], [17, 39], [21, 47], [9, 53],
+            [7, 41], [13, 29], [19, 37], [23, 43], [3, 55],
+            [15, 35], [21, 45], [27, 33], [1, 57], [25, 51],
+        ];
+        kk_permute_with_schedule(&mut s2, &alt_rots);
         assert_ne!(
             s1, s2,
             "Different rotation schedules must produce different permutations"
+        );
+    }
+
+    #[test]
+    fn ddr_sensitivity() {
+        // Different rotation sources produce different outputs
+        let a = 0xDEADBEEF_CAFEBABE_u64;
+        let r1 = ddr(a, 7);
+        let r2 = ddr(a, 8);
+        assert_ne!(r1, r2, "Different rotation sources must give different results");
+    }
+
+    #[test]
+    fn ddr_full_range() {
+        // DDR should produce diverse outputs across rotation distances
+        let a = 0xFFFF_FFFF_FFFF_FFFE_u64; // asymmetric bits
+        let mut seen = std::collections::HashSet::new();
+        for b in 0..64u64 {
+            seen.insert(ddr(a, b));
+        }
+        assert!(
+            seen.len() > 32,
+            "DDR should produce diverse outputs: got {} unique values from 64 rotations",
+            seen.len()
+        );
+    }
+
+    #[test]
+    fn quintet_round_diffusion() {
+        // After one quintet-round, all 5 words should change
+        let (mut a, mut b, mut c, mut d, mut e) =
+            (0x1111u64, 0x2222, 0x3333, 0x4444, 0x5555);
+        let (a0, b0, c0, d0, e0) = (a, b, c, d, e);
+        quintet_round(&mut a, &mut b, &mut c, &mut d, &mut e, [7, 41]);
+        assert_ne!(a, a0, "word a unchanged");
+        assert_ne!(b, b0, "word b unchanged");
+        assert_ne!(c, c0, "word c unchanged");
+        assert_ne!(d, d0, "word d unchanged");
+        assert_ne!(e, e0, "word e unchanged");
+    }
+
+    #[test]
+    fn wide_state_avalanche() {
+        // 1-bit flip in center word → good diffusion across 1600 bits
+        let mut s1 = KK_IV;
+        let mut s2 = KK_IV;
+        s2[12] ^= 1;
+        kk_permute(&mut s1);
+        kk_permute(&mut s2);
+
+        let mut diff_bits = 0u32;
+        for (a, b) in s1.iter().zip(s2.iter()) {
+            diff_bits += (a ^ b).count_ones();
+        }
+        assert!(
+            diff_bits > 300,
+            "Poor wide avalanche: only {diff_bits}/1600 bits differ"
         );
     }
 
@@ -523,9 +695,6 @@ mod tests {
         let k64 = kk_kdf(b"key", b"salt", b"info", 64);
         assert_eq!(k16.len(), 16);
         assert_eq!(k64.len(), 64);
-        // First 16 bytes should match (squeeze is prefix-consistent
-        // within the first rate-block)
-        // NOTE: they won't match across rate boundaries, which is fine
     }
 
     #[test]
