@@ -62,6 +62,7 @@
 //!
 //! J.A. Keeney, Australia, 2026
 
+use core::hint::black_box;
 use zeroize::Zeroize;
 
 // ─────────────────────────────────────────────────────────────────
@@ -336,13 +337,20 @@ pub fn kk_permute_with_schedule(state: &mut KkState, rotations: &[[u32; 2]; 15])
 ///
 /// Takes bytes from the entropy and converts them to rotation distances
 /// in range [1, 63] (non-trivial rotations on 64-bit words).
+///
+/// Uses bias-free extraction: mask to 6 bits (0–63), then OR with 1
+/// to guarantee the result is odd and ≥ 1. The range [0,63] maps
+/// uniformly from 8-bit bytes (256 / 64 = 4 values per bucket, exact),
+/// so there is zero modular bias.
 pub fn rotations_from_entropy(entropy: &[u8]) -> [[u32; 2]; 15] {
     let mut rots = DEFAULT_ROTATIONS;
     for i in 0..15 {
         for j in 0..2 {
             let idx = i * 2 + j;
             if idx < entropy.len() {
-                rots[i][j] = (entropy[idx] % 62 + 1) as u32;
+                // & 63 → [0,63] with zero bias (256 divides 64 evenly)
+                // | 1  → guarantees odd (non-zero), range [1,63]
+                rots[i][j] = (entropy[idx] as u32 & 63) | 1;
             }
         }
     }
@@ -470,9 +478,10 @@ pub fn kk_hash(data: &[u8]) -> [u8; 32] {
     let mut sponge = KkSponge::new();
     sponge.absorb(data);
     sponge.finalize_absorb(DOMAIN_HASH);
-    let out = sponge.squeeze(32);
+    let mut out = sponge.squeeze(32);
     let mut digest = [0u8; 32];
     digest.copy_from_slice(&out);
+    out.zeroize();
     digest
 }
 
@@ -485,6 +494,12 @@ pub fn kk_hash(data: &[u8]) -> [u8; 32] {
 ///   - `salt`: salt bytes (entropy snapshot ε)
 ///   - `info`: context/domain info (position, purpose label, etc.)
 ///   - `output_len`: how many bytes to derive
+///
+/// # Security Note
+///
+/// The returned `Vec<u8>` contains sensitive key material.
+/// Call `.zeroize()` on the vector when you are done with it.
+#[must_use = "derived key material computed but not used  - zeroize it when done"]
 pub fn kk_kdf(key: &[u8], salt: &[u8], info: &[u8], output_len: usize) -> Vec<u8> {
     let mut sponge = KkSponge::with_entropy_rotations(salt);
     sponge.absorb(key);
@@ -505,6 +520,13 @@ pub fn kk_kdf(key: &[u8], salt: &[u8], info: &[u8], output_len: usize) -> Vec<u8
 /// Inputs:
 ///   - `key`: authentication key
 ///   - `message`: the data to authenticate
+///
+/// # Security Note
+///
+/// KK-MAC is **deterministic**: the same (key, message) pair always
+/// produces the same tag. This is correct and expected for a MAC.
+/// If your protocol requires unique tags (e.g., to prevent replay),
+/// prepend a nonce or counter to the message before calling `kk_mac`.
 #[must_use = "MAC tag computed but not used  - verify it with kk_mac_verify()"]
 pub fn kk_mac(key: &[u8], message: &[u8]) -> [u8; 32] {
     let mut sponge = KkSponge::new();
@@ -514,9 +536,10 @@ pub fn kk_mac(key: &[u8], message: &[u8]) -> [u8; 32] {
     // Absorb message
     sponge.absorb(message);
     sponge.finalize_absorb(DOMAIN_MAC);
-    let out = sponge.squeeze(32);
+    let mut out = sponge.squeeze(32);
     let mut tag = [0u8; 32];
     tag.copy_from_slice(&out);
+    out.zeroize();
     tag
 }
 
@@ -531,6 +554,9 @@ pub fn kk_mac_verify(key: &[u8], message: &[u8], expected_tag: &[u8; 32]) -> boo
 
 /// Constant-time byte comparison. Runs in time proportional to the
 /// shorter slice length, regardless of where differences occur.
+///
+/// Uses `core::hint::black_box` on the accumulator to prevent the
+/// compiler from short-circuiting the OR chain into an early exit.
 fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     if a.len() != b.len() {
         return false;
@@ -539,13 +565,19 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     for (x, y) in a.iter().zip(b.iter()) {
         diff |= x ^ y;
     }
-    diff == 0
+    black_box(diff) == 0
 }
 
 /// KK-Mix: mix arbitrary-length entropy sources into `output_len` bytes.
 ///
 /// Used by the entropy module to combine multiple sources.
 /// This replaces the HKDF-based mixing in the original entropy gathering.
+///
+/// # Security Note
+///
+/// The returned `Vec<u8>` may contain sensitive mixed entropy.
+/// Call `.zeroize()` on the vector when you are done with it.
+#[must_use = "mixed entropy computed but not used  - zeroize it when done"]
 pub fn kk_entropy_mix(sources: &[&[u8]], output_len: usize) -> Vec<u8> {
     let mut sponge = KkSponge::new();
     for (i, source) in sources.iter().enumerate() {
@@ -788,5 +820,60 @@ mod tests {
         assert!(constant_time_eq(b"hello", b"hello"));
         assert!(!constant_time_eq(b"hello", b"hellp"));
         assert!(!constant_time_eq(b"short", b"longer"));
+    }
+
+    // ── Frozen test vectors ──────────────────────────────────────
+    // These catch accidental changes to the permutation or sponge.
+    // If ANY of these fail, either the algorithm changed (intentional
+    // and requires new vectors) or a regression was introduced.
+
+    #[test]
+    fn vector_hash_empty() {
+        let h = kk_hash(b"");
+        assert_eq!(
+            hex::encode(h),
+            "f69cb47d35b2ea6a3512f06f4033aeebc22938c9ef6578c4d08d70bf8cd6cd01",
+            "REGRESSION: kk_hash(\"\") output changed"
+        );
+    }
+
+    #[test]
+    fn vector_hash_kk() {
+        let h = kk_hash(b"KK-Keeney-Kode");
+        assert_eq!(
+            hex::encode(h),
+            "fde375562c766e3f1f93f2a88fcedb4c09d2680e3b2ae481ad9ecd1c38506c3c",
+            "REGRESSION: kk_hash(\"KK-Keeney-Kode\") output changed"
+        );
+    }
+
+    #[test]
+    fn vector_hash_1024_ab() {
+        let h = kk_hash(&[0xABu8; 1024]);
+        assert_eq!(
+            hex::encode(h),
+            "3cf528c6673a30c4372f3380f15407a3d567255b7d0f99d57be9452802b01816",
+            "REGRESSION: kk_hash([0xAB; 1024]) output changed"
+        );
+    }
+
+    #[test]
+    fn vector_mac() {
+        let tag = kk_mac(b"secret-key-2026", b"authenticate this");
+        assert_eq!(
+            hex::encode(tag),
+            "d5e6df641cb27f534b13901cfe712c165a72d3be850fcb254d93001e28edde7c",
+            "REGRESSION: kk_mac output changed"
+        );
+    }
+
+    #[test]
+    fn vector_kdf() {
+        let k = kk_kdf(b"master-key", b"salt-value", b"kdf-context", 32);
+        assert_eq!(
+            hex::encode(k),
+            "4c6084956ae3aa7d6980862a26c472ecc4420be12448df7d2f4f4ded2bb0b572",
+            "REGRESSION: kk_kdf output changed"
+        );
     }
 }
