@@ -419,10 +419,41 @@ impl KkSponge {
     ///
     /// Data is XOR'd into the rate portion of the state.
     /// After every full rate-block, the permutation is applied.
+    ///
+    /// Uses word-at-a-time XOR when aligned for ~8× fewer ops on
+    /// bulk data; falls back to byte-by-byte for alignment/tail.
     pub fn absorb(&mut self, data: &[u8]) {
-        for &byte in data {
-            self.xor_rate_byte(self.buf_pos, byte);
-            self.buf_pos += 1;
+        let mut offset = 0;
+
+        while offset < data.len() {
+            // Byte-by-byte when misaligned or fewer than 8 bytes remain
+            if self.buf_pos % 8 != 0 || data.len() - offset < 8 {
+                self.xor_rate_byte(self.buf_pos, data[offset]);
+                offset += 1;
+                self.buf_pos += 1;
+                if self.buf_pos == RATE_BYTES {
+                    self.permute();
+                    self.buf_pos = 0;
+                }
+                continue;
+            }
+
+            // Word-at-a-time: buf_pos is word-aligned, >= 8 bytes available
+            let word_idx = self.buf_pos / 8;
+            let words_in_rate = (RATE_BYTES - self.buf_pos) / 8;
+            let words_in_data = (data.len() - offset) / 8;
+            let words = words_in_rate.min(words_in_data);
+
+            for i in 0..words {
+                let start = offset + i * 8;
+                let w = u64::from_le_bytes(
+                    data[start..start + 8].try_into().unwrap(),
+                );
+                self.state[word_idx + i] ^= w;
+            }
+            offset += words * 8;
+            self.buf_pos += words * 8;
+
             if self.buf_pos == RATE_BYTES {
                 self.permute();
                 self.buf_pos = 0;

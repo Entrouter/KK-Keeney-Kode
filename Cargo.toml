@@ -41,3 +41,7 @@ path = "examples/split_demo.rs"
 [[example]]
 name = "qkd_demo"
 path = "examples/qkd_demo.rs"
+
+[profile.release]
+lto = true
+codegen-units = 1

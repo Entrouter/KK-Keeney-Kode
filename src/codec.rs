@@ -38,10 +38,10 @@ use crate::error::{KkError, Result};
 use crate::kdf;
 use crate::temporal::{self, TemporalCommitment};
 
-/// The number of plaintext bytes processed per HKDF derivation.
-/// Larger chunks = fewer HKDF calls = better performance.
+/// The number of plaintext bytes processed per KDF derivation.
+/// Larger chunks = fewer KDF calls = better throughput.
 /// Each chunk still gets a unique key derived from its position.
-const CHUNK_SIZE: usize = 64;
+const CHUNK_SIZE: usize = 4096;
 
 /// A KK-encoded packet: everything the receiver needs to decode.
 ///
