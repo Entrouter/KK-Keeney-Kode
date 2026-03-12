@@ -9,13 +9,14 @@
 //!   2. High-resolution timestamp (nanosecond precision)
 //!   3. CPU timestamp counter (rdtsc / equivalent)
 //!   4. Thread scheduling jitter (measured timing noise)
+//!
+//! All mixing is done with KK-Mix  - no SHA-256, no HKDF.
 
-use hkdf::Hkdf;
 use rand::RngCore;
-use sha2::{Digest, Sha256};
 use zeroize::Zeroize;
 
 use crate::error::{KkError, Result};
+use crate::kk_mix;
 
 /// Size of the final entropy snapshot in bytes (256 bits).
 pub const ENTROPY_SNAPSHOT_SIZE: usize = 32;
@@ -97,18 +98,17 @@ fn source_cpu_counter() -> [u8; 8] {
 /// Collect scheduling jitter entropy by measuring timing variance
 /// across multiple tight loops.
 fn source_thread_jitter() -> [u8; 32] {
-    let mut hasher = Sha256::new();
+    // Collect 64 timing measurements as raw bytes
+    let mut raw_timings = Vec::with_capacity(64 * 8);
     for _ in 0..64 {
         let start = std::time::Instant::now();
         // Tight spin  - duration varies with scheduling
         std::hint::black_box(0u64.wrapping_add(1));
         let elapsed = start.elapsed().as_nanos() as u64;
-        hasher.update(elapsed.to_le_bytes());
+        raw_timings.extend_from_slice(&elapsed.to_le_bytes());
     }
-    let result = hasher.finalize();
-    let mut out = [0u8; 32];
-    out.copy_from_slice(&result);
-    out
+    // Mix all timings through KK-Hash
+    kk_mix::kk_hash(&raw_timings)
 }
 
 /// Gather all entropy sources and mix them into a single snapshot.
@@ -123,23 +123,17 @@ pub fn gather() -> Result<EntropySnapshot> {
     let cpu_bytes = source_cpu_counter();
     let jitter_bytes = source_thread_jitter();
 
-    // Mix all sources using HKDF-SHA256
-    // IKM = concatenation of all sources
-    // Salt = jitter (independent timing source)
-    // Info = domain separator
-    let mut ikm = Vec::with_capacity(32 + 16 + 8 + 32);
-    ikm.extend_from_slice(&csprng_bytes);
-    ikm.extend_from_slice(&timestamp_bytes);
-    ikm.extend_from_slice(&cpu_bytes);
-    ikm.extend_from_slice(&jitter_bytes);
+    // Mix all sources using KK entropy mixing
+    let sources: Vec<&[u8]> = vec![
+        &csprng_bytes,
+        &timestamp_bytes,
+        &cpu_bytes,
+        &jitter_bytes,
+    ];
+    let mixed = kk_mix::kk_entropy_mix(&sources, ENTROPY_SNAPSHOT_SIZE);
 
-    let hk = Hkdf::<Sha256>::new(Some(&jitter_bytes), &ikm);
     let mut output = [0u8; ENTROPY_SNAPSHOT_SIZE];
-    hk.expand(b"KK-entropy-v1", &mut output)
-        .map_err(|_| KkError::EntropyFailure("HKDF expand failed during mixing".into()))?;
-
-    // Zeroize intermediate material
-    ikm.zeroize();
+    output.copy_from_slice(&mixed);
 
     Ok(EntropySnapshot {
         bytes: output,

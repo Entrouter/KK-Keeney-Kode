@@ -37,9 +37,13 @@
 //! ## Architecture
 //!
 //! ```text
-//! Entropy Sources → HKDF Mixing → Per-Symbol Derivation → Temporal Binding → Encoding
-//!     (entropy.rs)    (kdf.rs)         (kdf.rs)             (temporal.rs)     (codec.rs)
+//! Entropy Sources → KK-Mix → Per-Symbol Derivation → Temporal Binding → Encoding
+//!     (entropy.rs)  (kk_mix.rs)    (kdf.rs)            (temporal.rs)     (codec.rs)
 //! ```
+//!
+//! Every cryptographic operation is built from a single novel primitive:
+//! the KK permutation (Multiply-Fold-Rotate sponge construction).
+//! No SHA-256, no HKDF, no HMAC  - 100% original KK.
 //!
 //! J.A. Keeney, Australia, 2026
 
@@ -47,9 +51,19 @@ pub mod codec;
 pub mod entropy;
 pub mod error;
 pub mod kdf;
+pub mod kk_mix;
+pub mod qkd;
 pub mod temporal;
 
 // Re-export the primary API
 pub use codec::{decode, encode, KkPacket};
+pub use codec::{decode_split, encode_split, KkSealedMessage};
 pub use entropy::EntropySnapshot;
 pub use error::KkError;
+
+// QKD re-exports
+pub use qkd::{
+    alice_prepare, bob_measure, distill_key, eve_intercept,
+    encrypt_epsilon, decrypt_epsilon,
+    Bb84Result, Basis, Qubit,
+};

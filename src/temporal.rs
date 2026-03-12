@@ -8,16 +8,14 @@
 //!   - The ciphertext was produced at this specific moment
 //!   - Any tampering with ε or the ciphertext is detectable
 //!
-//! commitment = HMAC-SHA256(commitment_key, ε.bytes || ε.timestamp || ciphertext)
-
-use hmac::{Hmac, Mac};
-use sha2::Sha256;
+//! commitment = KK-MAC(commitment_key, ε.bytes || ε.timestamp || ciphertext)
+//!
+//! Built entirely from the KK permutation  - no HMAC, no SHA-256.
 
 use crate::entropy::EntropySnapshot;
 use crate::error::{KkError, Result};
 use crate::kdf;
-
-type HmacSha256 = Hmac<Sha256>;
+use crate::kk_mix;
 
 /// A temporal commitment binding ciphertext to its entropic moment.
 #[derive(Clone, Debug)]
@@ -52,17 +50,13 @@ pub fn commit(
 ) -> Result<TemporalCommitment> {
     let commit_key = kdf::derive_commitment_key(shared_secret, snapshot)?;
 
-    let mut mac = HmacSha256::new_from_slice(&commit_key)
-        .map_err(|_| KkError::EntropyFailure("HMAC key setup failed".into()))?;
+    // Build the message: entropy bytes || timestamp || ciphertext
+    let mut message = Vec::with_capacity(32 + 16 + ciphertext.len());
+    message.extend_from_slice(&snapshot.bytes);
+    message.extend_from_slice(&snapshot.timestamp_nanos.to_le_bytes());
+    message.extend_from_slice(ciphertext);
 
-    // Feed: entropy bytes || timestamp || ciphertext
-    mac.update(&snapshot.bytes);
-    mac.update(&snapshot.timestamp_nanos.to_le_bytes());
-    mac.update(ciphertext);
-
-    let result = mac.finalize().into_bytes();
-    let mut mac_bytes = [0u8; 32];
-    mac_bytes.copy_from_slice(&result);
+    let mac_bytes = kk_mix::kk_mac(&commit_key, &message);
 
     Ok(TemporalCommitment { mac: mac_bytes })
 }
@@ -73,6 +67,10 @@ pub fn commit(
 ///   - The entropy snapshot matches what was used during encoding
 ///   - The ciphertext hasn't been tampered with
 ///   - The shared secret is correct
+///
+/// # Side-Channel Safety
+/// Uses constant-time comparison internally (byte-by-byte OR accumulation)
+/// to prevent timing-based side-channel attacks.
 pub fn verify(
     shared_secret: &[u8],
     snapshot: &EntropySnapshot,
@@ -81,15 +79,17 @@ pub fn verify(
 ) -> Result<()> {
     let commit_key = kdf::derive_commitment_key(shared_secret, snapshot)?;
 
-    let mut mac = HmacSha256::new_from_slice(&commit_key)
-        .map_err(|_| KkError::EntropyFailure("HMAC key setup failed".into()))?;
+    // Build the same message as commit()
+    let mut message = Vec::with_capacity(32 + 16 + ciphertext.len());
+    message.extend_from_slice(&snapshot.bytes);
+    message.extend_from_slice(&snapshot.timestamp_nanos.to_le_bytes());
+    message.extend_from_slice(ciphertext);
 
-    mac.update(&snapshot.bytes);
-    mac.update(&snapshot.timestamp_nanos.to_le_bytes());
-    mac.update(ciphertext);
-
-    mac.verify_slice(&commitment.mac)
-        .map_err(|_| KkError::CommitmentMismatch)
+    if kk_mix::kk_mac_verify(&commit_key, &message, &commitment.mac) {
+        Ok(())
+    } else {
+        Err(KkError::CommitmentMismatch)
+    }
 }
 
 #[cfg(test)]

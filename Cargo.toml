@@ -7,9 +7,6 @@ description = "KK (Keeney Kode)  - A novel cryptographic primitive where symbol 
 license = "MIT"
 
 [dependencies]
-hkdf = "0.12"
-sha2 = "0.10"
-hmac = "0.12"
 rand = "0.8"
 zeroize = { version = "1", features = ["derive"] }
 thiserror = "1"
@@ -36,3 +33,11 @@ path = "examples/proof.rs"
 [[example]]
 name = "kk-journal"
 path = "examples/kk_journal.rs"
+
+[[example]]
+name = "split_demo"
+path = "examples/split_demo.rs"
+
+[[example]]
+name = "qkd_demo"
+path = "examples/qkd_demo.rs"
