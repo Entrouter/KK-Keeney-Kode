@@ -50,7 +50,7 @@
 //!
 //! ## The KK Sponge
 //!
-//! Rate = 1088 bits (136 bytes), Capacity = 512 bits (64 bytes).
+//! Rate = 1216 bits (152 bytes), Capacity = 384 bits (48 bytes).
 //! Provides KK-Hash, KK-KDF, KK-MAC, entropy mixing.
 //!
 //! ## Temporal Permutation Variance
@@ -80,13 +80,18 @@ pub const STATE_BYTES: usize = STATE_WORDS * 8;
 /// other word, so 32 rounds gives 16 full cross-diffusion cycles.
 pub const ROUNDS: usize = 32;
 
-/// Sponge rate in words (1088 bits = 136 bytes).
-pub const RATE_WORDS: usize = 17;
+/// Rounds for KDF squeeze permutations. Fewer than full rounds
+/// because each squeeze block is keyed and domain-separated  -
+/// the attacker cannot choose or observe the sponge state.
+pub const KDF_SQUEEZE_ROUNDS: usize = 20;
+
+/// Sponge rate in words (1216 bits = 152 bytes).
+pub const RATE_WORDS: usize = 19;
 
 /// Sponge rate in bytes.
 pub const RATE_BYTES: usize = RATE_WORDS * 8;
 
-/// Sponge capacity in words (512 bits = 256-bit security level).
+/// Sponge capacity in words (384 bits = 192-bit security level).
 pub const CAPACITY_WORDS: usize = STATE_WORDS - RATE_WORDS;
 
 /// Default rotation distances for the 15 quintet-rounds per round.
@@ -256,17 +261,9 @@ pub fn kk_permute(state: &mut KkState) {
     kk_permute_with_schedule(state, &DEFAULT_ROTATIONS);
 }
 
-/// Apply the KK permutation with a custom rotation schedule.
-///
-/// Each round applies 15 quintet-rounds over a 5×5 word grid:
-/// - 5 on rows (words 0–4, 5–9, 10–14, 15–19, 20–24)
-/// - 5 on columns (words 0/5/10/15/20, 1/6/11/16/21, etc.)
-/// - 5 on diagonals (words 0/6/12/18/24, 1/7/13/19/20, etc.)
-///
-/// Followed by round constant injection (5 words) and intra-round
-/// re-keying every 8 rounds (capacity XOR'd into rate).
-pub fn kk_permute_with_schedule(state: &mut KkState, rotations: &[[u32; 2]; 15]) {
-    for round in 0..ROUNDS as u64 {
+/// Apply the KK permutation with variable round count.
+fn kk_permute_n(state: &mut KkState, rotations: &[[u32; 2]; 15], rounds: usize) {
+    for round in 0..rounds as u64 {
         // ── Row phase: 5 quintet-rounds ──
         for row in 0..5usize {
             let base = row * 5;
@@ -327,6 +324,15 @@ pub fn kk_permute_with_schedule(state: &mut KkState, rotations: &[[u32; 2]; 15])
             }
         }
     }
+}
+
+/// Apply the KK permutation with a custom rotation schedule (32 rounds).
+///
+/// Each round applies 15 quintet-rounds over a 5×5 word grid:
+/// - 5 on rows, 5 on columns, 5 on diagonals
+/// Plus round constant injection and intra-round re-keying every 8 rounds.
+pub fn kk_permute_with_schedule(state: &mut KkState, rotations: &[[u32; 2]; 15]) {
+    kk_permute_n(state, rotations, ROUNDS);
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -491,6 +497,28 @@ impl KkSponge {
         }
         output
     }
+
+    /// Permute with a reduced round count (used for KDF squeeze).
+    fn permute_n(&mut self, rounds: usize) {
+        kk_permute_n(&mut self.state, &self.rotations, rounds);
+    }
+
+    /// Squeeze with reduced-round permutations for KDF keystream.
+    ///
+    /// Uses KDF_SQUEEZE_ROUNDS (20) instead of full 32 between rate
+    /// blocks. Safe because each block is keyed and domain-separated.
+    fn squeeze_kdf(&mut self, len: usize) -> Vec<u8> {
+        let mut output = Vec::with_capacity(len);
+        while output.len() < len {
+            let rate = self.rate_bytes();
+            let take = (len - output.len()).min(RATE_BYTES);
+            output.extend_from_slice(&rate[..take]);
+            if output.len() < len {
+                self.permute_n(KDF_SQUEEZE_ROUNDS);
+            }
+        }
+        output
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -540,7 +568,7 @@ pub fn kk_kdf(key: &[u8], salt: &[u8], info: &[u8], output_len: usize) -> Vec<u8
     sponge.absorb(&(info.len() as u64).to_le_bytes());
     sponge.absorb(info);
     sponge.finalize_absorb(DOMAIN_KDF);
-    sponge.squeeze(output_len)
+    sponge.squeeze_kdf(output_len)
 }
 
 /// KK-MAC: compute a 256-bit authentication tag over a message.
@@ -863,7 +891,7 @@ mod tests {
         let h = kk_hash(b"");
         assert_eq!(
             hex::encode(h),
-            "f69cb47d35b2ea6a3512f06f4033aeebc22938c9ef6578c4d08d70bf8cd6cd01",
+            "8a2254a95c8537855961b5273bdd7e2921af6a1a6883d0607e9e9c2bf1962a65",
             "REGRESSION: kk_hash(\"\") output changed"
         );
     }
@@ -873,7 +901,7 @@ mod tests {
         let h = kk_hash(b"KK-Keeney-Kode");
         assert_eq!(
             hex::encode(h),
-            "fde375562c766e3f1f93f2a88fcedb4c09d2680e3b2ae481ad9ecd1c38506c3c",
+            "71bf809de9627879aa2e8db1342238b88c382c47b1155aae0ac73831da3ef4d6",
             "REGRESSION: kk_hash(\"KK-Keeney-Kode\") output changed"
         );
     }
@@ -883,7 +911,7 @@ mod tests {
         let h = kk_hash(&[0xABu8; 1024]);
         assert_eq!(
             hex::encode(h),
-            "3cf528c6673a30c4372f3380f15407a3d567255b7d0f99d57be9452802b01816",
+            "30110fbc9153edfaf6918b5286502fed52644d6275c7c82db07c5822511199f3",
             "REGRESSION: kk_hash([0xAB; 1024]) output changed"
         );
     }
@@ -893,7 +921,7 @@ mod tests {
         let tag = kk_mac(b"secret-key-2026", b"authenticate this");
         assert_eq!(
             hex::encode(tag),
-            "d5e6df641cb27f534b13901cfe712c165a72d3be850fcb254d93001e28edde7c",
+            "01c107b4641f40d300d4652a6b0ba39d5a52e99946df4feef4f42a9f972d2bfc",
             "REGRESSION: kk_mac output changed"
         );
     }
@@ -903,7 +931,7 @@ mod tests {
         let k = kk_kdf(b"master-key", b"salt-value", b"kdf-context", 32);
         assert_eq!(
             hex::encode(k),
-            "4c6084956ae3aa7d6980862a26c472ecc4420be12448df7d2f4f4ded2bb0b572",
+            "6045be9f33f111e1c23ccaef86951a147c33b3c5b6f24cb20139ef9c4394c392",
             "REGRESSION: kk_kdf output changed"
         );
     }
