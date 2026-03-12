@@ -183,9 +183,34 @@ fn mfr(a: u64, b: u64, rot: u32) -> u64 {
 /// Any differential trail must account for all 64 possible rotation
 /// distances simultaneously, causing exponential path explosion.
 /// No published analysis framework efficiently handles DDR.
+///
+/// ## Constant-time implementation
+///
+/// Decomposes the variable rotation into 6 fixed-distance rotations
+/// (by 1, 2, 4, 8, 16, 32) selected branchlessly via bitmask.
+/// All 6 steps execute unconditionally  - no data-dependent branches
+/// or variable-distance shifts  - so timing is identical regardless
+/// of the rotation amount on ALL architectures (including those
+/// without constant-time barrel shifters).
 #[inline(always)]
 fn ddr(a: u64, b: u64) -> u64 {
-    a.rotate_left((b & 63) as u32)
+    let s = b & 63;
+    let mut v = a;
+    // Each step: branchless conditional rotation by 2^i.
+    // mask = 0 (no rotate) or all-ones (rotate), computed without branching.
+    let m = 0u64.wrapping_sub(s & 1);
+    v = (v & !m) | (v.rotate_left(1) & m);
+    let m = 0u64.wrapping_sub((s >> 1) & 1);
+    v = (v & !m) | (v.rotate_left(2) & m);
+    let m = 0u64.wrapping_sub((s >> 2) & 1);
+    v = (v & !m) | (v.rotate_left(4) & m);
+    let m = 0u64.wrapping_sub((s >> 3) & 1);
+    v = (v & !m) | (v.rotate_left(8) & m);
+    let m = 0u64.wrapping_sub((s >> 4) & 1);
+    v = (v & !m) | (v.rotate_left(16) & m);
+    let m = 0u64.wrapping_sub((s >> 5) & 1);
+    v = (v & !m) | (v.rotate_left(32) & m);
+    v
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -436,6 +461,11 @@ impl KkSponge {
 /// KK-Hash: compute a 256-bit digest of arbitrary data.
 ///
 /// Replaces SHA-256  - built entirely from the KK permutation.
+///
+/// **WARNING: This is an UNKEYED hash  - it does NOT authenticate data.**
+/// For message authentication, use [`kk_mac`] with a secret key.
+/// Using `kk_hash` where `kk_mac` is needed is a security vulnerability.
+#[must_use = "hash digest computed but not used  - did you mean kk_mac() for authentication?"]
 pub fn kk_hash(data: &[u8]) -> [u8; 32] {
     let mut sponge = KkSponge::new();
     sponge.absorb(data);
@@ -470,10 +500,12 @@ pub fn kk_kdf(key: &[u8], salt: &[u8], info: &[u8], output_len: usize) -> Vec<u8
 /// KK-MAC: compute a 256-bit authentication tag over a message.
 ///
 /// Replaces HMAC-SHA256  - keyed sponge construction.
+/// Use this (not [`kk_hash`]) whenever you need to verify message integrity.
 ///
 /// Inputs:
 ///   - `key`: authentication key
 ///   - `message`: the data to authenticate
+#[must_use = "MAC tag computed but not used  - verify it with kk_mac_verify()"]
 pub fn kk_mac(key: &[u8], message: &[u8]) -> [u8; 32] {
     let mut sponge = KkSponge::new();
     // Absorb key with length prefix (prevents length-extension)
