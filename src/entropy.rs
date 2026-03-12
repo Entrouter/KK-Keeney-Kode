@@ -1,0 +1,170 @@
+//! Multi-source entropy collection for KK.
+//!
+//! Gathers entropy from multiple independent sources and mixes them
+//! into a single high-quality entropy snapshot. This snapshot represents
+//! the "universal entropy at the moment of creation"  - the ε in KK(S) = S^ε.
+//!
+//! Sources:
+//!   1. OS CSPRNG (CryptGenRandom / getrandom / urandom)
+//!   2. High-resolution timestamp (nanosecond precision)
+//!   3. CPU timestamp counter (rdtsc / equivalent)
+//!   4. Thread scheduling jitter (measured timing noise)
+
+use hkdf::Hkdf;
+use rand::RngCore;
+use sha2::{Digest, Sha256};
+use zeroize::Zeroize;
+
+use crate::error::{KkError, Result};
+
+/// Size of the final entropy snapshot in bytes (256 bits).
+pub const ENTROPY_SNAPSHOT_SIZE: usize = 32;
+
+/// A captured moment of universal entropy  - unrepeatable, unrecoverable.
+#[derive(Clone)]
+pub struct EntropySnapshot {
+    /// The mixed entropy bytes  - the ε in KK(S) = S^ε
+    pub bytes: [u8; ENTROPY_SNAPSHOT_SIZE],
+    /// High-resolution timestamp at moment of capture (nanos since epoch)
+    pub timestamp_nanos: u128,
+}
+
+impl Drop for EntropySnapshot {
+    fn drop(&mut self) {
+        self.bytes.zeroize();
+    }
+}
+
+impl EntropySnapshot {
+    /// Serialize the snapshot for transmission alongside ciphertext.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(ENTROPY_SNAPSHOT_SIZE + 16);
+        out.extend_from_slice(&self.bytes);
+        out.extend_from_slice(&self.timestamp_nanos.to_le_bytes());
+        out
+    }
+
+    /// Deserialize an entropy snapshot from transmitted bytes.
+    pub fn from_bytes(data: &[u8]) -> Result<Self> {
+        if data.len() < ENTROPY_SNAPSHOT_SIZE + 16 {
+            return Err(KkError::InvalidPacket(
+                "entropy snapshot too short".into(),
+            ));
+        }
+        let mut bytes = [0u8; ENTROPY_SNAPSHOT_SIZE];
+        bytes.copy_from_slice(&data[..ENTROPY_SNAPSHOT_SIZE]);
+        let timestamp_nanos = u128::from_le_bytes(
+            data[ENTROPY_SNAPSHOT_SIZE..ENTROPY_SNAPSHOT_SIZE + 16]
+                .try_into()
+                .map_err(|_| KkError::InvalidPacket("bad timestamp bytes".into()))?,
+        );
+        Ok(Self {
+            bytes,
+            timestamp_nanos,
+        })
+    }
+}
+
+/// Collect entropy from the OS CSPRNG.
+fn source_csprng() -> Result<[u8; 32]> {
+    let mut buf = [0u8; 32];
+    rand::rngs::OsRng
+        .try_fill_bytes(&mut buf)
+        .map_err(|e| KkError::EntropyFailure(format!("CSPRNG: {e}")))?;
+    Ok(buf)
+}
+
+/// Collect entropy from high-resolution system clock.
+fn source_timestamp() -> (u128, [u8; 16]) {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    (nanos, nanos.to_le_bytes())
+}
+
+/// Collect entropy from CPU timestamp counter / performance counter.
+fn source_cpu_counter() -> [u8; 8] {
+    // Use Instant's internal high-res timer as a proxy for rdtsc.
+    // The elapsed time since an arbitrary epoch carries hardware jitter.
+    let now = std::time::Instant::now();
+    let raw = now.elapsed().as_nanos() as u64;
+    // Also fold in the address of a stack variable (ASLR noise)
+    let stack_addr = &raw as *const u64 as u64;
+    (raw ^ stack_addr).to_le_bytes()
+}
+
+/// Collect scheduling jitter entropy by measuring timing variance
+/// across multiple tight loops.
+fn source_thread_jitter() -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    for _ in 0..64 {
+        let start = std::time::Instant::now();
+        // Tight spin  - duration varies with scheduling
+        std::hint::black_box(0u64.wrapping_add(1));
+        let elapsed = start.elapsed().as_nanos() as u64;
+        hasher.update(elapsed.to_le_bytes());
+    }
+    let result = hasher.finalize();
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&result);
+    out
+}
+
+/// Gather all entropy sources and mix them into a single snapshot.
+///
+/// This is the core of the KK entropy model: at this precise instant,
+/// the OS, CPU, scheduler, and hardware all contribute state that will
+/// never exist again in the same combination.
+pub fn gather() -> Result<EntropySnapshot> {
+    // Collect from all sources
+    let csprng_bytes = source_csprng()?;
+    let (timestamp_nanos, timestamp_bytes) = source_timestamp();
+    let cpu_bytes = source_cpu_counter();
+    let jitter_bytes = source_thread_jitter();
+
+    // Mix all sources using HKDF-SHA256
+    // IKM = concatenation of all sources
+    // Salt = jitter (independent timing source)
+    // Info = domain separator
+    let mut ikm = Vec::with_capacity(32 + 16 + 8 + 32);
+    ikm.extend_from_slice(&csprng_bytes);
+    ikm.extend_from_slice(&timestamp_bytes);
+    ikm.extend_from_slice(&cpu_bytes);
+    ikm.extend_from_slice(&jitter_bytes);
+
+    let hk = Hkdf::<Sha256>::new(Some(&jitter_bytes), &ikm);
+    let mut output = [0u8; ENTROPY_SNAPSHOT_SIZE];
+    hk.expand(b"KK-entropy-v1", &mut output)
+        .map_err(|_| KkError::EntropyFailure("HKDF expand failed during mixing".into()))?;
+
+    // Zeroize intermediate material
+    ikm.zeroize();
+
+    Ok(EntropySnapshot {
+        bytes: output,
+        timestamp_nanos,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn entropy_snapshots_are_unique() {
+        let s1 = gather().unwrap();
+        let s2 = gather().unwrap();
+        // Two snapshots taken at different moments must differ
+        assert_ne!(s1.bytes, s2.bytes, "KK(S) at T₁ ≠ KK(S) at T₂");
+    }
+
+    #[test]
+    fn snapshot_roundtrip() {
+        let snap = gather().unwrap();
+        let bytes = snap.to_bytes();
+        let restored = EntropySnapshot::from_bytes(&bytes).unwrap();
+        assert_eq!(snap.bytes, restored.bytes);
+        assert_eq!(snap.timestamp_nanos, restored.timestamp_nanos);
+    }
+}
