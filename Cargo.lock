@@ -427,6 +427,7 @@ dependencies = [
  "hex",
  "rand",
  "ratatui",
+ "rayon",
  "rpassword",
  "thiserror",
  "zeroize",

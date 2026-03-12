@@ -31,6 +31,7 @@
 //!
 //! All key derivation uses the novel KK-Sponge-KDF  - no HKDF, no SHA-256.
 
+use rayon::prelude::*;
 use zeroize::Zeroize;
 
 use crate::entropy::{self, EntropySnapshot};
@@ -292,31 +293,39 @@ pub fn decode_split(
 
 /// Internal: XOR input with the KK-derived keystream.
 ///
-/// Processes in chunks for efficiency. Each chunk position gets
-/// a unique key derivation, ensuring per-symbol independence.
+/// Chunks are processed in parallel across CPU cores  - each chunk's
+/// KDF derivation is fully independent (unique index), so they can
+/// run concurrently with zero contention.
 fn xor_with_keystream(
     shared_secret: &[u8],
     snapshot: &EntropySnapshot,
     input: &[u8],
 ) -> Result<Vec<u8>> {
-    let mut output = Vec::with_capacity(input.len());
+    let mut output = vec![0u8; input.len()];
 
-    for (chunk_idx, chunk) in input.chunks(CHUNK_SIZE).enumerate() {
-        // Derive key material for this chunk position
-        let mut key_bytes = kdf::derive_symbol_key(
-            shared_secret,
-            snapshot,
-            chunk_idx as u64,
-            chunk.len(),
-        )?;
+    output
+        .par_chunks_mut(CHUNK_SIZE)
+        .enumerate()
+        .try_for_each(|(chunk_idx, out_chunk)| -> Result<()> {
+            let in_start = chunk_idx * CHUNK_SIZE;
+            let in_chunk = &input[in_start..in_start + out_chunk.len()];
 
-        // XOR: symbol value becomes a function of the entropic moment
-        for (i, &byte) in chunk.iter().enumerate() {
-            output.push(byte ^ key_bytes[i]);
-        }
+            // Derive key material for this chunk position
+            let mut key_bytes = kdf::derive_symbol_key(
+                shared_secret,
+                snapshot,
+                chunk_idx as u64,
+                out_chunk.len(),
+            )?;
 
-        key_bytes.zeroize();
-    }
+            // XOR: symbol value becomes a function of the entropic moment
+            for (o, (&byte, &key)) in in_chunk.iter().zip(key_bytes.iter()).enumerate() {
+                out_chunk[o] = byte ^ key;
+            }
+
+            key_bytes.zeroize();
+            Ok(())
+        })?;
 
     Ok(output)
 }

@@ -8,6 +8,7 @@ license = "MIT"
 
 [dependencies]
 rand = "0.8"
+rayon = "1.10"
 zeroize = { version = "1", features = ["derive"] }
 thiserror = "1"
 
