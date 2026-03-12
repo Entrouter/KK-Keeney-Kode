@@ -239,3 +239,28 @@ fn per_position_independence() {
         unique_bytes.len()
     );
 }
+
+/// Roundtrip at sizes exercising both full 8-chunk batches and partial tails.
+///
+/// CHUNK_SIZE is 4096, so batch boundary is at 32768 (8 × 4096).
+/// Test sizes that land exactly on, just under, and just over batch boundaries.
+#[test]
+fn batch_boundary_roundtrips() {
+    let secret = b"batch-boundary-test";
+    // pattern: position-dependent bytes so any lane swap is detectable
+    for &size in &[
+        1,              // single byte  - scalar only
+        4096,           // 1 full chunk  - scalar tail
+        4097,           // 1 full chunk + 1 byte
+        32768,          // exactly 1 full batch of 8
+        32769,          // 1 full batch + 1 byte tail
+        65536,          // exactly 2 full batches
+        65537,          // 2 full batches + 1 byte
+        100_000,        // 3 batches + partial tail (100000 / 32768 = 3.05)
+    ] {
+        let msg: Vec<u8> = (0..size).map(|i| (i % 251) as u8).collect();
+        let packet = encode(secret, &msg).unwrap();
+        let recovered = decode(secret, &packet).unwrap();
+        assert_eq!(msg, recovered, "Roundtrip failed for {size}-byte message");
+    }
+}

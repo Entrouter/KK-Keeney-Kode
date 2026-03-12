@@ -53,6 +53,29 @@ pub fn derive_commitment_key(
     Ok(key)
 }
 
+/// Derives per-symbol key streams for 8 consecutive chunk indices simultaneously.
+///
+/// Same result as calling [`derive_symbol_key`] 8 times with consecutive
+/// indices starting at `base_index`, but uses AVX-512 batch KDF when available.
+pub fn derive_symbol_key_batch(
+    shared_secret: &[u8],
+    snapshot: &EntropySnapshot,
+    base_index: u64,
+    output_len: usize,
+) -> Result<[Vec<u8>; 8]> {
+    let infos_raw: [Vec<u8>; 8] = core::array::from_fn(|i| {
+        let mut info = Vec::with_capacity(10 + 8 + 8);
+        info.extend_from_slice(b"KK-sym-v1\0");
+        info.extend_from_slice(&(base_index + i as u64).to_le_bytes());
+        info.extend_from_slice(&snapshot.timestamp_nanos.to_le_bytes());
+        info
+    });
+    let infos: [&[u8]; 8] = core::array::from_fn(|i| infos_raw[i].as_slice());
+
+    let output = kk_mix::kk_kdf_batch_8(shared_secret, &snapshot.bytes, infos, output_len);
+    Ok(output)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -87,5 +110,22 @@ mod tests {
         let k1 = derive_symbol_key(secret, &snap, 42, 16).unwrap();
         let k2 = derive_symbol_key(secret, &snap, 42, 16).unwrap();
         assert_eq!(k1, k2, "Same inputs must produce same key (deterministic derivation)");
+    }
+
+    #[test]
+    fn batch_matches_individual_derive() {
+        let secret = b"batch-derive-secret";
+        let snap = entropy::gather().unwrap();
+        let output_len = 4096;
+
+        let batch = derive_symbol_key_batch(secret, &snap, 0, output_len).unwrap();
+
+        for i in 0..8u64 {
+            let scalar = derive_symbol_key(secret, &snap, i, output_len).unwrap();
+            assert_eq!(
+                batch[i as usize], scalar,
+                "Batch derive lane {i} diverged from scalar derive_symbol_key"
+            );
+        }
     }
 }

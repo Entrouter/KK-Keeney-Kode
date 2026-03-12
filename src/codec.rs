@@ -293,37 +293,66 @@ pub fn decode_split(
 
 /// Internal: XOR input with the KK-derived keystream.
 ///
-/// Chunks are processed in parallel across CPU cores  - each chunk's
-/// KDF derivation is fully independent (unique index), so they can
-/// run concurrently with zero contention.
+/// Processes chunks in batches of 8 using AVX-512 vectorized KDF when
+/// available, falling back to per-chunk scalar derivation otherwise.
+/// Within each batch, rayon parallelises across CPU cores.
 fn xor_with_keystream(
     shared_secret: &[u8],
     snapshot: &EntropySnapshot,
     input: &[u8],
 ) -> Result<Vec<u8>> {
     let mut output = vec![0u8; input.len()];
+    let batch_bytes = CHUNK_SIZE * 8;
 
     output
-        .par_chunks_mut(CHUNK_SIZE)
+        .par_chunks_mut(batch_bytes)
         .enumerate()
-        .try_for_each(|(chunk_idx, out_chunk)| -> Result<()> {
-            let in_start = chunk_idx * CHUNK_SIZE;
-            let in_chunk = &input[in_start..in_start + out_chunk.len()];
+        .try_for_each(|(batch_idx, out_batch)| -> Result<()> {
+            let base_chunk = batch_idx * 8;
+            let in_base = base_chunk * CHUNK_SIZE;
 
-            // Derive key material for this chunk position
-            let mut key_bytes = kdf::derive_symbol_key(
-                shared_secret,
-                snapshot,
-                chunk_idx as u64,
-                out_chunk.len(),
-            )?;
+            if out_batch.len() == batch_bytes {
+                // Full batch of 8 chunks  - use vectorized KDF
+                let mut keys = kdf::derive_symbol_key_batch(
+                    shared_secret,
+                    snapshot,
+                    base_chunk as u64,
+                    CHUNK_SIZE,
+                )?;
 
-            // XOR: symbol value becomes a function of the entropic moment
-            for (o, (&byte, &key)) in in_chunk.iter().zip(key_bytes.iter()).enumerate() {
-                out_chunk[o] = byte ^ key;
+                for c in 0..8 {
+                    let out_off = c * CHUNK_SIZE;
+                    let in_off = in_base + c * CHUNK_SIZE;
+                    for i in 0..CHUNK_SIZE {
+                        out_batch[out_off + i] = input[in_off + i] ^ keys[c][i];
+                    }
+                    keys[c].zeroize();
+                }
+            } else {
+                // Partial tail batch  - scalar per-chunk
+                let chunks_in_batch =
+                    (out_batch.len() + CHUNK_SIZE - 1) / CHUNK_SIZE;
+
+                for c in 0..chunks_in_batch {
+                    let chunk_idx = base_chunk + c;
+                    let out_off = c * CHUNK_SIZE;
+                    let chunk_len = (out_batch.len() - out_off).min(CHUNK_SIZE);
+                    let in_off = in_base + c * CHUNK_SIZE;
+
+                    let mut key_bytes = kdf::derive_symbol_key(
+                        shared_secret,
+                        snapshot,
+                        chunk_idx as u64,
+                        chunk_len,
+                    )?;
+
+                    for i in 0..chunk_len {
+                        out_batch[out_off + i] = input[in_off + i] ^ key_bytes[i];
+                    }
+                    key_bytes.zeroize();
+                }
             }
 
-            key_bytes.zeroize();
             Ok(())
         })?;
 

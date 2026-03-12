@@ -52,6 +52,8 @@ pub mod entropy;
 pub mod error;
 pub mod kdf;
 pub mod kk_mix;
+#[cfg(target_arch = "x86_64")]
+pub(crate) mod kk_mix_avx512;
 pub mod qkd;
 pub mod temporal;
 

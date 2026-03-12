@@ -6,7 +6,7 @@ const SECRET: &[u8] = b"bench-shared-secret-2026";
 fn bench_encode(c: &mut Criterion) {
     let mut group = c.benchmark_group("encode");
 
-    for size in [1, 64, 256, 1024, 4096, 16384, 65536] {
+    for size in [1, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 10485760] {
         let plaintext: Vec<u8> = (0..size).map(|i| (i % 256) as u8).collect();
         group.throughput(Throughput::Bytes(size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), &plaintext, |b, pt| {
@@ -19,7 +19,7 @@ fn bench_encode(c: &mut Criterion) {
 fn bench_decode(c: &mut Criterion) {
     let mut group = c.benchmark_group("decode");
 
-    for size in [1, 64, 256, 1024, 4096, 16384, 65536] {
+    for size in [1, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 10485760] {
         let plaintext: Vec<u8> = (0..size).map(|i| (i % 256) as u8).collect();
         let packet = encode(SECRET, &plaintext).unwrap();
         group.throughput(Throughput::Bytes(size as u64));
@@ -33,7 +33,7 @@ fn bench_decode(c: &mut Criterion) {
 fn bench_roundtrip(c: &mut Criterion) {
     let mut group = c.benchmark_group("roundtrip");
 
-    for size in [64, 1024, 16384] {
+    for size in [64, 1024, 16384, 262144, 1048576] {
         let plaintext: Vec<u8> = (0..size).map(|i| (i % 256) as u8).collect();
         group.throughput(Throughput::Bytes(size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), &plaintext, |b, pt| {
