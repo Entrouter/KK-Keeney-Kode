@@ -265,13 +265,13 @@ pub fn kk_permute(state: &mut KkState) {
 pub(crate) fn kk_permute_n(state: &mut KkState, rotations: &[[u32; 2]; 15], rounds: usize) {
     for round in 0..rounds as u64 {
         // ── Row phase: 5 quintet-rounds ──
-        for row in 0..5usize {
+        for (row, rot) in rotations.iter().enumerate().take(5) {
             let base = row * 5;
             let (mut s0, mut s1, mut s2, mut s3, mut s4) = (
                 state[base], state[base + 1], state[base + 2],
                 state[base + 3], state[base + 4],
             );
-            quintet_round(&mut s0, &mut s1, &mut s2, &mut s3, &mut s4, rotations[row]);
+            quintet_round(&mut s0, &mut s1, &mut s2, &mut s3, &mut s4, *rot);
             state[base] = s0;
             state[base + 1] = s1;
             state[base + 2] = s2;
@@ -330,6 +330,7 @@ pub(crate) fn kk_permute_n(state: &mut KkState, rotations: &[[u32; 2]; 15], roun
 ///
 /// Each round applies 15 quintet-rounds over a 5×5 word grid:
 /// - 5 on rows, 5 on columns, 5 on diagonals
+///
 /// Plus round constant injection and intra-round re-keying every 8 rounds.
 pub fn kk_permute_with_schedule(state: &mut KkState, rotations: &[[u32; 2]; 15]) {
     kk_permute_n(state, rotations, ROUNDS);
@@ -350,13 +351,13 @@ pub fn kk_permute_with_schedule(state: &mut KkState, rotations: &[[u32; 2]; 15])
 /// so there is zero modular bias.
 pub fn rotations_from_entropy(entropy: &[u8]) -> [[u32; 2]; 15] {
     let mut rots = DEFAULT_ROTATIONS;
-    for i in 0..15 {
-        for j in 0..2 {
+    for (i, rot) in rots.iter_mut().enumerate() {
+        for (j, r) in rot.iter_mut().enumerate() {
             let idx = i * 2 + j;
             if idx < entropy.len() {
                 // & 63 → [0,63] with zero bias (256 divides 64 evenly)
                 // | 1  → guarantees odd (non-zero), range [1,63]
-                rots[i][j] = (entropy[idx] as u32 & 63) | 1;
+                *r = (entropy[idx] as u32 & 63) | 1;
             }
         }
     }
@@ -388,6 +389,12 @@ impl Clone for KkSponge {
 impl Drop for KkSponge {
     fn drop(&mut self) {
         self.state.zeroize();
+    }
+}
+
+impl Default for KkSponge {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -443,7 +450,7 @@ impl KkSponge {
 
         while offset < data.len() {
             // Byte-by-byte when misaligned or fewer than 8 bytes remain
-            if self.buf_pos % 8 != 0 || data.len() - offset < 8 {
+            if !self.buf_pos.is_multiple_of(8) || data.len() - offset < 8 {
                 self.xor_rate_byte(self.buf_pos, data[offset]);
                 offset += 1;
                 self.buf_pos += 1;
@@ -726,6 +733,42 @@ pub fn kk_mac(key: &[u8], message: &[u8]) -> [u8; 32] {
 /// so the comparison time doesn't depend on where the first difference is.
 pub fn kk_mac_verify(key: &[u8], message: &[u8], expected_tag: &[u8; 32]) -> bool {
     let computed = kk_mac(key, message);
+    constant_time_eq(&computed, expected_tag)
+}
+
+/// KK-MAC with entropy-derived rotation schedule.
+///
+/// Like [`kk_mac`], but the sponge uses rotations derived from `entropy`
+/// instead of `DEFAULT_ROTATIONS`. This means the *mathematical structure*
+/// of the MAC computation varies with the entropy  - the permutation itself
+/// is different, not just the data flowing through it.
+///
+/// Used by the temporal-proof system so the commitment is truly temporal:
+/// the algebra that produced the tag only existed at that entropic moment.
+#[must_use = "MAC tag computed but not used  - verify it with kk_mac_verify_with_entropy()"]
+pub fn kk_mac_with_entropy(key: &[u8], message: &[u8], entropy: &[u8]) -> [u8; 32] {
+    let mut sponge = KkSponge::with_entropy_rotations(entropy);
+    sponge.absorb(&(key.len() as u64).to_le_bytes());
+    sponge.absorb(key);
+    sponge.absorb(message);
+    sponge.finalize_absorb(DOMAIN_MAC);
+    let mut out = sponge.squeeze(32);
+    let mut tag = [0u8; 32];
+    tag.copy_from_slice(&out);
+    out.zeroize();
+    tag
+}
+
+/// Verify a KK-MAC that was computed with entropy-derived rotations.
+///
+/// Returns `true` if the tag matches. Constant-time comparison.
+pub fn kk_mac_verify_with_entropy(
+    key: &[u8],
+    message: &[u8],
+    expected_tag: &[u8; 32],
+    entropy: &[u8],
+) -> bool {
+    let computed = kk_mac_with_entropy(key, message, entropy);
     constant_time_eq(&computed, expected_tag)
 }
 

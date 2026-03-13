@@ -138,8 +138,11 @@ pub struct Bb84Result {
     pub error_rate: f64,
     /// Whether Eve was detected (error_rate > threshold)
     pub eve_detected: bool,
-    /// The final shared key after privacy amplification (32 bytes)
-    pub shared_key: [u8; 32],
+    /// Alice's final key after privacy amplification (32 bytes)
+    pub shared_key_alice: [u8; 32],
+    /// Bob's final key after privacy amplification (32 bytes)
+    /// In a clean channel (no Eve), this equals shared_key_alice.
+    pub shared_key_bob: [u8; 32],
 }
 
 /// An eavesdropper who intercepts qubits on the quantum channel.
@@ -306,8 +309,6 @@ pub fn distill_key(alice: &Alice, bob: &Bob) -> Result<Bb84Result> {
     let derived_b = kk_mix::kk_kdf(&key_bytes_bob, b"BB84-KK-v1", b"KK-QKD-shared-key", 32);
     shared_key_bob.copy_from_slice(&derived_b);
 
-    // Use Alice's key as the canonical shared key
-    // (In a real scenario without Eve, alice_key == bob_key)
     Ok(Bb84Result {
         sifted_key_alice: sifted_alice,
         sifted_key_bob: sifted_bob,
@@ -316,7 +317,8 @@ pub fn distill_key(alice: &Alice, bob: &Bob) -> Result<Bb84Result> {
         n_check_bits: n_check,
         error_rate,
         eve_detected,
-        shared_key: shared_key_alice,
+        shared_key_alice,
+        shared_key_bob,
     })
 }
 
@@ -368,7 +370,7 @@ pub fn decrypt_epsilon(qkd_key: &[u8; 32], encrypted: &[u8]) -> Result<EntropySn
 
 /// Pack a bit vector into bytes (MSB first, zero-padded).
 fn bits_to_bytes(bits: &[bool]) -> Vec<u8> {
-    let n_bytes = (bits.len() + 7) / 8;
+    let n_bytes = bits.len().div_ceil(8);
     let mut bytes = vec![0u8; n_bytes];
     for (i, &bit) in bits.iter().enumerate() {
         if bit {
@@ -402,7 +404,10 @@ mod tests {
         assert!(!result.eve_detected);
 
         // Key should be non-zero
-        assert_ne!(result.shared_key, [0u8; 32]);
+        assert_ne!(result.shared_key_alice, [0u8; 32]);
+
+        // Without Eve, Alice and Bob derive the same key
+        assert_eq!(result.shared_key_alice, result.shared_key_bob);
     }
 
     #[test]
@@ -501,10 +506,10 @@ mod tests {
         let (sealed, epsilon) = encode_split(shared_secret, plaintext).unwrap();
 
         // 3. Alice encrypts ε with QKD key, sends over public wire
-        let encrypted_epsilon = encrypt_epsilon(&qkd.shared_key, &epsilon);
+        let encrypted_epsilon = encrypt_epsilon(&qkd.shared_key_alice, &epsilon);
 
         // 4. Bob decrypts ε with same QKD key
-        let recovered_epsilon = decrypt_epsilon(&qkd.shared_key, &encrypted_epsilon).unwrap();
+        let recovered_epsilon = decrypt_epsilon(&qkd.shared_key_alice, &encrypted_epsilon).unwrap();
 
         // 5. Bob decodes the message
         let recovered = decode_split(shared_secret, &sealed, &recovered_epsilon).unwrap();

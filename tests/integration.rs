@@ -4,6 +4,8 @@
 //! claimed by the KK primitive.
 
 use kk_crypto::{decode, encode, KkPacket};
+use kk_crypto::{encode_bound, decode_bound, KkBoundPacket, generate_challenge, GENESIS_MAC};
+use std::time::Duration;
 
 /// Core property: encode then decode recovers original message.
 #[test]
@@ -263,4 +265,87 @@ fn batch_boundary_roundtrips() {
         let recovered = decode(secret, &packet).unwrap();
         assert_eq!(msg, recovered, "Roundtrip failed for {size}-byte message");
     }
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Bound-commitment integration tests
+// ─────────────────────────────────────────────────────────────────
+
+/// Challenge-response roundtrip: encode_bound → decode_bound.
+#[test]
+fn bound_roundtrip() {
+    let secret = b"bound-integration";
+    let msg = b"Temporal proof: nonce-bound, epoch-checked, chain-ordered.";
+
+    let nonce = generate_challenge().unwrap();
+    let packet = encode_bound(secret, msg, &nonce, &GENESIS_MAC).unwrap();
+    let recovered = decode_bound(secret, &packet, &nonce, Duration::from_secs(30)).unwrap();
+
+    assert_eq!(msg.as_slice(), recovered.as_slice());
+}
+
+/// Replay resistance: reusing a nonce the verifier didn't issue fails.
+#[test]
+fn bound_replay_rejected() {
+    let secret = b"replay-test";
+    let nonce = generate_challenge().unwrap();
+    let stale_nonce = generate_challenge().unwrap();
+
+    let packet = encode_bound(secret, b"payload", &nonce, &GENESIS_MAC).unwrap();
+
+    // Attacker replays packet with a different verifier nonce
+    let result = decode_bound(secret, &packet, &stale_nonce, Duration::from_secs(30));
+    assert!(result.is_err(), "Replay with wrong nonce must be rejected");
+}
+
+/// Chain integrity: a three-message chain where each references the previous.
+#[test]
+fn bound_chain_three_messages() {
+    let secret = b"chain-integration";
+
+    let n1 = generate_challenge().unwrap();
+    let p1 = encode_bound(secret, b"alpha", &n1, &GENESIS_MAC).unwrap();
+    decode_bound(secret, &p1, &n1, Duration::from_secs(30)).unwrap();
+
+    let n2 = generate_challenge().unwrap();
+    let p2 = encode_bound(secret, b"bravo", &n2, &p1.proof.mac).unwrap();
+    decode_bound(secret, &p2, &n2, Duration::from_secs(30)).unwrap();
+
+    let n3 = generate_challenge().unwrap();
+    let p3 = encode_bound(secret, b"charlie", &n3, &p2.proof.mac).unwrap();
+    decode_bound(secret, &p3, &n3, Duration::from_secs(30)).unwrap();
+
+    // Verify chain links
+    assert_eq!(p1.proof.prev_mac, GENESIS_MAC);
+    assert_eq!(p2.proof.prev_mac, p1.proof.mac);
+    assert_eq!(p3.proof.prev_mac, p2.proof.mac);
+}
+
+/// Wire format: bound packet serialization roundtrip.
+#[test]
+fn bound_wire_format_roundtrip() {
+    let secret = b"bound-wire";
+    let msg = b"serialize bound packet over the wire";
+
+    let nonce = generate_challenge().unwrap();
+    let packet = encode_bound(secret, msg, &nonce, &GENESIS_MAC).unwrap();
+
+    let wire = packet.to_bytes();
+    let restored = KkBoundPacket::from_bytes(&wire).unwrap();
+
+    let decoded = decode_bound(secret, &restored, &nonce, Duration::from_secs(30)).unwrap();
+    assert_eq!(msg.as_slice(), decoded.as_slice());
+}
+
+/// Tamper detection: modifying ciphertext invalidates the temporal proof.
+#[test]
+fn bound_tamper_detected() {
+    let secret = b"bound-tamper";
+    let nonce = generate_challenge().unwrap();
+    let mut packet = encode_bound(secret, b"critical data", &nonce, &GENESIS_MAC).unwrap();
+
+    packet.ciphertext[0] ^= 0xFF;
+
+    let result = decode_bound(secret, &packet, &nonce, Duration::from_secs(30));
+    assert!(result.is_err(), "Tampered ciphertext must fail bound verification");
 }

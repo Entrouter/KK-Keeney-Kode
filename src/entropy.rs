@@ -85,12 +85,21 @@ fn source_timestamp() -> (u128, [u8; 16]) {
 }
 
 /// Collect entropy from CPU timestamp counter / performance counter.
+#[cfg(target_arch = "x86_64")]
 fn source_cpu_counter() -> [u8; 8] {
-    // Use Instant's internal high-res timer as a proxy for rdtsc.
-    // The elapsed time since an arbitrary epoch carries hardware jitter.
+    // Read the hardware TSC directly  - this is the real rdtsc value,
+    // not a library abstraction that discards the interesting bits.
+    let raw: u64 = unsafe { core::arch::x86_64::_rdtsc() };
+    // Also fold in the address of a stack variable (ASLR noise)
+    let stack_addr = &raw as *const u64 as u64;
+    (raw ^ stack_addr).to_le_bytes()
+}
+
+/// Fallback for non-x86_64: use high-res timer as proxy.
+#[cfg(not(target_arch = "x86_64"))]
+fn source_cpu_counter() -> [u8; 8] {
     let now = std::time::Instant::now();
     let raw = now.elapsed().as_nanos() as u64;
-    // Also fold in the address of a stack variable (ASLR noise)
     let stack_addr = &raw as *const u64 as u64;
     (raw ^ stack_addr).to_le_bytes()
 }
@@ -102,7 +111,9 @@ fn source_thread_jitter() -> [u8; 32] {
     let mut raw_timings = Vec::with_capacity(64 * 8);
     for _ in 0..64 {
         let start = std::time::Instant::now();
-        // Tight spin  - duration varies with scheduling
+        // Yield to the OS scheduler to create real scheduling jitter,
+        // not just instruction-level noise from black_box alone.
+        std::thread::yield_now();
         std::hint::black_box(0u64.wrapping_add(1));
         let elapsed = start.elapsed().as_nanos() as u64;
         raw_timings.extend_from_slice(&elapsed.to_le_bytes());

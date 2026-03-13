@@ -24,8 +24,22 @@ use crate::kk_mix::{
 
 /// 8 sponge states packed lane-wise: `state8[word_idx]` holds that
 /// word from all 8 sponges in a single `__m512i`.
+///
+/// `#[repr(C)]` guarantees the array layout is predictable for SIMD loads/stores.
 #[cfg(target_arch = "x86_64")]
-pub(crate) type KkState8 = [__m512i; STATE_WORDS];
+#[repr(C)]
+pub(crate) struct KkState8(pub(crate) [__m512i; STATE_WORDS]);
+
+#[cfg(target_arch = "x86_64")]
+impl core::ops::Deref for KkState8 {
+    type Target = [__m512i; STATE_WORDS];
+    fn deref(&self) -> &Self::Target { &self.0 }
+}
+
+#[cfg(target_arch = "x86_64")]
+impl core::ops::DerefMut for KkState8 {
+    fn deref_mut(&mut self) -> &mut Self::Target { &mut self.0 }
+}
 
 /// Diagonal index patterns for the 5×5 grid (mirrors scalar DIAGS).
 const DIAGS: [[usize; 5]; 5] = [
@@ -47,7 +61,7 @@ const DIAGS: [[usize; 5]; 5] = [
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx512f")]
 pub(crate) unsafe fn load_8_states(states: &[KkState; 8]) -> KkState8 {
-    let mut packed: KkState8 = [_mm512_setzero_si512(); STATE_WORDS];
+    let mut packed = KkState8([_mm512_setzero_si512(); STATE_WORDS]);
     for w in 0..STATE_WORDS {
         packed[w] = _mm512_set_epi64(
             states[7][w] as i64,
@@ -181,7 +195,7 @@ pub(crate) unsafe fn kk_permute_n_x8(
 ) {
     for round in 0..rounds as u64 {
         // ── Row phase: 5 quintet-rounds ──
-        for row in 0..5usize {
+        for (row, rot) in rotations.iter().enumerate().take(5) {
             let base = row * 5;
             // Copy out 5 words (all 8 lanes each)
             let (mut s0, mut s1, mut s2, mut s3, mut s4) = (
@@ -191,7 +205,7 @@ pub(crate) unsafe fn kk_permute_n_x8(
                 state[base + 3],
                 state[base + 4],
             );
-            quintet_round_x8(&mut s0, &mut s1, &mut s2, &mut s3, &mut s4, rotations[row]);
+            quintet_round_x8(&mut s0, &mut s1, &mut s2, &mut s3, &mut s4, *rot);
             state[base] = s0;
             state[base + 1] = s1;
             state[base + 2] = s2;

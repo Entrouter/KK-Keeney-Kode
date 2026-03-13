@@ -45,6 +45,38 @@
 //! the KK permutation (Multiply-Fold-Rotate sponge construction).
 //! No SHA-256, no HKDF, no HMAC  - 100% original KK.
 //!
+//! ## Security Model
+//!
+//! **Threat model:** KK assumes a pre-shared secret between sender and
+//! receiver. An attacker may observe, replay, or modify ciphertext in
+//! transit but does not know the shared secret.
+//!
+//! **Confidentiality:** Each encoding captures a unique `EntropySnapshot`
+//! (CPU counters, thread jitter, OS randomness). The snapshot feeds the
+//! KK-KDF to derive per-chunk keystream, ensuring the same plaintext
+//! never produces the same ciphertext twice.
+//!
+//! **Integrity:** Every `KkPacket` carries a KK-MAC tag over
+//! (ciphertext ‖ entropy snapshot). `decode` rejects any packet whose
+//! tag does not verify, preventing silent tampering.
+//!
+//! **Temporal binding:** The `TemporalCommitment` in each packet commits
+//! to the entropy used during encoding. The receiver re-derives the
+//! commitment from the embedded snapshot and the shared secret, rejecting
+//! packets if the commitment does not match.
+//!
+//! **Key hygiene:** Intermediate keys (commit keys, chunk keystream) are
+//! zeroized via the `zeroize` crate immediately after use. The output
+//! buffer is zeroized on error paths to prevent partial plaintext leaks.
+//!
+//! **Limitations:**
+//! - KK is a novel, un-audited primitive  - it has **not** been reviewed
+//!   by third-party cryptographers. Do not use for production security.
+//! - No forward secrecy: compromise of the shared secret exposes all
+//!   past and future messages.
+//! - Replay protection is **not** built in; callers must add sequence
+//!   numbers or timestamps at the protocol layer.
+//!
 //! J.A. Keeney, Australia, 2026
 
 pub mod codec;
@@ -60,8 +92,10 @@ pub mod temporal;
 // Re-export the primary API
 pub use codec::{decode, encode, KkPacket};
 pub use codec::{decode_split, encode_split, KkSealedMessage};
+pub use codec::{decode_bound, encode_bound, KkBoundPacket};
 pub use entropy::EntropySnapshot;
 pub use error::KkError;
+pub use temporal::{generate_challenge, TemporalProof, GENESIS_MAC};
 
 // QKD re-exports
 pub use qkd::{

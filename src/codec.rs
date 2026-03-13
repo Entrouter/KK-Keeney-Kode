@@ -34,10 +34,12 @@
 use rayon::prelude::*;
 use zeroize::Zeroize;
 
+use std::time::Duration;
+
 use crate::entropy::{self, EntropySnapshot};
 use crate::error::{KkError, Result};
 use crate::kdf;
-use crate::temporal::{self, TemporalCommitment};
+use crate::temporal::{self, TemporalCommitment, TemporalProof};
 
 /// The number of plaintext bytes processed per KDF derivation.
 /// Larger chunks = fewer KDF calls = better throughput.
@@ -291,6 +293,156 @@ pub fn decode_split(
     xor_with_keystream(shared_secret, epsilon, &sealed.ciphertext)
 }
 
+// ─────────────────────────────────────────────────────────────────
+//  Bound-commitment API  - challenge-response temporal proof
+// ─────────────────────────────────────────────────────────────────
+
+/// A KK packet with a full temporal proof (challenge-response).
+///
+/// Unlike [`KkPacket`], which carries a basic integrity MAC, this packet
+/// carries a [`TemporalProof`] providing:
+///
+///   - **Freshness**: verifier-supplied nonce proves creation was after the challenge
+///   - **Recency**: epoch check bounds when the encoding actually happened
+///   - **Ordering**: `prev_mac` chains packets into a total order
+///   - **Temporal MAC**: the permutation structure itself varies with entropy
+///
+/// The receiver must supply the nonce they originally issued and the
+/// maximum acceptable clock drift.
+#[derive(Clone)]
+pub struct KkBoundPacket {
+    /// The encoded bytes
+    pub ciphertext: Vec<u8>,
+    /// The entropy snapshot  - the captured moment
+    pub entropy_snapshot: EntropySnapshot,
+    /// Temporal proof  - freshness + recency + integrity + ordering
+    pub proof: TemporalProof,
+}
+
+impl KkBoundPacket {
+    /// Serialize for transmission.
+    ///
+    /// Format: `[4-byte ct_len][ciphertext][48-byte snapshot][96-byte proof]`
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let ct_len = self.ciphertext.len() as u32;
+        let snap_bytes = self.entropy_snapshot.to_bytes();
+        let proof_bytes = self.proof.to_bytes();
+
+        let mut out = Vec::with_capacity(4 + self.ciphertext.len() + snap_bytes.len() + proof_bytes.len());
+        out.extend_from_slice(&ct_len.to_le_bytes());
+        out.extend_from_slice(&self.ciphertext);
+        out.extend_from_slice(&snap_bytes);
+        out.extend_from_slice(&proof_bytes);
+        out
+    }
+
+    /// Deserialize from received bytes.
+    pub fn from_bytes(data: &[u8]) -> Result<Self> {
+        if data.len() < 4 {
+            return Err(KkError::InvalidPacket("bound packet too short".into()));
+        }
+
+        let ct_len = u32::from_le_bytes(
+            data[..4].try_into().map_err(|_| KkError::InvalidPacket("bad length".into()))?
+        ) as usize;
+
+        let expected_min = 4 + ct_len + 48 + TemporalProof::BYTES;
+        if data.len() < expected_min {
+            return Err(KkError::InvalidPacket(format!(
+                "bound packet too short: expected at least {expected_min}, got {}",
+                data.len()
+            )));
+        }
+
+        let ciphertext = data[4..4 + ct_len].to_vec();
+        let snapshot = EntropySnapshot::from_bytes(&data[4 + ct_len..4 + ct_len + 48])?;
+        let proof = TemporalProof::from_bytes(&data[4 + ct_len + 48..])?;
+
+        Ok(Self {
+            ciphertext,
+            entropy_snapshot: snapshot,
+            proof,
+        })
+    }
+}
+
+/// Encode plaintext with a full temporal proof (challenge-response).
+///
+/// # Protocol
+///
+/// ```text
+/// Verifier ── generate_challenge() ──→ nonce ──→ Prover
+/// Prover   ── encode_bound(secret, plain, nonce, prev_mac) ──→ KkBoundPacket
+/// ```
+///
+/// # Arguments
+/// - `shared_secret`  - the pre-shared key
+/// - `plaintext`  - data to encode
+/// - `verifier_nonce`  - challenge nonce from the verifier
+/// - `prev_mac`  - MAC of the previous proof in the chain, or
+///   [`temporal::GENESIS_MAC`] for the first message
+pub fn encode_bound(
+    shared_secret: &[u8],
+    plaintext: &[u8],
+    verifier_nonce: &[u8; 32],
+    prev_mac: &[u8; 32],
+) -> Result<KkBoundPacket> {
+    if plaintext.is_empty() {
+        return Err(KkError::EmptyInput);
+    }
+
+    let snapshot = entropy::gather()?;
+    let ciphertext = xor_with_keystream(shared_secret, &snapshot, plaintext)?;
+    let proof = temporal::commit_bound(
+        shared_secret,
+        &snapshot,
+        &ciphertext,
+        verifier_nonce,
+        prev_mac,
+    )?;
+
+    Ok(KkBoundPacket {
+        ciphertext,
+        entropy_snapshot: snapshot,
+        proof,
+    })
+}
+
+/// Decode a bound packet, verifying freshness + recency + integrity.
+///
+/// # Protocol
+///
+/// ```text
+/// Verifier receives KkBoundPacket, then:
+///   decode_bound(secret, packet, nonce_I_issued, max_drift)
+/// ```
+///
+/// Verification checks (in order):
+/// 1. **Nonce**  - proof contains the nonce the verifier issued
+/// 2. **Epoch**  - `|now - ε.timestamp| ≤ max_drift`
+/// 3. **MAC**  - entropy-derived rotations, constant-time compare
+///
+/// The caller is responsible for:
+/// - Tracking nonces and rejecting reuse
+/// - Verifying `packet.proof.prev_mac` matches the expected chain link
+pub fn decode_bound(
+    shared_secret: &[u8],
+    packet: &KkBoundPacket,
+    expected_nonce: &[u8; 32],
+    max_drift: Duration,
+) -> Result<Vec<u8>> {
+    temporal::verify_bound(
+        shared_secret,
+        &packet.entropy_snapshot,
+        &packet.ciphertext,
+        &packet.proof,
+        expected_nonce,
+        max_drift,
+    )?;
+
+    xor_with_keystream(shared_secret, &packet.entropy_snapshot, &packet.ciphertext)
+}
+
 /// Internal: XOR input with the KK-derived keystream.
 ///
 /// Processes chunks in batches of 8 using AVX-512 vectorized KDF when
@@ -304,7 +456,7 @@ fn xor_with_keystream(
     let mut output = vec![0u8; input.len()];
     let batch_bytes = CHUNK_SIZE * 8;
 
-    output
+    let result = output
         .par_chunks_mut(batch_bytes)
         .enumerate()
         .try_for_each(|(batch_idx, out_batch)| -> Result<()> {
@@ -320,18 +472,18 @@ fn xor_with_keystream(
                     CHUNK_SIZE,
                 )?;
 
-                for c in 0..8 {
+                for (c, key) in keys.iter_mut().enumerate() {
                     let out_off = c * CHUNK_SIZE;
                     let in_off = in_base + c * CHUNK_SIZE;
                     for i in 0..CHUNK_SIZE {
-                        out_batch[out_off + i] = input[in_off + i] ^ keys[c][i];
+                        out_batch[out_off + i] = input[in_off + i] ^ key[i];
                     }
-                    keys[c].zeroize();
+                    key.zeroize();
                 }
             } else {
                 // Partial tail batch  - scalar per-chunk
                 let chunks_in_batch =
-                    (out_batch.len() + CHUNK_SIZE - 1) / CHUNK_SIZE;
+                    out_batch.len().div_ceil(CHUNK_SIZE);
 
                 for c in 0..chunks_in_batch {
                     let chunk_idx = base_chunk + c;
@@ -354,9 +506,15 @@ fn xor_with_keystream(
             }
 
             Ok(())
-        })?;
+        });
 
-    Ok(output)
+    match result {
+        Ok(()) => Ok(output),
+        Err(e) => {
+            output.zeroize();
+            Err(e)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -505,6 +663,92 @@ mod tests {
     #[test]
     fn split_empty_input_rejected() {
         let result = encode_split(b"key", b"");
+        assert!(result.is_err());
+    }
+
+    // ── Bound-commitment tests ──────────────────────────────────
+
+    #[test]
+    fn bound_encode_decode_roundtrip() {
+        let secret = b"bound-test-secret";
+        let plaintext = b"Temporal proof: challenge-response freshness.";
+
+        let nonce = temporal::generate_challenge().unwrap();
+        let packet = encode_bound(secret, plaintext, &nonce, &temporal::GENESIS_MAC).unwrap();
+        let decoded = decode_bound(secret, &packet, &nonce, Duration::from_secs(30)).unwrap();
+
+        assert_eq!(plaintext.as_slice(), decoded.as_slice());
+    }
+
+    #[test]
+    fn bound_wrong_nonce_rejected() {
+        let secret = b"nonce-reject";
+        let nonce = temporal::generate_challenge().unwrap();
+        let wrong_nonce = temporal::generate_challenge().unwrap();
+
+        let packet = encode_bound(secret, b"test data", &nonce, &temporal::GENESIS_MAC).unwrap();
+        let result = decode_bound(secret, &packet, &wrong_nonce, Duration::from_secs(30));
+        assert!(result.is_err(), "Wrong nonce must be rejected");
+    }
+
+    #[test]
+    fn bound_wrong_key_rejected() {
+        let nonce = temporal::generate_challenge().unwrap();
+        let packet = encode_bound(b"right-key", b"secret", &nonce, &temporal::GENESIS_MAC).unwrap();
+
+        let result = decode_bound(b"wrong-key", &packet, &nonce, Duration::from_secs(30));
+        assert!(result.is_err(), "Wrong key must fail");
+    }
+
+    #[test]
+    fn bound_packet_serialization_roundtrip() {
+        let secret = b"bound-serde";
+        let plaintext = b"serialize a bound packet";
+
+        let nonce = temporal::generate_challenge().unwrap();
+        let packet = encode_bound(secret, plaintext, &nonce, &temporal::GENESIS_MAC).unwrap();
+
+        let bytes = packet.to_bytes();
+        let restored = KkBoundPacket::from_bytes(&bytes).unwrap();
+
+        let decoded = decode_bound(secret, &restored, &nonce, Duration::from_secs(30)).unwrap();
+        assert_eq!(plaintext.as_slice(), decoded.as_slice());
+    }
+
+    #[test]
+    fn bound_tampered_ciphertext_detected() {
+        let secret = b"tamper-bound";
+        let nonce = temporal::generate_challenge().unwrap();
+        let mut packet = encode_bound(secret, b"important", &nonce, &temporal::GENESIS_MAC).unwrap();
+        packet.ciphertext[0] ^= 0xFF;
+
+        let result = decode_bound(secret, &packet, &nonce, Duration::from_secs(30));
+        assert!(result.is_err(), "Tampered ciphertext must fail");
+    }
+
+    #[test]
+    fn bound_chain_ordering() {
+        let secret = b"chain-test";
+        let nonce1 = temporal::generate_challenge().unwrap();
+        let nonce2 = temporal::generate_challenge().unwrap();
+
+        let p1 = encode_bound(secret, b"first", &nonce1, &temporal::GENESIS_MAC).unwrap();
+        let p2 = encode_bound(secret, b"second", &nonce2, &p1.proof.mac).unwrap();
+
+        // Both decode successfully with correct nonces
+        let d1 = decode_bound(secret, &p1, &nonce1, Duration::from_secs(30)).unwrap();
+        let d2 = decode_bound(secret, &p2, &nonce2, Duration::from_secs(30)).unwrap();
+        assert_eq!(d1, b"first");
+        assert_eq!(d2, b"second");
+
+        // Chain is verifiable: p2 references p1
+        assert_eq!(p2.proof.prev_mac, p1.proof.mac);
+    }
+
+    #[test]
+    fn bound_empty_input_rejected() {
+        let nonce = temporal::generate_challenge().unwrap();
+        let result = encode_bound(b"key", b"", &nonce, &temporal::GENESIS_MAC);
         assert!(result.is_err());
     }
 

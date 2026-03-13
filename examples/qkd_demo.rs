@@ -104,7 +104,7 @@ fn main() {
     color(Color::Green, "NO  - channel is clean");
     println!();
     print!("    QKD shared key:    ");
-    hex_preview(&qkd.shared_key, 32);
+    hex_preview(&qkd.shared_key_alice, 32);
     println!();
 
     // Step 2: KK Split-Channel Encode
@@ -129,7 +129,7 @@ fn main() {
 
     // Step 3: Encrypt ε with QKD key
     header("STEP 3  - Encrypt ε with QKD Key");
-    let encrypted_eps = encrypt_epsilon(&qkd.shared_key, &epsilon);
+    let encrypted_eps = encrypt_epsilon(&qkd.shared_key_alice, &epsilon);
 
     print!("    ε encrypted with QKD-derived key → ");
     color(Color::Yellow, &format!("{} bytes", encrypted_eps.len()));
@@ -150,7 +150,7 @@ fn main() {
     print!("    Bob receives: KkSealedMessage + encrypted ε (both public wire)\n");
     print!("    Bob decrypts ε with QKD key...\n");
 
-    let recovered_eps = decrypt_epsilon(&qkd.shared_key, &encrypted_eps).unwrap();
+    let recovered_eps = decrypt_epsilon(&qkd.shared_key_alice, &encrypted_eps).unwrap();
 
     print!("    Bob calls decode_split(secret, sealed, ε)...\n\n");
     let recovered = decode_split(shared_secret, &sealed, &recovered_eps).unwrap();

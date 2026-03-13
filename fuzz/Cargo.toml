@@ -1,0 +1,38 @@
+[package]
+name = "kk-crypto-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.kk-crypto]
+path = ".."
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "hash_fuzz"
+path = "fuzz_targets/hash_fuzz.rs"
+doc = false
+
+[[bin]]
+name = "kdf_fuzz"
+path = "fuzz_targets/kdf_fuzz.rs"
+doc = false
+
+[[bin]]
+name = "mac_fuzz"
+path = "fuzz_targets/mac_fuzz.rs"
+doc = false
+
+[[bin]]
+name = "roundtrip_fuzz"
+path = "fuzz_targets/roundtrip_fuzz.rs"
+doc = false
