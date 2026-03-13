@@ -1,3 +1,6 @@
+// Copyright (c) 2026 John Keeney. MIT License.
+// See LICENSE file in the project root for full license information.
+
 //! KK Codec  - The core encoding/decoding primitive.
 //!
 //! This is where the fundamental KK operation happens:

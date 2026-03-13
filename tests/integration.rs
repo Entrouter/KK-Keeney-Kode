@@ -1,3 +1,6 @@
+// Copyright (c) 2026 John Keeney. MIT License.
+// See LICENSE file in the project root for full license information.
+
 //! Integration tests for KK  - Keeney Kode
 //!
 //! These tests demonstrate and verify the core security properties

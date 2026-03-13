@@ -1,3 +1,6 @@
+// Copyright (c) 2026 John Keeney. MIT License.
+// See LICENSE file in the project root for full license information.
+
 use thiserror::Error;
 
 /// Errors that can occur during KK operations.

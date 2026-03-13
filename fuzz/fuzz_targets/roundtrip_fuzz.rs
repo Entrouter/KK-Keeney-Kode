@@ -1,3 +1,6 @@
+// Copyright (c) 2026 John Keeney. MIT License.
+// See LICENSE file in the project root for full license information.
+
 #![no_main]
 use libfuzzer_sys::fuzz_target;
 use kk_crypto::{encode, decode};

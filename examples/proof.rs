@@ -1,3 +1,6 @@
+// Copyright (c) 2026 John Keeney. MIT License.
+// See LICENSE file in the project root for full license information.
+
 //! ═══════════════════════════════════════════════════════════════════
 //!  PROOF: ε IS NON-RECONSTRUCTIBLE
 //!  Decryption without the entropic moment is not hard. It is IMPOSSIBLE.

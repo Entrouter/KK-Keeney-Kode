@@ -1,3 +1,6 @@
+// Copyright (c) 2026 John Keeney. MIT License.
+// See LICENSE file in the project root for full license information.
+
 //! Cryptographic quality tests for the KK permutation and sponge.
 //!
 //! Six tests that empirically validate the cryptographic properties

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 John Keeney. MIT License.
+// See LICENSE file in the project root for full license information.
+
 //! Differential Trail Analysis for the KK Permutation
 //!
 //! This performs a computational search for the best differential characteristics

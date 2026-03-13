@@ -1,3 +1,6 @@
+// Copyright (c) 2026 John Keeney. MIT License.
+// See LICENSE file in the project root for full license information.
+
 //! AVX-512 horizontal-vectorized KK permutation kernel.
 //!
 //! Runs **8 independent sponge states simultaneously** using 512-bit SIMD.

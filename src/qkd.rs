@@ -1,3 +1,6 @@
+// Copyright (c) 2026 John Keeney. MIT License.
+// See LICENSE file in the project root for full license information.
+
 //! BB84 Quantum Key Distribution  - Simulated Protocol
 //!
 //! This module implements the BB84 protocol (Bennett & Brassard, 1984)

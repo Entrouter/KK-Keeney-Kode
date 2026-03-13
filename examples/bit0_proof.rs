@@ -1,3 +1,6 @@
+// Copyright (c) 2026 John Keeney. MIT License.
+// See LICENSE file in the project root for full license information.
+
 //! Mathematical Proof Sketch: Universal Bit-Boundary Phenomena in MFR
 //!
 //! This program provides constructive proofs and exhaustive verification

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 John Keeney. MIT License.
+// See LICENSE file in the project root for full license information.
+
 //! Formal Differential Distribution Table (DDT) Analysis
 //!
 //! Computes **exact, exhaustive** differential distribution tables for

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 John Keeney. MIT License.
+// See LICENSE file in the project root for full license information.
+
 //! Dudect-style timing leak detection for KK-Crypto.
 //!
 //! Implements the methodology from "Dude, is my code constant time?"

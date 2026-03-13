@@ -1,3 +1,6 @@
+// Copyright (c) 2026 John Keeney. MIT License.
+// See LICENSE file in the project root for full license information.
+
 //! Linear Cryptanalysis & Algebraic Degree Analysis of the KK Permutation
 //!
 //! **Linear Analysis** (Tests 1–4):

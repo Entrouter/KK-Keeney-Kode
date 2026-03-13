@@ -1,3 +1,6 @@
+// Copyright (c) 2026 John Keeney. MIT License.
+// See LICENSE file in the project root for full license information.
+
 //! KK Journal  - An encrypted diary powered by the Keeney Kode.
 //!
 //! Every entry is encrypted at its unique entropic moment.

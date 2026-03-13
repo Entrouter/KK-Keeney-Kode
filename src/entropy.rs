@@ -1,3 +1,6 @@
+// Copyright (c) 2026 John Keeney. MIT License.
+// See LICENSE file in the project root for full license information.
+
 //! Multi-source entropy collection for KK.
 //!
 //! Gathers entropy from multiple independent sources and mixes them
