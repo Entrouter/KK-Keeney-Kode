@@ -1,11 +1,20 @@
-# KK  - Keeney Kode
+<!--
+Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+Licensed under the Apache License, Version 2.0 with Additional Terms.
+NO COMMERCIAL USE without prior written authorization from Entrouter.
+Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+See the LICENSE file in the project root for full license information.
+NOTICE: Removal of this header is a violation of the license.
+-->
+
+# KK, Keeney Kode
 
 A novel cryptographic primitive where symbol values are temporal functions of universal entropy.
 
 ## Core Principle
 
 In all existing cryptography, symbol 'A' has a fixed value and encryption hides what 'A' means.
-In KK, symbol 'A' has no fixed value  - its value is a function of the universe at the instant it was born.
+In KK, symbol 'A' has no fixed value, its value is a function of the universe at the instant it was born.
 The same symbol encoded twice produces two cryptographically unrelated values.
 
 ## Quick Start
@@ -32,7 +41,7 @@ Entropy Sources → KK-Mix → Per-Symbol Derivation → Temporal Binding → En
 
 Every cryptographic operation is built from a single novel primitive:
 the **KK permutation** (Multiply-Fold-Rotate sponge construction on a 1600-bit / 5×5×64 state).
-No SHA-256, no HKDF, no HMAC  - 100% original KK.
+No SHA-256, no HKDF, no HMAC, 100% original KK.
 
 | Module | Role |
 |--------|------|
@@ -63,7 +72,7 @@ The output buffer is zeroized on error paths to prevent partial plaintext leaks.
 
 ### Limitations
 
-- **Un-audited:** KK is a novel primitive  - it has **not** been reviewed by third-party cryptographers. Do not use for production security.
+- **Un-audited:** KK is a novel primitive, it has **not** been reviewed by third-party cryptographers. Do not use for production security.
 - **No forward secrecy:** Compromise of the shared secret exposes all past and future messages.
 - **No replay protection:** Callers must add sequence numbers or timestamps at the protocol layer.
 
@@ -88,4 +97,4 @@ cargo fuzz run roundtrip_fuzz
 
 ## License
 
-MIT  - J.A. Keeney, Australia, 2026
+MIT, J.A. Keeney, Australia, 2026

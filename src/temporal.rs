@@ -1,11 +1,15 @@
-// Copyright (c) 2026 John Keeney. MIT License.
-// See LICENSE file in the project root for full license information.
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
 
 //! Temporal commitment and proof system for KK.
 //!
 //! Two tiers:
 //!
-//! ## `TemporalCommitment` (basic  - the original API)
+//! ## `TemporalCommitment` (basic, the original API)
 //!
 //! A standard MAC binding (ciphertext, entropy snapshot, shared secret).
 //! Guarantees **integrity** and **authentication**, but:
@@ -15,7 +19,7 @@
 //!
 //! Use when you only need tamper detection between cooperating parties.
 //!
-//! ## `TemporalProof` (bound  - the real thing)
+//! ## `TemporalProof` (bound, the real thing)
 //!
 //! A challenge-response commitment with four verifiable properties:
 //!
@@ -27,10 +31,10 @@
 //! | Ordering   | `prev_mac` chains proofs into a total order         |
 //!
 //! The MAC uses **entropy-derived rotations**, so the permutation that
-//! produced the tag only existed at that entropic moment  - the algebra
+//! produced the tag only existed at that entropic moment, the algebra
 //! itself is temporal.
 //!
-//! Built entirely from the KK permutation  - no HMAC, no SHA-256.
+//! Built entirely from the KK permutation, no HMAC, no SHA-256.
 
 use rand::RngCore;
 use std::time::Duration;
@@ -45,7 +49,7 @@ use zeroize::Zeroize;
 pub const GENESIS_MAC: [u8; 32] = [0u8; 32];
 
 // ─────────────────────────────────────────────────────────────────
-//  Basic commitment (original API  - preserved for backward compat)
+//  Basic commitment (original API, preserved for backward compat)
 // ─────────────────────────────────────────────────────────────────
 
 /// A basic MAC commitment binding ciphertext to its entropy snapshot.
@@ -132,13 +136,13 @@ pub fn verify(
 ///
 /// ## What this proves
 ///
-/// 1. **Integrity**  - the ciphertext and entropy snapshot have not been
+/// 1. **Integrity**, the ciphertext and entropy snapshot have not been
 ///    modified since the proof was created.
-/// 2. **Freshness**  - the proof was created *after* the verifier issued
+/// 2. **Freshness**, the proof was created *after* the verifier issued
 ///    its challenge nonce (prevents replay).
-/// 3. **Recency**  - the claimed `ε.timestamp` is within `max_drift` of
+/// 3. **Recency**, the claimed `ε.timestamp` is within `max_drift` of
 ///    the verifier's clock at verification time.
-/// 4. **Ordering**  - if `prev_mac` is non-genesis, this proof was created
+/// 4. **Ordering**, if `prev_mac` is non-genesis, this proof was created
 ///    after the proof whose MAC it references.
 ///
 /// ## How it works
@@ -150,7 +154,7 @@ pub fn verify(
 /// ```
 ///
 /// The MAC runs on a sponge whose *rotation schedule* is derived from
-/// `ε.bytes`  - the permutation structure itself is temporal, not just
+/// `ε.bytes`, the permutation structure itself is temporal, not just
 /// the data flowing through it.
 ///
 /// ## Protocol
@@ -219,11 +223,11 @@ pub fn generate_challenge() -> Result<[u8; 32]> {
 /// Create a temporal proof with verifiable freshness and ordering.
 ///
 /// # Arguments
-/// - `shared_secret`  - the pre-shared key
-/// - `snapshot`  - the entropy snapshot captured during encoding
-/// - `ciphertext`  - the encoded bytes
-/// - `verifier_nonce`  - the challenge nonce from the verifier
-/// - `prev_mac`  - MAC of the previous proof in the chain, or
+/// - `shared_secret`, the pre-shared key
+/// - `snapshot`, the entropy snapshot captured during encoding
+/// - `ciphertext`, the encoded bytes
+/// - `verifier_nonce`, the challenge nonce from the verifier
+/// - `prev_mac`, MAC of the previous proof in the chain, or
 ///   [`GENESIS_MAC`] for the first proof
 pub fn commit_bound(
     shared_secret: &[u8],
@@ -242,7 +246,7 @@ pub fn commit_bound(
     message.extend_from_slice(&snapshot.timestamp_nanos.to_le_bytes());
     message.extend_from_slice(ciphertext);
 
-    // MAC with entropy-derived rotations  - the algebra itself is temporal
+    // MAC with entropy-derived rotations, the algebra itself is temporal
     let mac_bytes = kk_mix::kk_mac_with_entropy(&commit_key, &message, &snapshot.bytes);
     commit_key.zeroize();
 
@@ -256,17 +260,17 @@ pub fn commit_bound(
 /// Verify a temporal proof: integrity + freshness + recency + chain.
 ///
 /// # Arguments
-/// - `shared_secret`  - the pre-shared key
-/// - `snapshot`  - the entropy snapshot from the packet
-/// - `ciphertext`  - the encoded bytes from the packet
-/// - `proof`  - the temporal proof to verify
-/// - `expected_nonce`  - the nonce the verifier originally issued
-/// - `max_drift`  - maximum acceptable clock drift
+/// - `shared_secret`, the pre-shared key
+/// - `snapshot`, the entropy snapshot from the packet
+/// - `ciphertext`, the encoded bytes from the packet
+/// - `proof`, the temporal proof to verify
+/// - `expected_nonce`, the nonce the verifier originally issued
+/// - `max_drift`, maximum acceptable clock drift
 ///
 /// # Verification steps
-/// 1. **Nonce match**  - `proof.nonce == expected_nonce` (freshness)
-/// 2. **Epoch check**  - `|now - ε.timestamp| ≤ max_drift` (recency)
-/// 3. **MAC verify**  - recompute and constant-time compare (integrity)
+/// 1. **Nonce match**, `proof.nonce == expected_nonce` (freshness)
+/// 2. **Epoch check**, `|now - ε.timestamp| ≤ max_drift` (recency)
+/// 3. **MAC verify**, recompute and constant-time compare (integrity)
 ///
 /// The caller is responsible for:
 /// - Tracking issued nonces and rejecting reuse ([`KkError::StaleNonce`])

@@ -1,5 +1,9 @@
-// Copyright (c) 2026 John Keeney. MIT License.
-// See LICENSE file in the project root for full license information.
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
 
 //! KK-Mix v2: The novel cryptographic core of the KK system.
 //!
@@ -14,15 +18,15 @@
 //! **Multiply-Fold-Rotate (MFR):**
 //! ```text
 //! MFR(a, b, rot):
-//!   product = a ×₆₄ (b | 1)      - modular multiply (|1 guarantees bijectivity)
-//!   folded  = product ⊕ (product >> 32)   - fold high bits into low
-//!   result  = folded <<< rot              - rotate for diffusion
+//!   product = a ×₆₄ (b | 1), modular multiply (|1 guarantees bijectivity)
+//!   folded  = product ⊕ (product >> 32), fold high bits into low
+//!   result  = folded <<< rot, rotate for diffusion
 //! ```
 //!
 //! **Data-Dependent Rotation (DDR):**
 //! ```text
 //! DDR(a, b):
-//!   result = a <<< (b & 63)     - rotation distance from the data itself
+//!   result = a <<< (b & 63), rotation distance from the data itself
 //! ```
 //!
 //! DDR is cryptanalytic poison: differential analysis must track all 64
@@ -60,7 +64,7 @@
 //!
 //! The rotation distances inside the permutation can be derived from
 //! the entropy snapshot ε. This means the *mathematical structure* of
-//! the cipher changes every encryption  - not just different data through
+//! the cipher changes every encryption, not just different data through
 //! the same algorithm, but a *different algorithm entirely*.
 //!
 //! J.A. Keeney, Australia, 2026
@@ -84,7 +88,7 @@ pub const STATE_BYTES: usize = STATE_WORDS * 8;
 pub const ROUNDS: usize = 32;
 
 /// Rounds for KDF squeeze permutations. Fewer than full rounds
-/// because each squeeze block is keyed and domain-separated  -
+/// because each squeeze block is keyed and domain-separated ,
 /// the attacker cannot choose or observe the sponge state.
 pub const KDF_SQUEEZE_ROUNDS: usize = 20;
 
@@ -99,7 +103,7 @@ pub const CAPACITY_WORDS: usize = STATE_WORDS - RATE_WORDS;
 
 /// Default rotation distances for the 15 quintet-rounds per round.
 /// 5 for rows, 5 for columns, 5 for diagonals.
-/// Each pair: one value in [1,31], one in [33,63]  - asymmetric mixing.
+/// Each pair: one value in [1,31], one in [33,63], asymmetric mixing.
 /// All values are odd (coprime with 64) for maximum bit coverage.
 /// No two values repeat across all 30 entries.
 pub(crate) const DEFAULT_ROTATIONS: [[u32; 2]; 15] = [
@@ -120,7 +124,7 @@ const DOMAIN_MAC: u8 = 0x03;
 
 /// Initialization constants for the 25-word state.
 /// Computed as: floor(frac(√p) × 2^64) for the first 25 primes.
-/// "Nothing up my sleeve"  - anyone can verify these.
+/// "Nothing up my sleeve", anyone can verify these.
 pub(crate) const KK_IV: [u64; STATE_WORDS] = [
     0x6A09E667F3BCC908, // √2
     0xBB67AE8584CAA73B, // √3
@@ -162,14 +166,14 @@ const DIAGS: [[usize; 5]; 5] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────
-//  MFR  - Multiply-Fold-Rotate (the novel non-linear core)
+//  MFR, Multiply-Fold-Rotate (the novel non-linear core)
 // ─────────────────────────────────────────────────────────────────
 
 /// The Multiply-Fold-Rotate operation.
 ///
-/// 1. `a ×₆₄ (b | 1)`  - wrapping multiply, `| 1` ensures odd (bijective)
-/// 2. `⊕ (>> 32)`  - fold high bits into low, breaking multiplicative structure
-/// 3. `<<< rot`  - rotate for diffusion
+/// 1. `a ×₆₄ (b | 1)`, wrapping multiply, `| 1` ensures odd (bijective)
+/// 2. `⊕ (>> 32)`, fold high bits into low, breaking multiplicative structure
+/// 3. `<<< rot`, rotate for diffusion
 ///
 /// This is one of two non-linear building blocks of the KK system.
 #[inline(always)]
@@ -180,14 +184,14 @@ fn mfr(a: u64, b: u64, rot: u32) -> u64 {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  DDR  - Data-Dependent Rotation (novel)
+//  DDR, Data-Dependent Rotation (novel)
 // ─────────────────────────────────────────────────────────────────
 
 /// Data-Dependent Rotation: rotate `a` by a distance derived from `b`.
 ///
 /// The rotation amount is the low 6 bits of `b` (range 0–63).
 /// This makes the permutation structure depend on the data flowing
-/// through it  - cryptanalytic poison for differential analysis.
+/// through it, cryptanalytic poison for differential analysis.
 ///
 /// Any differential trail must account for all 64 possible rotation
 /// distances simultaneously, causing exponential path explosion.
@@ -197,8 +201,8 @@ fn mfr(a: u64, b: u64, rot: u32) -> u64 {
 ///
 /// Decomposes the variable rotation into 6 fixed-distance rotations
 /// (by 1, 2, 4, 8, 16, 32) selected branchlessly via bitmask.
-/// All 6 steps execute unconditionally  - no data-dependent branches
-/// or variable-distance shifts  - so timing is identical regardless
+/// All 6 steps execute unconditionally, no data-dependent branches
+/// or variable-distance shifts, so timing is identical regardless
 /// of the rotation amount on ALL architectures (including those
 /// without constant-time barrel shifters).
 #[inline(always)]
@@ -223,18 +227,18 @@ fn ddr(a: u64, b: u64) -> u64 {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  Quintet-Round  - 5-word mixer (novel, replaces quarter-round)
+//  Quintet-Round, 5-word mixer (novel, replaces quarter-round)
 // ─────────────────────────────────────────────────────────────────
 
 /// Quintet-round: mix five state words through MFR + DDR operations
 /// with cross-feedback.
 ///
 /// ```text
-/// a = MFR(a, b, rot0)     - non-linear mix
-/// c = c ⊕ a               - linear diffusion
-/// d = DDR(d, c)            - data-dependent rotation (novel)
-/// e = MFR(e, d, rot1)     - non-linear mix
-/// b = b ⊕ e               - linear feedback
+/// a = MFR(a, b, rot0), non-linear mix
+/// c = c ⊕ a, linear diffusion
+/// d = DDR(d, c), data-dependent rotation (novel)
+/// e = MFR(e, d, rot1), non-linear mix
+/// b = b ⊕ e, linear feedback
 /// ```
 ///
 /// After one quintet-round, all five words have influenced each other.
@@ -256,7 +260,7 @@ fn quintet_round(
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  KK Permutation v2  - 5×5 grid, 32 rounds
+//  KK Permutation v2, 5×5 grid, 32 rounds
 // ─────────────────────────────────────────────────────────────────
 
 /// Apply the KK permutation to a 1600-bit state using default rotations.
@@ -368,7 +372,7 @@ pub fn rotations_from_entropy(entropy: &[u8]) -> [[u32; 2]; 15] {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  KK Sponge  - the universal construction
+//  KK Sponge, the universal construction
 // ─────────────────────────────────────────────────────────────────
 
 /// The KK Sponge: absorb data, squeeze output, permute between steps.
@@ -547,12 +551,12 @@ impl KkSponge {
 
 /// KK-Hash: compute a 256-bit digest of arbitrary data.
 ///
-/// Replaces SHA-256  - built entirely from the KK permutation.
+/// Replaces SHA-256, built entirely from the KK permutation.
 ///
-/// **WARNING: This is an UNKEYED hash  - it does NOT authenticate data.**
+/// **WARNING: This is an UNKEYED hash, it does NOT authenticate data.**
 /// For message authentication, use [`kk_mac`] with a secret key.
 /// Using `kk_hash` where `kk_mac` is needed is a security vulnerability.
-#[must_use = "hash digest computed but not used  - did you mean kk_mac() for authentication?"]
+#[must_use = "hash digest computed but not used, did you mean kk_mac() for authentication?"]
 pub fn kk_hash(data: &[u8]) -> [u8; 32] {
     let mut sponge = KkSponge::new();
     sponge.absorb(data);
@@ -566,7 +570,7 @@ pub fn kk_hash(data: &[u8]) -> [u8; 32] {
 
 /// KK-KDF: derive `output_len` bytes of key material.
 ///
-/// Replaces HKDF-SHA256  - domain-separated sponge extraction.
+/// Replaces HKDF-SHA256, domain-separated sponge extraction.
 ///
 /// Inputs:
 ///   - `key`: input key material (shared secret)
@@ -578,7 +582,7 @@ pub fn kk_hash(data: &[u8]) -> [u8; 32] {
 ///
 /// The returned `Vec<u8>` contains sensitive key material.
 /// Call `.zeroize()` on the vector when you are done with it.
-#[must_use = "derived key material computed but not used  - zeroize it when done"]
+#[must_use = "derived key material computed but not used, zeroize it when done"]
 pub fn kk_kdf(key: &[u8], salt: &[u8], info: &[u8], output_len: usize) -> Vec<u8> {
     let mut sponge = KkSponge::with_entropy_rotations(salt);
     sponge.absorb(key);
@@ -701,7 +705,7 @@ unsafe fn vectorized_squeeze_8(
 
 /// KK-MAC: compute a 256-bit authentication tag over a message.
 ///
-/// Replaces HMAC-SHA256  - keyed sponge construction.
+/// Replaces HMAC-SHA256, keyed sponge construction.
 /// Use this (not [`kk_hash`]) whenever you need to verify message integrity.
 ///
 /// Inputs:
@@ -714,7 +718,7 @@ unsafe fn vectorized_squeeze_8(
 /// produces the same tag. This is correct and expected for a MAC.
 /// If your protocol requires unique tags (e.g., to prevent replay),
 /// prepend a nonce or counter to the message before calling `kk_mac`.
-#[must_use = "MAC tag computed but not used  - verify it with kk_mac_verify()"]
+#[must_use = "MAC tag computed but not used, verify it with kk_mac_verify()"]
 pub fn kk_mac(key: &[u8], message: &[u8]) -> [u8; 32] {
     let mut sponge = KkSponge::new();
     // Absorb key with length prefix (prevents length-extension)
@@ -743,12 +747,12 @@ pub fn kk_mac_verify(key: &[u8], message: &[u8], expected_tag: &[u8; 32]) -> boo
 ///
 /// Like [`kk_mac`], but the sponge uses rotations derived from `entropy`
 /// instead of `DEFAULT_ROTATIONS`. This means the *mathematical structure*
-/// of the MAC computation varies with the entropy  - the permutation itself
+/// of the MAC computation varies with the entropy, the permutation itself
 /// is different, not just the data flowing through it.
 ///
 /// Used by the temporal-proof system so the commitment is truly temporal:
 /// the algebra that produced the tag only existed at that entropic moment.
-#[must_use = "MAC tag computed but not used  - verify it with kk_mac_verify_with_entropy()"]
+#[must_use = "MAC tag computed but not used, verify it with kk_mac_verify_with_entropy()"]
 pub fn kk_mac_with_entropy(key: &[u8], message: &[u8], entropy: &[u8]) -> [u8; 32] {
     let mut sponge = KkSponge::with_entropy_rotations(entropy);
     sponge.absorb(&(key.len() as u64).to_le_bytes());
@@ -800,7 +804,7 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
 ///
 /// The returned `Vec<u8>` may contain sensitive mixed entropy.
 /// Call `.zeroize()` on the vector when you are done with it.
-#[must_use = "mixed entropy computed but not used  - zeroize it when done"]
+#[must_use = "mixed entropy computed but not used, zeroize it when done"]
 pub fn kk_entropy_mix(sources: &[&[u8]], output_len: usize) -> Vec<u8> {
     let mut sponge = KkSponge::new();
     for (i, source) in sources.iter().enumerate() {

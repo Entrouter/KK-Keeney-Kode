@@ -1,23 +1,27 @@
-// Copyright (c) 2026 John Keeney. MIT License.
-// See LICENSE file in the project root for full license information.
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
 
 //! Differential Trail Analysis for the KK Permutation
 //!
 //! This performs a computational search for the best differential characteristics
 //! through the KK permutation, measuring:
 //!
-//! 1. **MFR differential probability**  - the probability that a specific output
+//! 1. **MFR differential probability**, the probability that a specific output
 //!    difference occurs given a specific input difference to MFR.
 //!
-//! 2. **DDR differential probability**  - same for Data-Dependent Rotation.
+//! 2. **DDR differential probability**, same for Data-Dependent Rotation.
 //!
-//! 3. **Single-round active word propagation**  - how many words are active (have
+//! 3. **Single-round active word propagation**, how many words are active (have
 //!    non-zero differences) after each round, starting from minimal differences.
 //!
-//! 4. **Multi-round differential probability bound**  - exhaustive search over
+//! 4. **Multi-round differential probability bound**, exhaustive search over
 //!    round-reduced variants (1–8 rounds) to find the best differential trail.
 //!
-//! 5. **Full 32-round Monte Carlo differential search**  - random sampling to
+//! 5. **Full 32-round Monte Carlo differential search**, random sampling to
 //!    estimate the probability of the best differential through the full permutation.
 //!
 //! J.A. Keeney, Australia, 2026
@@ -536,7 +540,7 @@ fn main() {
     let mut all_pass = true;
 
     println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║   KK Permutation  - Differential Trail Analysis             ║");
+    println!("║   KK Permutation, Differential Trail Analysis             ║");
     println!("║   Computational bound on differential characteristics      ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
@@ -553,7 +557,7 @@ fn main() {
     println!("  Note: When Δb=0, MFR computes a * (b|1) ⊕ fold ≫ rotate.");
     println!("  Since (b|1) is constant for both inputs, the output difference");
     println!("  is DETERMINISTIC (prob=1). This is expected and does not indicate");
-    println!("  weakness  - the quintet structure ensures Δb=0 can only occur on");
+    println!("  weakness, the quintet structure ensures Δb=0 can only occur on");
     println!("  the first MFR call before feedback propagates.");
     println!();
     // Re-measure for Δb≠0 only (the critical case in the actual cipher)
@@ -704,7 +708,7 @@ fn main() {
     println!("  Average output active: {:.2} / 5 words", avg_active);
     // Branch number 2 means there exists at least one input position where a
     // single-word difference only activates 1 output word in the best case.
-    // This is acceptable if the average is ≥ 3  - the 15 quintets per round
+    // This is acceptable if the average is ≥ 3, the 15 quintets per round
     // (rows + cols + diags) ensure full mixing anyway.
     let branch_pass = min_branch >= 2 && avg_active >= 2.5;
     println!("  Note: Min branch # 2 occurs at specific positions; the row/col/diag");

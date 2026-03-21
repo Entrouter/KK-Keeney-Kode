@@ -1,7 +1,11 @@
-// Copyright (c) 2026 John Keeney. MIT License.
-// See LICENSE file in the project root for full license information.
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
 
-//! BB84 Quantum Key Distribution  - Simulated Protocol
+//! BB84 Quantum Key Distribution, Simulated Protocol
 //!
 //! This module implements the BB84 protocol (Bennett & Brassard, 1984)
 //! as a classical simulation. In real QKD, polarised photons carry the
@@ -66,7 +70,7 @@ use crate::kk_mix;
 /// Measurement basis for a qubit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Basis {
-    /// Rectilinear basis (+): 0 = |, 1 =  -
+    /// Rectilinear basis (+): 0 = |, 1 = ,
     Rectilinear,
     /// Diagonal basis (×): 0 = ╲, 1 = ╱
     Diagonal,
@@ -91,7 +95,7 @@ impl Qubit {
     /// - **Correct basis:** returns the true bit (deterministic).
     /// - **Wrong basis:** returns a random bit (quantum uncertainty).
     ///
-    /// After measurement, the qubit collapses  - the original state
+    /// After measurement, the qubit collapses, the original state
     /// is destroyed. This is what makes eavesdropping detectable.
     pub fn measure(&self, measurement_basis: Basis) -> bool {
         if measurement_basis == self.basis {
@@ -150,7 +154,7 @@ pub struct Bb84Result {
 
 /// An eavesdropper who intercepts qubits on the quantum channel.
 pub struct Eve {
-    /// The bases Eve uses to measure (random  - she doesn't know Alice's)
+    /// The bases Eve uses to measure (random, she doesn't know Alice's)
     pub bases: Vec<Basis>,
     /// What Eve measured
     pub measured_bits: Vec<bool>,
@@ -215,7 +219,7 @@ pub fn eve_intercept(qubits: &[Qubit]) -> (Eve, Vec<Qubit>) {
         } else {
             Basis::Diagonal
         };
-        // Eve measures  - collapses the quantum state
+        // Eve measures, collapses the quantum state
         let eve_bit = qubit.measure(eve_basis);
         // Eve re-sends in her own basis (she doesn't know Alice's)
         resent.push(Qubit {
@@ -263,7 +267,7 @@ pub fn bob_measure(qubits: &[Qubit]) -> Bob {
 pub fn distill_key(alice: &Alice, bob: &Bob) -> Result<Bb84Result> {
     let n = alice.bits.len();
 
-    // Step 4-5: Sifting  - keep only matching bases
+    // Step 4-5: Sifting, keep only matching bases
     let mut sifted_alice = Vec::new();
     let mut sifted_bob = Vec::new();
 
@@ -281,7 +285,7 @@ pub fn distill_key(alice: &Alice, bob: &Bob) -> Result<Bb84Result> {
         ));
     }
 
-    // Step 6: Error estimation  - sacrifice some bits
+    // Step 6: Error estimation, sacrifice some bits
     let n_check = (n_sifted as f64 * CHECK_FRACTION) as usize;
     let n_check = n_check.max(16); // minimum 16 check bits
 
@@ -298,7 +302,7 @@ pub fn distill_key(alice: &Alice, bob: &Bob) -> Result<Bb84Result> {
     let raw_alice: Vec<bool> = sifted_alice[n_check..].to_vec();
     let raw_bob: Vec<bool> = sifted_bob[n_check..].to_vec();
 
-    // Step 7: Privacy amplification  - hash raw key bits into final key
+    // Step 7: Privacy amplification, hash raw key bits into final key
     let key_bytes_alice = bits_to_bytes(&raw_alice);
     let key_bytes_bob = bits_to_bytes(&raw_bob);
 

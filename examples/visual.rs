@@ -1,7 +1,11 @@
-// Copyright (c) 2026 John Keeney. MIT License.
-// See LICENSE file in the project root for full license information.
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
 
-//! KK Visual Demo  - Watch the Keeney Kode primitive in action.
+//! KK Visual Demo, Watch the Keeney Kode primitive in action.
 //!
 //! Run: cargo run --example visual
 
@@ -58,7 +62,7 @@ impl App {
 
     fn do_encode(&mut self) {
         if self.input.is_empty() {
-            self.status = "Nothing to encode  - type something first!".into();
+            self.status = "Nothing to encode, type something first!".into();
             return;
         }
 
@@ -106,7 +110,7 @@ impl App {
             match_ok,
         });
         self.status = format!(
-            "#{}  - Encoded & decoded in {:.1}µs + {:.1}µs | Press Enter to re-encode (new ε each time)",
+            "#{}, Encoded & decoded in {:.1}µs + {:.1}µs | Press Enter to re-encode (new ε each time)",
             self.encode_count,
             encode_time.as_nanos() as f64 / 1000.0,
             decode_time.as_nanos() as f64 / 1000.0,
@@ -215,7 +219,7 @@ fn ui(f: &mut Frame, app: &App, editing_secret: bool) {
             "Keeney Kode Visual Demo",
             Style::default().fg(Color::Cyan).bold(),
         ),
-        Span::raw("   -  "),
+        Span::raw(" - "),
         Span::styled(
             "KK(S) = S ⊕ ε",
             Style::default().fg(Color::Yellow).italic(),
@@ -392,7 +396,7 @@ fn ui(f: &mut Frame, app: &App, editing_secret: bool) {
             ]),
             Line::raw(""),
             Line::from(Span::styled(
-                "  Press Enter again  - same message,",
+                "  Press Enter again, same message,",
                 Style::default().fg(Color::DarkGray).italic(),
             )),
             Line::from(Span::styled(

@@ -1,7 +1,11 @@
-// Copyright (c) 2026 John Keeney. MIT License.
-// See LICENSE file in the project root for full license information.
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
 
-//! QKD + KK Split-Channel  - End-to-End Demo
+//! QKD + KK Split-Channel, End-to-End Demo
 //!
 //! Demonstrates the full pipeline:
 //!   1. BB84 quantum key distribution (simulated)
@@ -60,7 +64,7 @@ fn main() {
     println!();
     bold("  ╔══════════════════════════════════════════════════════════════╗\n");
     bold("  ║");
-    color(Color::Cyan, "    BB84 QKD + KK SPLIT-CHANNEL  - End-to-End Demonstration");
+    color(Color::Cyan, "    BB84 QKD + KK SPLIT-CHANNEL, End-to-End Demonstration");
     bold("   ║\n");
     bold("  ╚══════════════════════════════════════════════════════════════╝\n");
 
@@ -73,12 +77,12 @@ fn main() {
     // ═══════════════════════════════════════════════════════════════
     bold("\n  ┌──────────────────────────────────────────────────────────────┐\n");
     bold("  │");
-    color(Color::Green, "  SCENARIO 1: Secure Channel  - No Eavesdropper");
+    color(Color::Green, "  SCENARIO 1: Secure Channel, No Eavesdropper");
     bold("               │\n");
     bold("  └──────────────────────────────────────────────────────────────┘\n");
 
     // Step 1: BB84 Key Exchange
-    header("STEP 1  - BB84 Quantum Key Exchange");
+    header("STEP 1, BB84 Quantum Key Exchange");
     print!("    Alice prepares {} qubits (random bits × random bases)...\n", n_qubits);
     out.flush().ok();
     let alice = alice_prepare(n_qubits);
@@ -104,14 +108,14 @@ fn main() {
     color(Color::Green, &format!("{:.1}%", qkd.error_rate * 100.0));
     println!();
     print!("    Eve detected:      ");
-    color(Color::Green, "NO  - channel is clean");
+    color(Color::Green, "NO, channel is clean");
     println!();
     print!("    QKD shared key:    ");
     hex_preview(&qkd.shared_key_alice, 32);
     println!();
 
     // Step 2: KK Split-Channel Encode
-    header("STEP 2  - KK Split-Channel Encode");
+    header("STEP 2, KK Split-Channel Encode");
     print!("    Plaintext: ");
     color(Color::Green, &format!("\"{}\"", String::from_utf8_lossy(plaintext)));
     println!();
@@ -127,11 +131,11 @@ fn main() {
     println!();
     print!("    EntropySnapshot:   ");
     color(Color::Magenta, &format!("{} bytes", epsilon_bytes.len()));
-    print!("  (ε  - the moment)");
+    print!("  (ε, the moment)");
     println!();
 
     // Step 3: Encrypt ε with QKD key
-    header("STEP 3  - Encrypt ε with QKD Key");
+    header("STEP 3, Encrypt ε with QKD Key");
     let encrypted_eps = encrypt_epsilon(&qkd.shared_key_alice, &epsilon);
 
     print!("    ε encrypted with QKD-derived key → ");
@@ -149,7 +153,7 @@ fn main() {
     println!();
 
     // Step 4: Bob decrypts ε and decodes
-    header("STEP 4  - Bob Receives & Decodes");
+    header("STEP 4, Bob Receives & Decodes");
     print!("    Bob receives: KkSealedMessage + encrypted ε (both public wire)\n");
     print!("    Bob decrypts ε with QKD key...\n");
 
@@ -163,7 +167,7 @@ fn main() {
     println!();
     print!("    Match:  ");
     if recovered == plaintext {
-        color(Color::Green, "✓ PERFECT  - plaintext recovered");
+        color(Color::Green, "✓ PERFECT, plaintext recovered");
     } else {
         color(Color::Red, "✗ MISMATCH");
     }
@@ -178,7 +182,7 @@ fn main() {
     bold("            │\n");
     bold("  └──────────────────────────────────────────────────────────────┘\n");
 
-    header("STEP 1  - BB84 with Eavesdropper");
+    header("STEP 1, BB84 with Eavesdropper");
     print!("    Alice prepares {} qubits...\n", n_qubits);
     let alice2 = alice_prepare(n_qubits);
 
@@ -209,9 +213,9 @@ fn main() {
     println!();
     print!("    Eve detected:      ");
     if qkd2.eve_detected {
-        color(Color::Red, "YES  - EAVESDROPPER DETECTED!");
+        color(Color::Red, "YES, EAVESDROPPER DETECTED!");
     } else {
-        color(Color::Yellow, "no (lucky Eve  - unlikely with more qubits)");
+        color(Color::Yellow, "no (lucky Eve, unlikely with more qubits)");
     }
     println!();
 
@@ -250,13 +254,13 @@ fn main() {
     color(Color::Yellow, &format!("{}/{} (~{}%)", eve_correct, n_qubits, eve_pct));
     println!();
     print!("    Eve's key matches Alice's:   ");
-    color(Color::Red, "NO  - different raw key bits, different HKDF output");
+    color(Color::Red, "NO, different raw key bits, different HKDF output");
     println!();
     print!("    Eve can decrypt ε:           ");
-    color(Color::Red, "NO  - wrong QKD key");
+    color(Color::Red, "NO, wrong QKD key");
     println!();
     print!("    Eve can brute-force:         ");
-    color(Color::Red, "NO  - missing ε means no HKDF salt");
+    color(Color::Red, "NO, missing ε means no HKDF salt");
     println!();
 
     // ═══════════════════════════════════════════════════════════════
@@ -327,7 +331,7 @@ fn main() {
 
     println!();
     print!("  ");
-    color(Color::DarkGrey, "BB84 + KK Split-Channel  - J.A. Keeney, Australia, 2026");
+    color(Color::DarkGrey, "BB84 + KK Split-Channel, J.A. Keeney, Australia, 2026");
     println!();
     println!();
 }

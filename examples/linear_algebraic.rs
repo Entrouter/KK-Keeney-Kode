@@ -1,5 +1,9 @@
-// Copyright (c) 2026 John Keeney. MIT License.
-// See LICENSE file in the project root for full license information.
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
 
 //! Linear Cryptanalysis & Algebraic Degree Analysis of the KK Permutation
 //!
@@ -543,7 +547,7 @@ fn test_multiround_degree() -> Vec<(usize, usize)> {
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║   KK Permutation  - Linear & Algebraic Degree Analysis      ║");
+    println!("║   KK Permutation, Linear & Algebraic Degree Analysis      ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
 
@@ -565,7 +569,7 @@ fn main() {
     println!("  Noise floor (4σ): {:.6}", noise_floor_17.sqrt());
     // For MFR, single-bit linear biases should be ≤ 0.1.
     // Note: DDR control bits (b) can create larger biases when the rotation
-    // amount is linearly predictable  - but for MFR the multiplication
+    // amount is linearly predictable, but for MFR the multiplication
     // should destroy linear structure.
     let mfr_lin_pass = mfr_max < 0.25;
     println!("  Verdict: {} (max |bias| < 0.25)\n",
@@ -593,7 +597,7 @@ fn main() {
     println!("  Note: DDR is a rotation (bijection per fixed control). Single-bit");
     println!("  biases up to ~0.5 are expected when input/output positions align.");
     println!("  The critical security comes from composition with MFR in quintets.");
-    println!("  Verdict: {} (max |bias| < 0.5  - DDR alone is weaker by design)\n",
+    println!("  Verdict: {} (max |bias| < 0.5, DDR alone is weaker by design)\n",
         if ddr_lin_pass { "PASS ✅" } else { "FAIL ❌" });
     if !ddr_lin_pass { all_pass = false; }
 
@@ -617,7 +621,7 @@ fn main() {
         .unwrap_or(1.0);
     let multi_lin_pass = four_round_bias < 0.02;
     println!("  Expected noise max (200 masks): ~{:.4}", noise_floor_16 * (2.0 * (400.0f64).ln()).sqrt());
-    println!("  Verdict: {} (4-round bias < 0.02  - above noise maximum)\n",
+    println!("  Verdict: {} (4-round bias < 0.02, above noise maximum)\n",
         if multi_lin_pass { "PASS ✅" } else { "FAIL ❌" });
     if !multi_lin_pass { all_pass = false; }
 
@@ -644,9 +648,9 @@ fn main() {
         if mfr_at_limit { " (exceeded test limit)" } else { "" });
     println!("  Note: MFR uses wrapping multiplication (a × (b|1)), fold, and rotate.");
     println!("  The carry chain in integer multiplication creates high algebraic degree");
-    println!("   - much higher than simple XOR/rotation schemes (degree 1).");
+    println!(", much higher than simple XOR/rotation schemes (degree 1).");
     let mfr_deg_pass = mfr_deg >= 2;
-    println!("  Verdict: {} (degree ≥ 2  - confirms non-linearity from multiplication)\n",
+    println!("  Verdict: {} (degree ≥ 2, confirms non-linearity from multiplication)\n",
         if mfr_deg_pass { "PASS ✅" } else { "FAIL ❌" });
     if !mfr_deg_pass { all_pass = false; }
 
@@ -661,7 +665,7 @@ fn main() {
     println!("  data-dependent rotation acts as a multiplexer on bits of degree > 1,");
     println!("  causing rapid degree multiplication.");
     let quintet_deg_pass = quintet_deg >= 4;
-    println!("  Verdict: {} (degree ≥ 4  - significant non-linear depth)\n",
+    println!("  Verdict: {} (degree ≥ 4, significant non-linear depth)\n",
         if quintet_deg_pass { "PASS ✅" } else { "FAIL ❌" });
     if !quintet_deg_pass { all_pass = false; }
 
@@ -676,13 +680,13 @@ fn main() {
     }
     // After 2 rounds (30 quintet operations), degree should exceed our test
     // capacity (22), meaning algebraic attacks face degree-22+ equations
-    // over a 1600-bit state  - computationally infeasible to linearize.
+    // over a 1600-bit state, computationally infeasible to linearize.
     let two_round_deg = degree_growth.iter()
         .find(|&&(r, _)| r == 2)
         .map(|&(_, d)| d)
         .unwrap_or(0);
     let degree_growth_pass = two_round_deg >= 10;
-    println!("  Verdict: {} (2-round degree ≥ 10  - rapid non-linear growth)\n",
+    println!("  Verdict: {} (2-round degree ≥ 10, rapid non-linear growth)\n",
         if degree_growth_pass { "PASS ✅" } else { "FAIL ❌" });
     if !degree_growth_pass { all_pass = false; }
 
@@ -713,7 +717,7 @@ fn main() {
         println!("  Algebraic degree grows rapidly through rounds, exceeding");
         println!("  the test limit (22) within a few rounds. This means");
         println!("  algebraic attacks face systems of degree-22+ equations");
-        println!("  over a 1600-bit state  - computationally infeasible.");
+        println!("  over a 1600-bit state, computationally infeasible.");
     }
 
     println!();

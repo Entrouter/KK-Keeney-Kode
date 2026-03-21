@@ -1,5 +1,9 @@
-// Copyright (c) 2026 John Keeney. MIT License.
-// See LICENSE file in the project root for full license information.
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
 
 //! Formal Linear Approximation Table (LAT) Analysis
 //!
@@ -25,7 +29,7 @@
 use std::time::Instant;
 
 // ─────────────────────────────────────────────────────────────────
-//  Reduced-width operations (rotation omitted  - LP is invariant
+//  Reduced-width operations (rotation omitted, LP is invariant
 //  under output rotation; rotating output just permutes mask bits)
 // ─────────────────────────────────────────────────────────────────
 
@@ -451,7 +455,7 @@ fn test4_ddr16_per_bit() -> Vec<f64> {
 }
 
 // ═════════════════════════════════════════════════════════════════
-//  Test 5: Scaling Law  - Per-Bit MLP + DDR Scaling
+//  Test 5: Scaling Law, Per-Bit MLP + DDR Scaling
 // ═════════════════════════════════════════════════════════════════
 
 fn test5_scaling(mfr8: &[f64; 8], mfr16: &[f64], ddr16_bits: &[f64]) -> Vec<f64> {
@@ -482,7 +486,7 @@ fn test5_scaling(mfr8: &[f64; 8], mfr16: &[f64], ddr16_bits: &[f64]) -> Vec<f64>
     println!("\n  ┌─────────────────────────────────────────────────────────┐");
     println!("  │  LSB LINEAR PHENOMENON (analog of MSB Differential)     │");
     println!("  │                                                         │");
-    println!("  │  LP(bit k) = 2^(-2k)   - INDEPENDENT of word size       │");
+    println!("  │  LP(bit k) = 2^(-2k), INDEPENDENT of word size       │");
     println!("  │  All 8 bit positions have slope ≈ 0.000                 │");
     println!("  │                                                         │");
     println!("  │  bit 0: LP = 1.0 (universal, like MSB MDP=1 in DDT)    │");
@@ -505,9 +509,9 @@ fn test5_scaling(mfr8: &[f64; 8], mfr16: &[f64], ddr16_bits: &[f64]) -> Vec<f64>
     println!("    Formula: LP = 1/n² (rotation spreads single bit across n positions)");
 
     println!("\n  KEY FINDINGS:");
-    println!("    MFR LP(bit k) = 2^(-2k)  - word-size independent");
+    println!("    MFR LP(bit k) = 2^(-2k), word-size independent");
     println!("    {}/8 bit positions have slope ≈ 0.000", near_zero_slopes);
-    println!("    DDR LP = 1/n²  - decreases with word size");
+    println!("    DDR LP = 1/n², decreases with word size");
     println!("    At 64-bit: DDR single-bit LP = 2^-12.00");
 
     predicted
@@ -572,7 +576,7 @@ fn test6_64bit_sampled() -> bool {
     println!("\n  Low bits (0-47): {}",
         if all_noise { "all at noise floor ✅" } else { "BIAS DETECTED ❌" });
     println!("  Note: LP=1 occurs only at β = bit_k | bit_{{k+32}},");
-    println!("  not at generic β  - confirming narrow vulnerability.");
+    println!("  not at generic β, confirming narrow vulnerability.");
 
     all_noise
 }
@@ -586,7 +590,7 @@ fn test7_formal_bound(pred64: &[f64], ddr16_bits: &[f64]) -> bool {
 
     // MFR analysis
     println!("  MFR operational MLP at 64-bit (from scaling law):");
-    println!("    bit 0 (LSB):   LP=1.0 (universal  - like MSB MDP=1 in DDT)");
+    println!("    bit 0 (LSB):   LP=1.0 (universal, like MSB MDP=1 in DDT)");
     println!("    bit 1:         LP=2^-2.0");
     println!("    bit k:         LP=2^(-2k)");
 
@@ -605,7 +609,7 @@ fn test7_formal_bound(pred64: &[f64], ddr16_bits: &[f64]) -> bool {
     println!("    Total MFR operations:   960");
     println!("    Total DDR operations:   480");
 
-    // Activity analysis  - same diffusion argument as DDT
+    // Activity analysis, same diffusion argument as DDT
     let active_quintets = 212.0; // 424 active MFR / 2 per quintet
     let active_ddr = active_quintets;
     let active_mfr = active_quintets * 2.0;
@@ -638,26 +642,26 @@ fn test7_formal_bound(pred64: &[f64], ddr16_bits: &[f64]) -> bool {
     println!("  ┌──────────────────────────────────────────────────────────────┐");
     println!("  │  FORMAL LINEAR TRAIL PROBABILITY BOUNDS                      │");
     println!("  │                                                              │");
-    println!("  │  Bound A  - DDR-only (assume all MFR LP=1):                  │");
+    println!("  │  Bound A, DDR-only (assume all MFR LP=1):                  │");
     println!("  │    Per DDR: 2^{:.1}, Active: ≥{:.0}                         │",
         ddr_lp_64_log, active_ddr);
     println!("  │    Trail ≤ (2^{:.1})^{:.0} = 2^{:.0}                       │",
         ddr_lp_64_log, active_ddr, ddr_trail);
     println!("  │    Margin: {:.0} bits above 2^-800                           │", ddr_margin);
     println!("  │                                                              │");
-    println!("  │  Bound B  - MFR bit-1 only (exclude LSB, ignore DDR):        │");
+    println!("  │  Bound B, MFR bit-1 only (exclude LSB, ignore DDR):        │");
     println!("  │    Per MFR: 2^-2, Active: ≥{:.0}                            │", active_mfr);
     println!("  │    Trail ≤ 2^{:.0}                                           │", mfr_bit1_trail);
     println!("  │    Margin: {:.0} bits                                        │", mfr_bit1_margin);
     println!("  │                                                              │");
-    println!("  │  Bound C  - Combined (MFR bit-1 + DDR per quintet):          │");
+    println!("  │  Bound C, Combined (MFR bit-1 + DDR per quintet):          │");
     println!("  │    Per quintet: 2^(-4) × 2^(-12) = 2^-16                    │");
     println!("  │    Trail ≤ (2^-16)^{:.0} = 2^{:.0}                         │",
         active_quintets, combined_trail);
     println!("  │    Margin: {:.0} bits                                        │", combined_margin);
     println!("  │                                                              │");
     if ddr_trail < -800.0 {
-        println!("  │  ✅ SECURE  - DDR alone provides {:.0}-bit margin             │", ddr_margin);
+        println!("  │  ✅ SECURE, DDR alone provides {:.0}-bit margin             │", ddr_margin);
     } else {
         println!("  │  ❌ INSUFFICIENT margin                                      │");
     }
@@ -699,7 +703,7 @@ fn main() {
     let t1 = scaling_match >= 6 && lsb_confirmed;
     println!("\n  LSB PHENOMENON: bit-0 LP = 1.0 (universal, like MSB MDP=1 in DDT)");
     println!("  Per-bit scaling: {}/7 bits match LP(k) = 2^(-2k)", scaling_match);
-    println!("\n  RESULT: {}  - LP(k)=2^(-2k) verified, LSB LP=1 {}\n",
+    println!("\n  RESULT: {}, LP(k)=2^(-2k) verified, LSB LP=1 {}\n",
         if t1 { "PASS ✅" } else { "FAIL ❌" },
         if lsb_confirmed { "confirmed" } else { "UNEXPECTED" });
     if t1 { pass += 1; } else { fail += 1; }
@@ -710,7 +714,7 @@ fn main() {
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     let (_db0_lp, da0_lp) = test2_ddr8_lat();
     let t2 = da0_lp < 1.0;
-    println!("\n  RESULT: {}  - DDR α_a=0 MLP=2^{:.2} (rotation-only has zero bias)\n",
+    println!("\n  RESULT: {}, DDR α_a=0 MLP=2^{:.2} (rotation-only has zero bias)\n",
         if t2 { "PASS ✅" } else { "FAIL ❌" }, da0_lp.log2());
     if t2 { pass += 1; } else { fail += 1; }
 
@@ -727,7 +731,7 @@ fn main() {
     }
     let t3 = match16 >= 7;
     println!("\n  16-bit confirms: {}/8 bits match LP(k) = 2^(-2k) (word-size independent)", match16);
-    println!("  RESULT: {}  - scaling law verified at 16-bit\n",
+    println!("  RESULT: {}, scaling law verified at 16-bit\n",
         if t3 { "PASS ✅" } else { "FAIL ❌" });
     if t3 { pass += 1; } else { fail += 1; }
 
@@ -738,7 +742,7 @@ fn main() {
     let ddr16_bits = test4_ddr16_per_bit();
     // DDR 16-bit LP should be 1/16² = 2^-8 uniformly
     let t4 = ddr16_bits[0] < 1.0;
-    println!("\n  RESULT: {}  - DDR 16-bit LP=2^{:.2} (expected 2^-8.00 = 1/n²)\n",
+    println!("\n  RESULT: {}, DDR 16-bit LP=2^{:.2} (expected 2^-8.00 = 1/n²)\n",
         if t4 { "PASS ✅" } else { "FAIL ❌" }, ddr16_bits[0].log2());
     if t4 { pass += 1; } else { fail += 1; }
 
@@ -753,7 +757,7 @@ fn main() {
         (p - expected).abs() < 0.5
     });
     let t5 = slopes_ok;
-    println!("\n  RESULT: {}  - MFR LP word-size independent, DDR LP = 1/n²\n",
+    println!("\n  RESULT: {}, MFR LP word-size independent, DDR LP = 1/n²\n",
         if t5 { "PASS ✅" } else { "FAIL ❌" });
     if t5 { pass += 1; } else { fail += 1; }
 

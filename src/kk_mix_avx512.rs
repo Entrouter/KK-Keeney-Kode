@@ -1,19 +1,23 @@
-// Copyright (c) 2026 John Keeney. MIT License.
-// See LICENSE file in the project root for full license information.
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
 
 //! AVX-512 horizontal-vectorized KK permutation kernel.
 //!
 //! Runs **8 independent sponge states simultaneously** using 512-bit SIMD.
 //! Each `__m512i` register holds the same word index from 8 different states.
 //!
-//! Same math as scalar `kk_mix.rs`  - same security, ~5-6× fewer clock cycles
+//! Same math as scalar `kk_mix.rs`, same security, ~5-6× fewer clock cycles
 //! on the permutation because:
 //!   - DDR (6 conditional rotations in scalar) → ONE `VPROLVQ` instruction
 //!   - MFR multiplication → `VPMULLQ` (8 × 64-bit multiplies in one op)
 //!
 //! Requires: AVX-512F + AVX-512DQ (Ice Lake+ / Zen 4+).
 //! All functions are `#[target_feature(enable = "avx512f,avx512dq")]`
-//! and `unsafe`  - the caller must verify CPU support at runtime via
+//! and `unsafe`, the caller must verify CPU support at runtime via
 //! `is_x86_feature_detected!`.
 //!
 //! J.A. Keeney, Australia, 2026
@@ -100,7 +104,7 @@ pub(crate) unsafe fn store_8_states(packed: &KkState8) -> [KkState; 8] {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  MFR ×8  - Multiply-Fold-Rotate, 8 lanes
+//  MFR ×8, Multiply-Fold-Rotate, 8 lanes
 // ─────────────────────────────────────────────────────────────────
 
 /// Vectorized MFR: `a ×₆₄ (b | 1)`, fold, rotate left by `rot`.
@@ -123,7 +127,7 @@ unsafe fn mfr_x8(a: __m512i, b: __m512i, rot: u32) -> __m512i {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  DDR ×8  - Data-Dependent Rotation, 8 lanes
+//  DDR ×8, Data-Dependent Rotation, 8 lanes
 // ─────────────────────────────────────────────────────────────────
 
 /// Vectorized DDR: rotate each lane of `a` left by (corresponding lane of `b` & 63).
@@ -178,7 +182,7 @@ unsafe fn quintet_round_x8(
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  KK Permutation ×8  - full permutation on 8 states in parallel
+//  KK Permutation ×8, full permutation on 8 states in parallel
 // ─────────────────────────────────────────────────────────────────
 
 /// Apply the KK permutation to 8 states simultaneously.

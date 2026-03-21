@@ -1,7 +1,11 @@
-// Copyright (c) 2026 John Keeney. MIT License.
-// See LICENSE file in the project root for full license information.
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
 
-//! KK  - Keeney Kode: Basic Usage Example
+//! KK, Keeney Kode: Basic Usage Example
 //!
 //! Demonstrates the core KK primitive:
 //!   - Encoding: symbol values become functions of the universe
@@ -10,7 +14,7 @@
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════╗");
-    println!("║  KK  - Keeney Kode                                      ║");
+    println!("║  KK, Keeney Kode                                      ║");
     println!("║  A novel cryptographic primitive                        ║");
     println!("║  J.A. Keeney, Australia, 2026                    ║");
     println!("╚══════════════════════════════════════════════════════════╝");
@@ -84,6 +88,6 @@ fn main() {
 
     println!("════════════════════════════════════════════════════════════");
     println!("  KK: The language the message was written in");
-    println!("  only existed for one cosmic instant  - and is now gone.");
+    println!("  only existed for one cosmic instant, and is now gone.");
     println!("════════════════════════════════════════════════════════════");
 }

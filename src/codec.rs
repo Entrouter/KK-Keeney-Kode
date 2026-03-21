@@ -1,7 +1,11 @@
-// Copyright (c) 2026 John Keeney. MIT License.
-// See LICENSE file in the project root for full license information.
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
 
-//! KK Codec  - The core encoding/decoding primitive.
+//! KK Codec, The core encoding/decoding primitive.
 //!
 //! This is where the fundamental KK operation happens:
 //!
@@ -12,7 +16,7 @@
 //!
 //! The same symbol encoded at two different moments produces two
 //! cryptographically unrelated values, because the entropy snapshot ε
-//! is different  - that moment is gone, unrepeatable, unrecoverable.
+//! is different, that moment is gone, unrepeatable, unrecoverable.
 //!
 //! ## Encoding Flow
 //!
@@ -32,7 +36,7 @@
 //! → plaintext
 //! ```
 //!
-//! All key derivation uses the novel KK-Sponge-KDF  - no HKDF, no SHA-256.
+//! All key derivation uses the novel KK-Sponge-KDF, no HKDF, no SHA-256.
 
 use rayon::prelude::*;
 use zeroize::Zeroize;
@@ -57,11 +61,11 @@ const CHUNK_SIZE: usize = 4096;
 ///   - Temporal commitment (proves integrity of ε + ciphertext binding)
 #[derive(Clone)]
 pub struct KkPacket {
-    /// The encoded bytes  - symbol values transmuted by entropy
+    /// The encoded bytes, symbol values transmuted by entropy
     pub ciphertext: Vec<u8>,
-    /// The entropy snapshot  - the captured moment
+    /// The entropy snapshot, the captured moment
     pub entropy_snapshot: EntropySnapshot,
-    /// Temporal commitment  - binds ciphertext to its entropic moment
+    /// Temporal commitment, binds ciphertext to its entropic moment
     pub commitment: TemporalCommitment,
 }
 
@@ -113,14 +117,14 @@ impl KkPacket {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  Split-channel types  - ε travels separately from ciphertext
+//  Split-channel types, ε travels separately from ciphertext
 // ─────────────────────────────────────────────────────────────────
 
 /// A sealed message: ciphertext + integrity commitment, but NO entropy.
 ///
 /// This is what travels on the public channel. Without the corresponding
 /// `EntropySnapshot` (which must arrive on a separate, private channel),
-/// the attacker cannot even begin brute-forcing  - ε is the HKDF salt,
+/// the attacker cannot even begin brute-forcing, ε is the HKDF salt,
 /// and without it every passphrase guess is meaningless.
 ///
 /// ```text
@@ -129,9 +133,9 @@ impl KkPacket {
 /// ```
 #[derive(Clone)]
 pub struct KkSealedMessage {
-    /// The encoded bytes  - symbol values transmuted by entropy
+    /// The encoded bytes, symbol values transmuted by entropy
     pub ciphertext: Vec<u8>,
-    /// Temporal commitment  - binds ciphertext to its entropic moment
+    /// Temporal commitment, binds ciphertext to its entropic moment
     pub commitment: TemporalCommitment,
 }
 
@@ -183,7 +187,7 @@ impl KkSealedMessage {
 /// This is the fundamental KK operation:
 ///   1. Capture entropy from the universe at this exact moment
 ///   2. For each symbol, derive a unique key from (secret, ε, position)
-///   3. XOR the symbol with its key  - the symbol's value is now
+///   3. XOR the symbol with its key, the symbol's value is now
 ///      a function of the universe at the instant it was born
 ///   4. Create a temporal commitment binding everything together
 ///
@@ -193,7 +197,7 @@ pub fn encode(shared_secret: &[u8], plaintext: &[u8]) -> Result<KkPacket> {
         return Err(KkError::EmptyInput);
     }
 
-    // Step 1: Capture the entropic moment  - this instant will never exist again
+    // Step 1: Capture the entropic moment, this instant will never exist again
     let snapshot = entropy::gather()?;
 
     // Step 2-3: Derive per-symbol keys and encode
@@ -218,7 +222,7 @@ pub fn encode(shared_secret: &[u8], plaintext: &[u8]) -> Result<KkPacket> {
 ///
 /// Same universe, same moment reference, same symbol values.
 pub fn decode(shared_secret: &[u8], packet: &KkPacket) -> Result<Vec<u8>> {
-    // Step 1: Verify temporal commitment  - is this packet intact?
+    // Step 1: Verify temporal commitment, is this packet intact?
     temporal::verify(
         shared_secret,
         &packet.entropy_snapshot,
@@ -232,17 +236,17 @@ pub fn decode(shared_secret: &[u8], packet: &KkPacket) -> Result<Vec<u8>> {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  Split-channel API  - ε never touches the ciphertext wire
+//  Split-channel API, ε never touches the ciphertext wire
 // ─────────────────────────────────────────────────────────────────
 
 /// Encode plaintext and split the result across two channels.
 ///
 /// Returns `(KkSealedMessage, EntropySnapshot)`:
-///   - **Channel 1 (public):** `KkSealedMessage`  - ciphertext + HMAC
-///   - **Channel 2 (private):** `EntropySnapshot`  - the ε key
+///   - **Channel 1 (public):** `KkSealedMessage`, ciphertext + HMAC
+///   - **Channel 2 (private):** `EntropySnapshot`, the ε key
 ///
 /// An attacker intercepting only Channel 1 sees ciphertext + HMAC but
-/// has no ε. Without ε they cannot derive any key material  - every
+/// has no ε. Without ε they cannot derive any key material, every
 /// passphrase guess is meaningless because the HKDF salt is missing.
 ///
 /// The ε is physically non-reconstructible (proved in examples/proof.rs).
@@ -275,8 +279,8 @@ pub fn encode_split(shared_secret: &[u8], plaintext: &[u8]) -> Result<(KkSealedM
 ///
 /// The receiver needs:
 ///   - The shared secret (what both parties know)
-///   - The `KkSealedMessage` (from Channel 1  - the public wire)
-///   - The `EntropySnapshot` (from Channel 2  - the private channel)
+///   - The `KkSealedMessage` (from Channel 1, the public wire)
+///   - The `EntropySnapshot` (from Channel 2, the private channel)
 ///
 /// All three factors must be present. Missing any one = no decryption.
 pub fn decode_split(
@@ -297,7 +301,7 @@ pub fn decode_split(
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  Bound-commitment API  - challenge-response temporal proof
+//  Bound-commitment API, challenge-response temporal proof
 // ─────────────────────────────────────────────────────────────────
 
 /// A KK packet with a full temporal proof (challenge-response).
@@ -316,9 +320,9 @@ pub fn decode_split(
 pub struct KkBoundPacket {
     /// The encoded bytes
     pub ciphertext: Vec<u8>,
-    /// The entropy snapshot  - the captured moment
+    /// The entropy snapshot, the captured moment
     pub entropy_snapshot: EntropySnapshot,
-    /// Temporal proof  - freshness + recency + integrity + ordering
+    /// Temporal proof, freshness + recency + integrity + ordering
     pub proof: TemporalProof,
 }
 
@@ -379,10 +383,10 @@ impl KkBoundPacket {
 /// ```
 ///
 /// # Arguments
-/// - `shared_secret`  - the pre-shared key
-/// - `plaintext`  - data to encode
-/// - `verifier_nonce`  - challenge nonce from the verifier
-/// - `prev_mac`  - MAC of the previous proof in the chain, or
+/// - `shared_secret`, the pre-shared key
+/// - `plaintext`, data to encode
+/// - `verifier_nonce`, challenge nonce from the verifier
+/// - `prev_mac`, MAC of the previous proof in the chain, or
 ///   [`temporal::GENESIS_MAC`] for the first message
 pub fn encode_bound(
     shared_secret: &[u8],
@@ -421,9 +425,9 @@ pub fn encode_bound(
 /// ```
 ///
 /// Verification checks (in order):
-/// 1. **Nonce**  - proof contains the nonce the verifier issued
-/// 2. **Epoch**  - `|now - ε.timestamp| ≤ max_drift`
-/// 3. **MAC**  - entropy-derived rotations, constant-time compare
+/// 1. **Nonce**, proof contains the nonce the verifier issued
+/// 2. **Epoch**, `|now - ε.timestamp| ≤ max_drift`
+/// 3. **MAC**, entropy-derived rotations, constant-time compare
 ///
 /// The caller is responsible for:
 /// - Tracking nonces and rejecting reuse
@@ -467,7 +471,7 @@ fn xor_with_keystream(
             let in_base = base_chunk * CHUNK_SIZE;
 
             if out_batch.len() == batch_bytes {
-                // Full batch of 8 chunks  - use vectorized KDF
+                // Full batch of 8 chunks, use vectorized KDF
                 let mut keys = kdf::derive_symbol_key_batch(
                     shared_secret,
                     snapshot,
@@ -484,7 +488,7 @@ fn xor_with_keystream(
                     key.zeroize();
                 }
             } else {
-                // Partial tail batch  - scalar per-chunk
+                // Partial tail batch, scalar per-chunk
                 let chunks_in_batch =
                     out_batch.len().div_ceil(CHUNK_SIZE);
 

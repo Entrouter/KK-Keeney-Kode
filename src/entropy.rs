@@ -1,11 +1,15 @@
-// Copyright (c) 2026 John Keeney. MIT License.
-// See LICENSE file in the project root for full license information.
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
 
 //! Multi-source entropy collection for KK.
 //!
 //! Gathers entropy from multiple independent sources and mixes them
 //! into a single high-quality entropy snapshot. This snapshot represents
-//! the "universal entropy at the moment of creation"  - the ε in KK(S) = S^ε.
+//! the "universal entropy at the moment of creation", the ε in KK(S) = S^ε.
 //!
 //! Sources:
 //!   1. OS CSPRNG (CryptGenRandom / getrandom / urandom)
@@ -13,7 +17,7 @@
 //!   3. CPU timestamp counter (rdtsc / equivalent)
 //!   4. Thread scheduling jitter (measured timing noise)
 //!
-//! All mixing is done with KK-Mix  - no SHA-256, no HKDF.
+//! All mixing is done with KK-Mix, no SHA-256, no HKDF.
 
 use rand::RngCore;
 use zeroize::Zeroize;
@@ -24,10 +28,10 @@ use crate::kk_mix;
 /// Size of the final entropy snapshot in bytes (256 bits).
 pub const ENTROPY_SNAPSHOT_SIZE: usize = 32;
 
-/// A captured moment of universal entropy  - unrepeatable, unrecoverable.
+/// A captured moment of universal entropy, unrepeatable, unrecoverable.
 #[derive(Clone)]
 pub struct EntropySnapshot {
-    /// The mixed entropy bytes  - the ε in KK(S) = S^ε
+    /// The mixed entropy bytes, the ε in KK(S) = S^ε
     pub bytes: [u8; ENTROPY_SNAPSHOT_SIZE],
     /// High-resolution timestamp at moment of capture (nanos since epoch)
     pub timestamp_nanos: u128,
@@ -90,7 +94,7 @@ fn source_timestamp() -> (u128, [u8; 16]) {
 /// Collect entropy from CPU timestamp counter / performance counter.
 #[cfg(target_arch = "x86_64")]
 fn source_cpu_counter() -> [u8; 8] {
-    // Read the hardware TSC directly  - this is the real rdtsc value,
+    // Read the hardware TSC directly, this is the real rdtsc value,
     // not a library abstraction that discards the interesting bits.
     let raw: u64 = unsafe { core::arch::x86_64::_rdtsc() };
     // Also fold in the address of a stack variable (ASLR noise)

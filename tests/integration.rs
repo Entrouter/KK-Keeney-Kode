@@ -1,7 +1,11 @@
-// Copyright (c) 2026 John Keeney. MIT License.
-// See LICENSE file in the project root for full license information.
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
 
-//! Integration tests for KK  - Keeney Kode
+//! Integration tests for KK, Keeney Kode
 //!
 //! These tests demonstrate and verify the core security properties
 //! claimed by the KK primitive.
@@ -54,7 +58,7 @@ fn roundtrip_unicode() {
 ///
 /// Note: for a 1-byte message, the ciphertext is 1 byte (256 values),
 /// so collisions are expected by the birthday bound. The true uniqueness
-/// guarantee is in the entropy snapshot  - each encoding captures an
+/// guarantee is in the entropy snapshot, each encoding captures an
 /// unrepeatable cosmic moment. We test with a longer message to
 /// demonstrate ciphertext uniqueness where the space is large enough.
 #[test]
@@ -71,7 +75,7 @@ fn temporal_uniqueness_single_byte() {
         for j in (i + 1)..snapshots.len() {
             assert_ne!(
                 snapshots[i], snapshots[j],
-                "Entropy snapshots at T_{i} and T_{j} must differ  - each moment is unique"
+                "Entropy snapshots at T_{i} and T_{j} must differ, each moment is unique"
             );
         }
     }
@@ -134,7 +138,7 @@ fn kerckhoffs_principle() {
 
     // Attacker has: ciphertext, entropy snapshot, commitment, full algorithm
     // Attacker does NOT have: shared secret
-    // Attacker tries various keys  - all must fail
+    // Attacker tries various keys, all must fail
     let attacker_guesses: &[&[u8]] = &[
         b"wrong-key",
         b"the-real-secrets", // Close but wrong
@@ -150,7 +154,7 @@ fn kerckhoffs_principle() {
 
 /// FORWARD SYMBOL SECRECY:
 /// Past symbol values cannot be derived from current state.
-/// Each encoding creates independent entropy  - knowing one packet
+/// Each encoding creates independent entropy, knowing one packet
 /// reveals nothing about any other packet.
 #[test]
 fn forward_symbol_secrecy() {
@@ -237,7 +241,7 @@ fn per_position_independence() {
         packet.ciphertext.iter().copied().collect();
 
     // With 256 bytes of ciphertext derived from independent keys,
-    // we expect high entropy  - many distinct byte values
+    // we expect high entropy, many distinct byte values
     assert!(
         unique_bytes.len() > 50,
         "Ciphertext of repeated plaintext must show high entropy (got {} unique bytes)",
@@ -254,8 +258,8 @@ fn batch_boundary_roundtrips() {
     let secret = b"batch-boundary-test";
     // pattern: position-dependent bytes so any lane swap is detectable
     for &size in &[
-        1,              // single byte  - scalar only
-        4096,           // 1 full chunk  - scalar tail
+        1,              // single byte, scalar only
+        4096,           // 1 full chunk, scalar tail
         4097,           // 1 full chunk + 1 byte
         32768,          // exactly 1 full batch of 8
         32769,          // 1 full batch + 1 byte tail

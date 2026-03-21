@@ -1,5 +1,9 @@
-// Copyright (c) 2026 John Keeney. MIT License.
-// See LICENSE file in the project root for full license information.
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
 
 //! Mathematical Proof Sketch: Universal Bit-Boundary Phenomena in MFR
 //!
@@ -553,7 +557,7 @@ fn corollary_security() {
     println!("  │  The DDR operation in every quintet ensures floor costs.   │");
     println!("  │  The complementary duality means a trail cannot be weak    │");
     println!("  │  in both differential AND linear at the same bit.          │");
-    println!("  │  Minimum margins exceed 1700 bits  - far above 2^-800.     │");
+    println!("  │  Minimum margins exceed 1700 bits, far above 2^-800.     │");
     println!("  └────────────────────────────────────────────────────────────┘");
 }
 

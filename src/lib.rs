@@ -1,7 +1,11 @@
-// Copyright (c) 2026 John Keeney. MIT License.
-// See LICENSE file in the project root for full license information.
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
 
-//! # KK  - Keeney Kode
+//! # KK, Keeney Kode
 //!
 //! A novel cryptographic primitive where symbol values are temporal
 //! functions of universal entropy.
@@ -46,7 +50,7 @@
 //!
 //! Every cryptographic operation is built from a single novel primitive:
 //! the KK permutation (Multiply-Fold-Rotate sponge construction).
-//! No SHA-256, no HKDF, no HMAC  - 100% original KK.
+//! No SHA-256, no HKDF, no HMAC, 100% original KK.
 //!
 //! ## Security Model
 //!
@@ -73,7 +77,7 @@
 //! buffer is zeroized on error paths to prevent partial plaintext leaks.
 //!
 //! **Limitations:**
-//! - KK is a novel, un-audited primitive  - it has **not** been reviewed
+//! - KK is a novel, un-audited primitive, it has **not** been reviewed
 //!   by third-party cryptographers. Do not use for production security.
 //! - No forward secrecy: compromise of the shared secret exposes all
 //!   past and future messages.

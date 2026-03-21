@@ -1,5 +1,9 @@
-// Copyright (c) 2026 John Keeney. MIT License.
-// See LICENSE file in the project root for full license information.
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
 
 //! Dudect-style timing leak detection for KK-Crypto.
 //!
@@ -83,7 +87,7 @@ impl WelchT {
     }
 }
 
-/// Simple xorshift64 PRNG  - deterministic, fast, no system calls.
+/// Simple xorshift64 PRNG, deterministic, fast, no system calls.
 /// We don't need cryptographic randomness for the test harness.
 struct Xorshift64(u64);
 
@@ -173,7 +177,7 @@ fn test_mac_verify_ct() -> (f64, &'static str) {
         timings.push((class, t));
     }
 
-    // Crop outliers (top 5%  - OS noise)
+    // Crop outliers (top 5%, OS noise)
     let mut all_times: Vec<f64> = timings.iter().map(|(_, t)| *t).collect();
     let crop_threshold = percentile(&mut all_times, 0.95);
 
@@ -251,7 +255,7 @@ fn test_mac_key_independence() -> (f64, &'static str) {
 //  Test 3: MAC computation timing doesn't depend on message
 //  Class 0: MAC with all-zero message
 //  Class 1: MAC with all-0xFF message
-//  Same length  - only content varies.
+//  Same length, only content varies.
 // ─────────────────────────────────────────────────────────────
 
 fn test_mac_message_independence() -> (f64, &'static str) {
@@ -444,7 +448,7 @@ fn main() {
 
     println!();
     if all_pass {
-        println!("  Result: ALL TESTS PASSED  - no timing leaks detected.");
+        println!("  Result: ALL TESTS PASSED, no timing leaks detected.");
         println!("  (with {} samples per class, threshold |t| < {:.1})", SAMPLES, THRESHOLD);
     } else {
         println!("  Result: TIMING LEAK DETECTED in one or more tests.");

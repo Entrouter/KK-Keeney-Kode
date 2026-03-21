@@ -1,5 +1,9 @@
-// Copyright (c) 2026 John Keeney. MIT License.
-// See LICENSE file in the project root for full license information.
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
 
 //! Split-Channel KK Demo
 //!
@@ -50,7 +54,7 @@ fn main() {
     println!();
     bold("  ╔══════════════════════════════════════════════════════════╗\n");
     bold("  ║");
-    color(Color::Cyan, "        KK SPLIT-CHANNEL DEMO  - Two Paths, One Truth");
+    color(Color::Cyan, "        KK SPLIT-CHANNEL DEMO, Two Paths, One Truth");
     bold("      ║\n");
     bold("  ╚══════════════════════════════════════════════════════════╝\n");
 
@@ -81,8 +85,8 @@ fn main() {
     color(Color::Magenta, "EntropySnapshot");
     println!();
 
-    // ─── Step 3: Channel 1  - Public wire ───
-    header("CHANNEL 1  - Public Wire (ciphertext + HMAC)");
+    // ─── Step 3: Channel 1, Public wire ───
+    header("CHANNEL 1, Public Wire (ciphertext + HMAC)");
     print!("    Type: ");
     color(Color::Cyan, "KkSealedMessage");
     println!();
@@ -95,8 +99,8 @@ fn main() {
     print!("    ");
     hex_dump(&sealed_bytes, 96);
 
-    // ─── Step 4: Channel 2  - Private path ───
-    header("CHANNEL 2  - Private Path (ε  - the moment)");
+    // ─── Step 4: Channel 2, Private path ───
+    header("CHANNEL 2, Private Path (ε, the moment)");
     print!("    Type: ");
     color(Color::Magenta, "EntropySnapshot");
     println!();
@@ -134,7 +138,7 @@ fn main() {
     color(Color::Red, "Every passphrase guess produces a different salt-less");
     println!();
     print!("    ");
-    color(Color::Red, "derivation  - there is nothing to verify against.");
+    color(Color::Red, "derivation, there is nothing to verify against.");
     println!();
     print!("    ");
     color(Color::Red, "Brute force is meaningless.");
@@ -204,10 +208,10 @@ fn main() {
     // ─── Summary ───
     header("SECURITY SUMMARY");
     let items = [
-        ("Channel 1 alone (ciphertext + HMAC)", Color::Red, "UNBREAKABLE  - no salt for key derivation"),
-        ("Channel 2 alone (ε)", Color::Red, "USELESS  - just 48 bytes of entropy, no ciphertext"),
-        ("Wrong ε + ciphertext", Color::Red, "REJECTED  - HMAC verification fails"),
-        ("Both channels + secret", Color::Green, "DECRYPTS  - all three factors present"),
+        ("Channel 1 alone (ciphertext + HMAC)", Color::Red, "UNBREAKABLE, no salt for key derivation"),
+        ("Channel 2 alone (ε)", Color::Red, "USELESS, just 48 bytes of entropy, no ciphertext"),
+        ("Wrong ε + ciphertext", Color::Red, "REJECTED, HMAC verification fails"),
+        ("Both channels + secret", Color::Green, "DECRYPTS, all three factors present"),
     ];
 
     for (label, c, desc) in &items {
@@ -220,7 +224,7 @@ fn main() {
 
     println!();
     print!("  ");
-    color(Color::DarkGrey, "KK Split-Channel  - J.A. Keeney, Australia, 2026");
+    color(Color::DarkGrey, "KK Split-Channel, J.A. Keeney, Australia, 2026");
     println!();
     println!();
 }

@@ -1,5 +1,9 @@
-// Copyright (c) 2026 John Keeney. MIT License.
-// See LICENSE file in the project root for full license information.
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
 
 //! ═══════════════════════════════════════════════════════════════════
 //!  PROOF: ε IS NON-RECONSTRUCTIBLE
@@ -18,7 +22,7 @@ fn main() {
     println!("  ║                                                               ║");
     println!("  ║   Decryption without the entropic moment is not hard.         ║");
     println!("  ║   It is not impractical.                                      ║");
-    println!("  ║   It is IMPOSSIBLE  - even with infinite compute.              ║");
+    println!("  ║   It is IMPOSSIBLE, even with infinite compute.              ║");
     println!("  ║                                                               ║");
     println!("  ╚═══════════════════════════════════════════════════════════════╝");
     println!();
@@ -61,7 +65,7 @@ fn main() {
     println!();
     println!("  And that K′ is consistent with SOME value of ε.");
     println!("  The attacker cannot distinguish the real P from any P′.");
-    println!("  This is PERFECT SECRECY  - not computational, INFORMATION-THEORETIC.");
+    println!("  This is PERFECT SECRECY, not computational, INFORMATION-THEORETIC.");
     println!();
 
     // Demonstrate: compute the required keystream for many candidate plaintexts
@@ -83,7 +87,7 @@ fn main() {
     println!("  ├──────────────┼─────────────────────────┼──────────┤");
 
     for &candidate in candidates {
-        // K′ = C ⊕ P′  - the keystream that WOULD produce this ciphertext
+        // K′ = C ⊕ P′, the keystream that WOULD produce this ciphertext
         let required_ks: Vec<u8> = ct.iter()
             .zip(candidate.iter())
             .map(|(c, p)| c ^ p)
@@ -166,7 +170,7 @@ fn main() {
     println!("       That nanosecond has passed. Time is irreversible.");
     println!("       ε₁.time = {} ns", snap_a.timestamp_nanos);
     println!("       ε₂.time = {} ns", snap_b.timestamp_nanos);
-    println!("       Δ        = {} ns  - even a nanosecond apart, completely different.", 
+    println!("       Δ        = {} ns, even a nanosecond apart, completely different.", 
         snap_b.timestamp_nanos.saturating_sub(snap_a.timestamp_nanos));
     println!();
     println!("  Source 3: CPU performance counter");
@@ -198,11 +202,11 @@ fn main() {
     println!();
     println!("  The entropic moment was not hidden.");
     println!("  It was not encrypted.");
-    println!("  It was DESTROYED  - by the passage of time itself.");
+    println!("  It was DESTROYED, by the passage of time itself.");
     println!();
 
     // ─────────────────────────────────────────────────────────────
-    //  STEP 4: THE SEARCH SPACE IS NOT MERELY LARGE  - IT IS UNTRAVERSABLE
+    //  STEP 4: THE SEARCH SPACE IS NOT MERELY LARGE, IT IS UNTRAVERSABLE
     // ─────────────────────────────────────────────────────────────
     section("STEP 4: THE IMPOSSIBILITY ARITHMETIC");
 
@@ -282,9 +286,9 @@ fn main() {
     println!();
 
     // ─────────────────────────────────────────────────────────────
-    //  STEP 6: UNIQUENESS PROOF  - ENCODE THE SAME THING 10 TIMES
+    //  STEP 6: UNIQUENESS PROOF, ENCODE THE SAME THING 10 TIMES
     // ─────────────────────────────────────────────────────────────
-    section("STEP 6: TEMPORAL UNIQUENESS  - THE MOMENT NEVER REPEATS");
+    section("STEP 6: TEMPORAL UNIQUENESS, THE MOMENT NEVER REPEATS");
 
     println!("  Encoding \"HELLO\" 10 times with the same secret:");
     println!();
@@ -354,12 +358,12 @@ fn main() {
     println!("  │       (keystreams are uniformly distributed)              │");
     println!("  │                                                           │");
     println!("  │    3. ε is physically destroyed at the moment of          │");
-    println!("  │       creation  - it cannot be recovered from any          │");
+    println!("  │       creation, it cannot be recovered from any          │");
     println!("  │       physical system because the state no longer         │");
     println!("  │       exists in the universe                              │");
     println!("  │                                                           │");
     println!("  │    4. Even exhaustive search over 2^256 candidates        │");
-    println!("  │       cannot verify a correct guess  - every ε produces    │");
+    println!("  │       cannot verify a correct guess, every ε produces    │");
     println!("  │       a valid-looking plaintext                           │");
     println!("  │                                                           │");
     println!("  │    5. The same message encoded twice shares ZERO          │");
@@ -372,7 +376,7 @@ fn main() {
     println!("  │  The entropic moment is gone.                             │");
     println!("  │  Forever.                                                 │");
     println!("  │                                                           │");
-    println!("  │                                        - KK(S) = S ⊕ ε    │");
+    println!("  │, KK(S) = S ⊕ ε    │");
     println!("  │                                                           │");
     println!("  └───────────────────────────────────────────────────────────┘");
     println!();

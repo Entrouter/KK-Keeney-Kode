@@ -1,10 +1,19 @@
+<!--
+Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+Licensed under the Apache License, Version 2.0 with Additional Terms.
+NO COMMERCIAL USE without prior written authorization from Entrouter.
+Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+See the LICENSE file in the project root for full license information.
+NOTICE: Removal of this header is a violation of the license.
+-->
+
 # Empirical Cryptographic Analysis of the KK Permutation
 
 **A White Paper on Seven Independent Verification Tests**
 
 **Author:** Generated for kk-crypto v0.1.0  
 **Date:** March 2026  
-**Subject:** J.A. Keeney's KK Permutation  - Empirical Security Evaluation
+**Subject:** John A Keeney - Entrouter - KK Permutation, Empirical Security Evaluation
 
 ---
 
@@ -18,13 +27,13 @@ This paper presents the results of seven independent empirical tests applied to 
 
 1. [Introduction](#1-introduction)
 2. [The KK Primitive Under Test](#2-the-kk-primitive-under-test)
-3. [Test 1  - Constant-Time Verification (dudect)](#3-test-1--constant-time-verification-dudect)
-4. [Test 2  - Strict Avalanche Criterion (SAC)](#4-test-2--strict-avalanche-criterion-sac)
-5. [Test 3  - Bit Independence Criterion (BIC)](#5-test-3--bit-independence-criterion-bic)
-6. [Test 4  - Collision Resistance](#6-test-4--collision-resistance)
-7. [Test 5  - Length Extension Resistance](#7-test-5--length-extension-resistance)
-8. [Test 6  - Statistical Randomness (χ²)](#8-test-6--statistical-randomness-χ²)
-9. [Test 7  - Known-Answer Tests (KATs)](#9-test-7--known-answer-tests-kats)
+3. [Test 1, Constant-Time Verification (dudect)](#3-test-1--constant-time-verification-dudect)
+4. [Test 2, Strict Avalanche Criterion (SAC)](#4-test-2--strict-avalanche-criterion-sac)
+5. [Test 3, Bit Independence Criterion (BIC)](#5-test-3--bit-independence-criterion-bic)
+6. [Test 4, Collision Resistance](#6-test-4--collision-resistance)
+7. [Test 5, Length Extension Resistance](#7-test-5--length-extension-resistance)
+8. [Test 6, Statistical Randomness (χ²)](#8-test-6--statistical-randomness-χ²)
+9. [Test 7, Known-Answer Tests (KATs)](#9-test-7--known-answer-tests-kats)
 10. [Combined Results](#10-combined-results)
 11. [Differential Trail Analysis](#11-differential-trail-analysis)
 12. [Linear Cryptanalysis & Algebraic Degree Analysis](#12-linear-cryptanalysis--algebraic-degree-analysis)
@@ -41,7 +50,7 @@ This paper presents the results of seven independent empirical tests applied to 
 
 Any novel cryptographic primitive must survive rigorous empirical analysis before it can be considered for practical use. While formal proofs of security (reductions to hard problems, provable resistance bounds) remain the gold standard, empirical testing serves two critical purposes:
 
-1. **It can disqualify.** A primitive that fails any of these tests is definitively broken  - no amount of formal analysis can save it.
+1. **It can disqualify.** A primitive that fails any of these tests is definitively broken, no amount of formal analysis can save it.
 2. **It builds confidence.** Passing these tests places the primitive in the same empirical class as established constructions like SHA-3 and BLAKE3.
 
 This paper documents seven tests spanning three categories:
@@ -80,18 +89,18 @@ e = MFR(e, d, rot1)
 b = b ⊕ e
 ```
 
-**MFR** (Multiply-Fold-Rotate) combines widening multiplication with folding XOR and rotation. **DDR** (Data-Dependent Rotation) rotates a word by a distance determined by its input  - a deliberate source of non-linearity.
+**MFR** (Multiply-Fold-Rotate) combines widening multiplication with folding XOR and rotation. **DDR** (Data-Dependent Rotation) rotates a word by a distance determined by its input, a deliberate source of non-linearity.
 
 The sponge construction uses the standard absorb-squeeze pattern. 384 bits of capacity are never exposed, providing a theoretical 192-bit security level against generic attacks.
 
 **Functions tested:**
-- `kk_hash(message) → [u8; 32]`  - 256-bit hash digest
-- `kk_mac(key, message) → [u8; 32]`  - keyed message authentication code
-- `kk_mac_verify(key, message, tag) → bool`  - constant-time MAC verification
+- `kk_hash(message) → [u8; 32]`, 256-bit hash digest
+- `kk_mac(key, message) → [u8; 32]`, keyed message authentication code
+- `kk_mac_verify(key, message, tag) → bool`, constant-time MAC verification
 
 ---
 
-## 3. Test 1  - Constant-Time Verification (dudect)
+## 3. Test 1, Constant-Time Verification (dudect)
 
 ### 3.1 Motivation
 
@@ -160,7 +169,7 @@ Results from four independent runs (each run = 5 tests × 100,000 samples per cl
 
 **Peak |t| across all 20 measurements: 2.28** (well below the 4.5 threshold).
 
-**Interpretation:** None of the functions under test exhibit data-dependent timing at the threshold of 100,000 samples. The permutation's DDR operation  - the most likely source of timing leaks  - shows slightly higher |t| values (1.4–2.3) than the other tests, but these remain firmly within the "no leak detected" range. Values in the 1–2 range are expected from normal measurement noise.
+**Interpretation:** None of the functions under test exhibit data-dependent timing at the threshold of 100,000 samples. The permutation's DDR operation, the most likely source of timing leaks, shows slightly higher |t| values (1.4–2.3) than the other tests, but these remain firmly within the "no leak detected" range. Values in the 1–2 range are expected from normal measurement noise.
 
 ### 3.5 Limitations
 
@@ -170,7 +179,7 @@ Results from four independent runs (each run = 5 tests × 100,000 samples per cl
 
 ---
 
-## 4. Test 2  - Strict Avalanche Criterion (SAC)
+## 4. Test 2, Strict Avalanche Criterion (SAC)
 
 ### 4.1 Motivation
 
@@ -180,7 +189,7 @@ The Strict Avalanche Criterion, introduced by Webster and Tavares (1986), is one
 
 This is a considerably stronger property than simple "avalanche" (which only requires that *at least half* the output bits change). SAC requires that the change is perfectly balanced across *every* output bit position, with no bit showing a systematic bias toward flipping or not flipping.
 
-A hash function that fails SAC has exploitable structure. For example, if flipping input bit 7 causes output bit 0 to change with probability 0.9 instead of 0.5, an attacker can infer information about the input by observing the output  - breaking the hash function's pseudorandomness guarantee.
+A hash function that fails SAC has exploitable structure. For example, if flipping input bit 7 causes output bit 0 to change with probability 0.9 instead of 0.5, an attacker can infer information about the input by observing the output, breaking the hash function's pseudorandomness guarantee.
 
 ### 4.2 Methodology
 
@@ -222,7 +231,7 @@ A mean Hamming distance of exactly 128.00 out of 256 is textbook-perfect. For re
 
 - **SHA-256** achieves approximately 127.99–128.01 on similar tests.
 - **AES (SubBytes + ShiftRows + MixColumns)** achieves SAC compliance by round 2.
-- **CRC-32** fails SAC completely  - non-cryptographic hash functions show systematic bias.
+- **CRC-32** fails SAC completely, non-cryptographic hash functions show systematic bias.
 
 The per-input-bit range of [127.6, 128.5] is remarkably tight, indicating that no input bit position has a privileged or diminished influence on the output. The output bit flip range of [49.80%, 50.19%] confirms that every output bit participates symmetrically in the diffusion process.
 
@@ -230,7 +239,7 @@ The KK permutation's 32 rounds of quintet mixing on the 5×5 grid provide 16 ful
 
 ---
 
-## 5. Test 3  - Bit Independence Criterion (BIC)
+## 5. Test 3, Bit Independence Criterion (BIC)
 
 ### 5.1 Motivation
 
@@ -240,7 +249,7 @@ The Bit Independence Criterion (BIC), also from Webster and Tavares (1986), exte
 
 SAC tells us each output bit flips with probability 0.5. BIC tells us that *knowing whether bit `i` flipped gives no information about whether bit `j` flipped.* This is measured via Pearson correlation between output bit flip vectors.
 
-If BIC fails, output bits are correlated  - flipping input bit 0 might cause output bits 7 and 23 to always flip together. This structure could be exploited in differential cryptanalysis.
+If BIC fails, output bits are correlated, flipping input bit 0 might cause output bits 7 and 23 to always flip together. This structure could be exploited in differential cryptanalysis.
 
 ### 5.2 Methodology
 
@@ -262,7 +271,7 @@ where $x_i \in \{0, 1\}$ indicates whether output bit position `i` flipped for e
 
 | Metric | Observed | Threshold | Pass? |
 |--------|----------|-----------|-------|
-| Pairs tested | **999** |  - |  - |
+| Pairs tested | **999** | - |, |
 | Maximum |r| | **0.0462** | < 0.1 | ✅ |
 | Mean |r| | **0.0117** | < 0.05 | ✅ |
 
@@ -272,11 +281,11 @@ where $x_i \in \{0, 1\}$ indicates whether output bit position `i` flipped for e
 
 The maximum correlation of 0.0462 across 999 pairs means no pair of output bits exhibits a meaningful linear relationship when an input bit is flipped. The mean of 0.0117 is consistent with the sampling noise expected from 5,000 trials (the theoretical expected |r| for independent variables with $n = 5000$ is approximately $\sqrt{1/n} \approx 0.014$, which is almost exactly what we observe).
 
-This confirms that the KK permutation's quintet-round structure (which mixes all 5 words in each round across rows, columns, and diagonals) achieves full independence between output bit positions  - there is no detectable coupling between any output bit pair.
+This confirms that the KK permutation's quintet-round structure (which mixes all 5 words in each round across rows, columns, and diagonals) achieves full independence between output bit positions, there is no detectable coupling between any output bit pair.
 
 ---
 
-## 6. Test 4  - Collision Resistance
+## 6. Test 4, Collision Resistance
 
 ### 6.1 Motivation
 
@@ -284,7 +293,7 @@ A hash function `H` is collision-resistant if it is computationally infeasible t
 
 $$2^{n/2} = 2^{128} \approx 3.4 \times 10^{38}$$
 
-Finding *any* collision in 2,000,000 inputs would indicate a catastrophic weakness  - the hash function's effective output space would need to be vastly smaller than 256 bits.
+Finding *any* collision in 2,000,000 inputs would indicate a catastrophic weakness, the hash function's effective output space would need to be vastly smaller than 256 bits.
 
 ### 6.2 Methodology
 
@@ -292,7 +301,7 @@ Finding *any* collision in 2,000,000 inputs would indicate a catastrophic weakne
 2. Store all hash outputs in a `HashSet`.
 3. Count any duplicate entries.
 
-Sequential integers are a deliberately adversarial input distribution  - they differ by only one or two bits in the low-order positions. A weak hash function might exhibit bias on nearby inputs (e.g., if the permutation doesn't fully diffuse low-order bits). This is a harder test than random inputs.
+Sequential integers are a deliberately adversarial input distribution, they differ by only one or two bits in the low-order positions. A weak hash function might exhibit bias on nearby inputs (e.g., if the permutation doesn't fully diffuse low-order bits). This is a harder test than random inputs.
 
 **Pass criterion:** Zero collisions.
 
@@ -300,9 +309,9 @@ Sequential integers are a deliberately adversarial input distribution  - they di
 
 | Metric | Observed | Expected | Pass? |
 |--------|----------|----------|-------|
-| Inputs hashed | 2,000,000 |  - |  - |
+| Inputs hashed | 2,000,000 | - |, |
 | Collisions found | **0** | 0 | ✅ |
-| Expected collisions (birthday bound) | ≈ 0 | $\frac{n^2}{2^{257}} \approx 5.9 \times 10^{-65}$ |  - |
+| Expected collisions (birthday bound) | ≈ 0 | $\frac{n^2}{2^{257}} \approx 5.9 \times 10^{-65}$ | - |
 
 **Verdict: PASS**
 
@@ -322,7 +331,7 @@ The choice of sequential integers specifically targets the absorb phase: inputs 
 
 ---
 
-## 7. Test 5  - Length Extension Resistance
+## 7. Test 5, Length Extension Resistance
 
 ### 7.1 Motivation
 
@@ -346,7 +355,7 @@ For each of 1,000 trials:
 
 1. Generate a random 256-bit message $m$ and a random 128-bit suffix $s$.
 2. Compute the true hash: $H_{\text{real}} = \text{kk\_hash}(m \| s)$.
-3. Simulate the naive length-extension attack: compute $H_{\text{attempt}} = \text{kk\_hash}(H(m) \| s)$. This treats the hash output as a "continuation state"  - exactly what works against Merkle-Damgård.
+3. Simulate the naive length-extension attack: compute $H_{\text{attempt}} = \text{kk\_hash}(H(m) \| s)$. This treats the hash output as a "continuation state", exactly what works against Merkle-Damgård.
 4. Verify that $H_{\text{real}} \neq H_{\text{attempt}}$.
 
 **Pass criterion:** 100% of attempts blocked (no accidental matches).
@@ -355,7 +364,7 @@ For each of 1,000 trials:
 
 | Metric | Observed | Expected | Pass? |
 |--------|----------|----------|-------|
-| Trials | 1,000 |  - |  - |
+| Trials | 1,000 | - |, |
 | Attempts blocked | **1,000** (100%) | 1,000 | ✅ |
 
 **Verdict: PASS**
@@ -366,15 +375,15 @@ All 1,000 length-extension attempts were blocked. This is the expected result fo
 
 Note that even if the attacker somehow guessed the correct 384-bit capacity value, the sponge's domain separation (padding the final block differently) would further prevent trivial extensions. The combination of hidden capacity and domain-separated padding makes the KK sponge inherently immune to this attack class.
 
-This result confirms that `kk_hash` is safe for use in constructions like `kk_hash(secret || message)`  - unlike SHA-256, the hash output does not expose enough internal state to enable continuation.
+This result confirms that `kk_hash` is safe for use in constructions like `kk_hash(secret || message)`, unlike SHA-256, the hash output does not expose enough internal state to enable continuation.
 
 ---
 
-## 8. Test 6  - Statistical Randomness (χ²)
+## 8. Test 6, Statistical Randomness (χ²)
 
 ### 8.1 Motivation
 
-A cryptographic hash function should produce output that is **indistinguishable from a uniform random distribution**. If an attacker can detect any statistical bias in the output  - for example, certain byte values appearing more frequently than others  - they can exploit this to build distinguishers, reduce the effective output space, or mount more efficient searches.
+A cryptographic hash function should produce output that is **indistinguishable from a uniform random distribution**. If an attacker can detect any statistical bias in the output, for example, certain byte values appearing more frequently than others, they can exploit this to build distinguishers, reduce the effective output space, or mount more efficient searches.
 
 The **chi-squared goodness-of-fit test** is a standard statistical tool for testing whether an observed frequency distribution matches an expected distribution. For hash function output, we expect each byte value (0x00 through 0xFF) to appear with equal frequency.
 
@@ -392,7 +401,7 @@ where $O_i$ is the observed count for byte value $i$, and $E = 3,200,000 / 256 =
 **Degrees of freedom:** $k - 1 = 255$
 
 **Pass criteria (two-tailed at p = 0.001):**
-- Lower bound: $\chi^2 > 190$ (values below this are *suspiciously uniform*  - indicating a non-random process)
+- Lower bound: $\chi^2 > 190$ (values below this are *suspiciously uniform*, indicating a non-random process)
 - Upper bound: $\chi^2 < 330$ (values above this indicate bias toward certain byte values)
 
 The two-tailed test is important: a hash function that produces *too-perfect* uniformity (every byte appearing exactly 12,500 times) would be equally suspicious, as genuine randomness exhibits natural variation.
@@ -402,9 +411,9 @@ The two-tailed test is important: a hash function that produces *too-perfect* un
 | Metric | Observed | Acceptance Range | Pass? |
 |--------|----------|-----------------|-------|
 | χ² statistic | **322.34** | 190 < χ² < 330 | ✅ |
-| Degrees of freedom | 255 |  - |  - |
-| Bytes sampled | 3,200,000 |  - |  - |
-| Expected per bin | 12,500 |  - |  - |
+| Degrees of freedom | 255 | - |, |
+| Bytes sampled | 3,200,000 | - |, |
+| Expected per bin | 12,500 | - |, |
 
 **Verdict: PASS**
 
@@ -412,26 +421,26 @@ The two-tailed test is important: a hash function that produces *too-perfect* un
 
 The observed χ² of 322.34 falls within the acceptance interval, confirming that the output byte distribution is consistent with a uniform random source at the p = 0.001 significance level.
 
-For context, the expected value of χ² for a truly uniform distribution is equal to the degrees of freedom (255), with a standard deviation of $\sqrt{2 \times 255} \approx 22.6$. Our value of 322.34 is about 3.0 standard deviations above the mean, which places it in the upper tail but still within the acceptance region. This is entirely consistent with genuine randomness  - approximately 0.1–0.3% of truly random distributions would produce a value this high or higher.
+For context, the expected value of χ² for a truly uniform distribution is equal to the degrees of freedom (255), with a standard deviation of $\sqrt{2 \times 255} \approx 22.6$. Our value of 322.34 is about 3.0 standard deviations above the mean, which places it in the upper tail but still within the acceptance region. This is entirely consistent with genuine randomness, approximately 0.1–0.3% of truly random distributions would produce a value this high or higher.
 
-If this test had failed with χ² >> 330, it would indicate that the KK permutation has byte-level bias  - certain internal state configurations leading to certain output bytes more frequently. This would be a severe finding, as it would imply the 32-round permutation does not fully mix the state.
+If this test had failed with χ² >> 330, it would indicate that the KK permutation has byte-level bias, certain internal state configurations leading to certain output bytes more frequently. This would be a severe finding, as it would imply the 32-round permutation does not fully mix the state.
 
 ---
 
-## 9. Test 7  - Known-Answer Tests (KATs)
+## 9. Test 7, Known-Answer Tests (KATs)
 
 ### 9.1 Motivation
 
 Known-Answer Tests serve a fundamentally different purpose from the other six tests. While the other tests evaluate the *cryptographic quality* of the function, KATs serve as **regression guards**: they detect accidental changes to the implementation.
 
-A KAT failure does not necessarily indicate a security problem  - it indicates that the function's behavior has *changed*. This could be caused by:
+A KAT failure does not necessarily indicate a security problem, it indicates that the function's behavior has *changed*. This could be caused by:
 
 - A bug introduced during refactoring
 - A compiler optimization that reorders or eliminates operations
 - A platform-specific integer overflow or signedness issue
 - An intentional modification that was not properly versioned
 
-In protocol contexts (e.g., TLS, SSH), KAT failures mean interoperability is broken  - two implementations will produce incompatible outputs.
+In protocol contexts (e.g., TLS, SSH), KAT failures mean interoperability is broken, two implementations will produce incompatible outputs.
 
 ### 9.2 Methodology
 
@@ -478,7 +487,7 @@ The test vectors were chosen to exercise specific sponge behaviors:
 
 All six test vectors produce deterministic, stable output that matches the frozen reference values. The KK permutation and sponge construction are fully reproducible across compilations.
 
-The observation that KAT_RATE_BLOCK and KAT_RATE_PLUS_ONE produce completely different hashes (sharing no common prefix) from a single byte difference is itself a mini-avalanche confirmation: adding one byte to a 152-byte zero message  - which extends it past one rate block  - produces a fundamentally different hash.
+The observation that KAT_RATE_BLOCK and KAT_RATE_PLUS_ONE produce completely different hashes (sharing no common prefix) from a single byte difference is itself a mini-avalanche confirmation: adding one byte to a 152-byte zero message, which extends it past one rate block, produces a fundamentally different hash.
 
 ---
 
@@ -500,7 +509,7 @@ The observation that KAT_RATE_BLOCK and KAT_RATE_PLUS_ONE produce completely dif
 
 The seven tests cover orthogonal aspects of cryptographic quality:
 
-1. **Tests 2–3 (SAC + BIC)** establish that the KK permutation achieves *full diffusion*  - every input bit influences every output bit, and output bits are mutually independent. This is the foundation of security: it means the permutation doesn't have "weak" bit positions or correlated outputs.
+1. **Tests 2–3 (SAC + BIC)** establish that the KK permutation achieves *full diffusion*, every input bit influences every output bit, and output bits are mutually independent. This is the foundation of security: it means the permutation doesn't have "weak" bit positions or correlated outputs.
 
 2. **Test 4 (Collisions)** confirms the output space isn't degenerate. Combined with SAC, this provides evidence that the 256-bit output range is effectively utilized.
 
@@ -531,7 +540,7 @@ The KK permutation performs at the same empirical level as established primitive
 
 ### 11.1 Methodology
 
-To address the most critical gap identified in the initial assessment  - the absence of a differential probability bound  - we built a computational differential trail analyzer (`examples/differential.rs`) that examines the KK permutation's resistance to differential cryptanalysis across six complementary tests.
+To address the most critical gap identified in the initial assessment, the absence of a differential probability bound, we built a computational differential trail analyzer (`examples/differential.rs`) that examines the KK permutation's resistance to differential cryptanalysis across six complementary tests.
 
 The analyzer operates on local reimplementations of MFR, DDR, and the quintet round structure (the library's internal functions are `pub(crate)`) and uses a deterministic PRNG (`Xorshift64`) for reproducibility. All measurements use 2^18 to 2^20 random input pairs per test point.
 
@@ -545,7 +554,7 @@ The analyzer operates on local reimplementations of MFR, DDR, and the quintet ro
 | Δa = 1, Δb = 1 | 2^-20.0 | **Critical case**: non-linear mixing via odd multiplier |
 | Various Δa≠0, Δb≠0 | ≤ 2^-20.0 | All below threshold |
 
-The Δb=0 deterministic case is not a vulnerability  - in the actual quintet round structure, each MFR's output XORs into subsequent words, ensuring that Δb=0 can only occur on the very first MFR call before feedback propagates. The security-relevant case (Δb≠0) shows excellent resistance at 2^-20.
+The Δb=0 deterministic case is not a vulnerability, in the actual quintet round structure, each MFR's output XORs into subsequent words, ensuring that Δb=0 can only occur on the very first MFR call before feedback propagates. The security-relevant case (Δb≠0) shows excellent resistance at 2^-20.
 
 **DDR (Data-Dependent Rotation):**
 
@@ -565,7 +574,7 @@ Starting from a single-word difference (all 64 bits flipped) at each of the 25 s
 | 3 | 24 | 25 | 25.0 |
 | 4 | 25 | 25 | 25.0 |
 
-**Full diffusion (25/25 active words) achieved by round 4 for ALL 25 starting positions.** This means every word in the 1600-bit state is influenced by a single-word input difference within 4 rounds. With 32 total rounds, KK provides 8× the diffusion distance  - substantial security margin.
+**Full diffusion (25/25 active words) achieved by round 4 for ALL 25 starting positions.** This means every word in the 1600-bit state is influenced by a single-word input difference within 4 rounds. With 32 total rounds, KK provides 8× the diffusion distance, substantial security margin.
 
 ### 11.4 Multi-Round Differential Probability
 
@@ -576,11 +585,11 @@ Starting from a single-word difference (all 64 bits flipped) at each of the 25 s
 | 4 | 3.81×10⁻⁶ (2^-18.0) | 25 |
 | 8 | 3.81×10⁻⁶ (2^-18.0) | 25 |
 
-From round 1 onward, no output difference repeats above the noise floor (1/N = 2^-18 for N=262,144 trials). This is the signature of a permutation with no exploitable differential trail  - even a single round destroys input-output difference correlations to the measurement limit.
+From round 1 onward, no output difference repeats above the noise floor (1/N = 2^-18 for N=262,144 trials). This is the signature of a permutation with no exploitable differential trail, even a single round destroys input-output difference correlations to the measurement limit.
 
 ### 11.5 Full 32-Round Search
 
-Over 1,048,576 random trials across 4 distinct input differences (single-bit, multi-bit, MSB, dense), the maximum number of times any output difference repeated was **1** (i.e., no repeats  - every output difference was unique). This places the empirical upper bound on the 32-round differential probability at:
+Over 1,048,576 random trials across 4 distinct input differences (single-bit, multi-bit, MSB, dense), the maximum number of times any output difference repeated was **1** (i.e., no repeats, every output difference was unique). This places the empirical upper bound on the 32-round differential probability at:
 
 $$P_{\text{diff}}^{32} < 2^{-18.0} \text{ (measurement limit)}$$
 
@@ -592,7 +601,7 @@ This assumes differential probabilities multiply across independent rounds (a st
 
 ### 11.6 Quintet Branch Number
 
-The quintet round (the basic mixing unit of KK) was tested for its branch number  - the minimum number of active input + output words for any non-zero input difference:
+The quintet round (the basic mixing unit of KK) was tested for its branch number, the minimum number of active input + output words for any non-zero input difference:
 
 - **Minimum branch number**: 2 (occurs at specific quintet input positions)
 - **Average output active words**: 2.98 / 5
@@ -629,7 +638,7 @@ Despite these caveats, the results provide the first quantitative evidence that 
 
 ### 12.1 Methodology
 
-**Linear cryptanalysis** measures the maximum linear approximation probability  - the largest bias ε in:
+**Linear cryptanalysis** measures the maximum linear approximation probability, the largest bias ε in:
 
 $$\Pr[\langle \alpha, x \rangle = \langle \beta, F(x) \rangle] = \frac{1}{2} + \varepsilon$$
 
@@ -681,7 +690,7 @@ If the k-th derivative is identically zero for all x and direction sets, the alg
 
 - **Even one full round exceeds the test limit of 22.** With 15 quintet operations per round (5 rows + 5 columns + 5 diagonals), the degree saturates beyond our computational testing capability within a single round. After 32 rounds, the effective algebraic degree is astronomically large.
 
-- **Comparison with Keccak**: Keccak's χ step has algebraic degree 2 per round, growing to degree 2^r after r rounds  - reaching the 1599-bit maximum around round 11. KK's MFR already starts with degree ≥ 24 per operation, and chains 15 × 32 = 480 quintet-rounds, placing the final degree far beyond any practical algebraic attack.
+- **Comparison with Keccak**: Keccak's χ step has algebraic degree 2 per round, growing to degree 2^r after r rounds, reaching the 1599-bit maximum around round 11. KK's MFR already starts with degree ≥ 24 per operation, and chains 15 × 32 = 480 quintet-rounds, placing the final degree far beyond any practical algebraic attack.
 
 ### 12.4 Implications for Attack Complexity
 
@@ -709,7 +718,7 @@ Reduced-width MFR uses the same algebraic structure as the full primitive:
 - `mfr_n(a, b) = fold(a × (b | 1) mod 2^n)` where fold is `p ^ (p >> n/2)`
 - DDR at n-bit: `a.rotate_left(b & (n-1))`
 
-Rotation is omitted from MFR (proven invariant  - see §13.3).
+Rotation is omitted from MFR (proven invariant, see §13.3).
 
 ### 13.3 Key Structural Finding: The MSB Phenomenon
 
@@ -771,14 +780,14 @@ Over 98% of all differential pairs have MDP < 1/8, consistent with a well-design
 | 5 | 0x0020 | 1.92×10⁻³ | −9.02 | −10 | +0.98 |
 | 6 | 0x0040 | 3.88×10⁻³ | −8.01 | −9 | +0.99 |
 | 7 | 0x0080 | 7.78×10⁻³ | −7.01 | −8 | +0.99 |
-| 8 | 0x0100 | 1.17×10⁻² | −6.42 |  - |  - |
-| 9 | 0x0200 | 1.75×10⁻² | −5.83 |  - |  - |
-| 10 | 0x0400 | 3.22×10⁻² | −4.96 |  - |  - |
-| 11 | 0x0800 | 6.30×10⁻² | −3.99 |  - |  - |
-| 12 | 0x1000 | 0.125 | −3.00 |  - |  - |
-| 13 | 0x2000 | 0.250 | −2.00 |  - |  - |
-| 14 | 0x4000 | 0.500 | −1.00 |  - |  - |
-| 15 (MSB) | 0x8000 | 1.000 | 0.00 |  - |  - |
+| 8 | 0x0100 | 1.17×10⁻² | −6.42 | - |, |
+| 9 | 0x0200 | 1.75×10⁻² | −5.83 | - |, |
+| 10 | 0x0400 | 3.22×10⁻² | −4.96 | - |, |
+| 11 | 0x0800 | 6.30×10⁻² | −3.99 | - |, |
+| 12 | 0x1000 | 0.125 | −3.00 | - |, |
+| 13 | 0x2000 | 0.250 | −2.00 | - |, |
+| 14 | 0x4000 | 0.500 | −1.00 | - |, |
+| 15 (MSB) | 0x8000 | 1.000 | 0.00 | - |, |
 
 **Key observation**: For bits 0–3 (below the fold boundary), the MDP matches the theoretical model MDP(n, k) ≈ 2^−(n−1−k) almost exactly. The delta column shows convergence toward 0.
 
@@ -810,7 +819,7 @@ Per-bit-position regression from 8→16→64:
 | 6 | −0.98 | −8.01 | −0.879 | −50.2 |
 | 7 | 0.00 | −7.01 | −0.876 | −49.0 |
 
-Bits 0–3 scale at exactly −1.000 per word-size bit  - the ideal rate. This gives **conservative** 64-bit operational MDP of 2^−59.1 (worst of bits 0–3) and **best-case** of 2^−63.0 (bit 0).
+Bits 0–3 scale at exactly −1.000 per word-size bit, the ideal rate. This gives **conservative** 64-bit operational MDP of 2^−59.1 (worst of bits 0–3) and **best-case** of 2^−63.0 (bit 0).
 
 64-bit sampled verification (2²⁴ samples per bit):
 - Bits 0–47: uniform output distribution confirmed (max z-score < 6σ)
@@ -860,7 +869,7 @@ DDR trail branching is **not included** in this bound (additive security). Each 
 | Margin vs 2^−800 | 0 (borderline) | 25,912 bits |
 | Confidence level | Heuristic | Proven at reduced widths, extrapolated |
 
-The formal DDT analysis reveals that the Section 11 heuristic was **dramatically conservative**  - the actual per-component MDP is orders of magnitude better than sampling suggested, because sampling at 64-bit could not capture the true 2^−63 worst-case probability (it would require ~2⁶³ samples to observe even one hit).
+The formal DDT analysis reveals that the Section 11 heuristic was **dramatically conservative**, the actual per-component MDP is orders of magnitude better than sampling suggested, because sampling at 64-bit could not capture the true 2^−63 worst-case probability (it would require ~2⁶³ samples to observe even one hit).
 
 ### 13.10 Caveats
 
@@ -873,7 +882,7 @@ The formal DDT analysis reveals that the Section 11 heuristic was **dramatically
 
 ## 14. Formal Linear Approximation Table Analysis
 
-Building on the DDT analysis of Section 13, this section presents the complementary **Linear Approximation Table (LAT)** analysis of the MFR and DDR operations. Where Section 13 quantified differential propagation probabilities, this section quantifies **linear correlations**  - the probability that a linear function of the output equals a linear function of the input.
+Building on the DDT analysis of Section 13, this section presents the complementary **Linear Approximation Table (LAT)** analysis of the MFR and DDR operations. Where Section 13 quantified differential propagation probabilities, this section quantifies **linear correlations**, the probability that a linear function of the output equals a linear function of the input.
 
 ### 14.1 Methodology
 
@@ -893,18 +902,18 @@ $$LP(\alpha_a, \alpha_b, \beta) = \left(\frac{2 \cdot |\{(a,b) : \text{parity}(\
 
 ### 14.2 The LSB Phenomenon (LP = 1)
 
-The most significant finding is the **LSB LP=1 phenomenon**  - the exact linear analog of the MSB MDP=1 phenomenon discovered in Section 13.
+The most significant finding is the **LSB LP=1 phenomenon**, the exact linear analog of the MSB MDP=1 phenomenon discovered in Section 13.
 
 **Theorem:** For MFR at any n-bit width, the linear approximation with α_a = bit_0 (LSB), α_b = 0, and β = bit_0 | bit_{n/2} has LP = 1.0 (perfect correlation).
 
 **Proof sketch:**
-1. Since b|1 is odd, bit_0(a · (b|1)) = bit_0(a)  - the LSB of a product with an odd number equals the LSB of the input.
+1. Since b|1 is odd, bit_0(a · (b|1)) = bit_0(a), the LSB of a product with an odd number equals the LSB of the input.
 2. After the fold y = p ⊕ (p >> n/2):
    - parity(β & y) = bit_0(y) ⊕ bit_{n/2}(y)
    - = bit_0(p) ⊕ bit_{n/2}(p) ⊕ bit_{n/2}(p) = bit_0(p)
 3. Therefore parity(β & y) = bit_0(p) = bit_0(a) = parity(α_a & a).
 
-This was verified exhaustively at 8-bit (65,536 pairs) and 16-bit (2^32 pairs), and sampled at 32-bit (2^28 pairs)  - all confirming LP = 1.0 exactly.
+This was verified exhaustively at 8-bit (65,536 pairs) and 16-bit (2^32 pairs), and sampled at 32-bit (2^28 pairs), all confirming LP = 1.0 exactly.
 
 ### 14.3 Per-Bit LP Scaling
 
@@ -937,7 +946,7 @@ $$LP_{\text{DDR}}(n) = \frac{1}{n^2}$$
 | 16-bit | 1/256 | 1/256 | −8.00 |
 | 64-bit | 1/4096 | (extrapolated) | −12.00 |
 
-At 16-bit, all 16 bit positions yield LP = 2^−8.00 exactly  - perfectly uniform across bit positions. This confirms the theoretical formula and justifies the 64-bit extrapolation.
+At 16-bit, all 16 bit positions yield LP = 2^−8.00 exactly, perfectly uniform across bit positions. This confirms the theoretical formula and justifies the 64-bit extrapolation.
 
 **Derivation:** rotation by (b mod n) distributes bit k into n possible output positions. Only 1/n of input pairs align the bit correctly; the correlation is 1/n; LP = (1/n)² = 1/n².
 
@@ -951,7 +960,7 @@ Using the verified LP values, three independent trail bounds were computed for t
 | B (MFR bit-1) | MFR LP ≤ 2^−2 per operation, ignoring DDR | (2^−2)^424 = 2^−848 | 48 bits |
 | C (Combined) | MFR LP ≤ 2^−2 + DDR LP ≤ 2^−12 per quintet | (2^−16)^212 = 2^−3,392 | 2,592 bits |
 
-**Trail Bound A is the primary result.** Even under the most pessimistic assumption  - that every MFR operation contributes LP=1 (the worst case from the LSB phenomenon)  - the DDR operations alone guarantee a trail bound of 2^−2,544, providing 1,744 bits of margin above the 2^−800 security target.
+**Trail Bound A is the primary result.** Even under the most pessimistic assumption, that every MFR operation contributes LP=1 (the worst case from the LSB phenomenon), the DDR operations alone guarantee a trail bound of 2^−2,544, providing 1,744 bits of margin above the 2^−800 security target.
 
 ### 14.6 64-Bit Sampled Verification
 
@@ -978,13 +987,13 @@ The weakest differential bit (MSB, MDP=1) has the strongest linear resistance (L
 
 | Test | Description | Result |
 |------|-------------|--------|
-| 1 | 8-bit full LAT via WHT  - LP(k) = 2^−2k scaling | **PASS** |
-| 2 | 8-bit DDR LAT  - zero bias for active inputs | **PASS** |
-| 3 | 16-bit per-bit LP  - word-size independence | **PASS** |
-| 4 | 16-bit DDR per-bit LP  - uniform 2^−8 all bits | **PASS** |
-| 5 | Cross-width scaling  - slopes = 0.000 | **PASS** |
-| 6 | 64-bit sampled  - all at noise floor | **PASS** |
-| 7 | Formal trail bound  - 2^−2,544 (margin 1,744) | **PASS** |
+| 1 | 8-bit full LAT via WHT, LP(k) = 2^−2k scaling | **PASS** |
+| 2 | 8-bit DDR LAT, zero bias for active inputs | **PASS** |
+| 3 | 16-bit per-bit LP, word-size independence | **PASS** |
+| 4 | 16-bit DDR per-bit LP, uniform 2^−8 all bits | **PASS** |
+| 5 | Cross-width scaling, slopes = 0.000 | **PASS** |
+| 6 | 64-bit sampled, all at noise floor | **PASS** |
+| 7 | Formal trail bound, 2^−2,544 (margin 1,744) | **PASS** |
 
 **Overall: 7/7 PASS**
 
@@ -1039,7 +1048,7 @@ Verified exhaustively at 8-bit (all 8 bits: LP = 2^−6.00, uniform). Combined w
 | Differential | MSB MDP=1 | 2^−26,712 | 25,912 bits |
 | Linear | LSB LP=1 | 2^−2,544 | 1,744 bits |
 
-Both phenomena are **universal algebraic properties** of modular multiplication by odd numbers  - they cannot be eliminated by any design that uses this operation. However:
+Both phenomena are **universal algebraic properties** of modular multiplication by odd numbers, they cannot be eliminated by any design that uses this operation. However:
 1. They affect **opposite ends** of the word (MSB vs LSB).
 2. A trail cannot exploit both simultaneously at the same bit.
 3. The DDR in every quintet provides a mandatory floor cost.
@@ -1100,29 +1109,29 @@ The KK permutation passes all empirical tests evaluated in this paper, including
 
 These results place the KK permutation in the same empirical class as SHA-3 (Keccak) and BLAKE3 on standard cryptographic quality metrics. The 32-round, 5×5 grid structure with MFR+DDR operations achieves full diffusion in 4 rounds, statistical independence of output bits, no linear bias above noise, and near-maximal algebraic degree.
 
-The formal DDT analysis (Section 13) substantially strengthens the differential picture: exhaustive computation at 8-bit and 16-bit confirm MFR's per-bit MDP scales at exactly −1.0 per word-size bit, yielding an extrapolated 64-bit operational MDP of 2^−63. Combined with 424+ active MFR operations across 32 rounds, the formal trail bound is 2^−26,712  - over 25,000 bits of margin above the 2^−800 threshold. DDR contributes an additional 2^2,880 trail branching factor not included in this bound.
+The formal DDT analysis (Section 13) substantially strengthens the differential picture: exhaustive computation at 8-bit and 16-bit confirm MFR's per-bit MDP scales at exactly −1.0 per word-size bit, yielding an extrapolated 64-bit operational MDP of 2^−63. Combined with 424+ active MFR operations across 32 rounds, the formal trail bound is 2^−26,712, over 25,000 bits of margin above the 2^−800 threshold. DDR contributes an additional 2^2,880 trail branching factor not included in this bound.
 
-The formal LAT analysis (Section 14) provides the complementary linear picture. The MFR operation exhibits a universal LSB LP=1 phenomenon  - the exact dual of the MSB MDP=1 in the differential domain. However, the per-bit LP scales as 2^−2k, and the DDR contributes a mandatory LP ≤ 2^−12 (= 1/n²) per active quintet. Even assuming worst-case MFR LP=1 for every operation, the DDR-only trail bound is 2^−2,544  - providing 1,744 bits of margin above the 2^−800 target.
+The formal LAT analysis (Section 14) provides the complementary linear picture. The MFR operation exhibits a universal LSB LP=1 phenomenon, the exact dual of the MSB MDP=1 in the differential domain. However, the per-bit LP scales as 2^−2k, and the DDR contributes a mandatory LP ≤ 2^−12 (= 1/n²) per active quintet. Even assuming worst-case MFR LP=1 for every operation, the DDR-only trail bound is 2^−2,544, providing 1,744 bits of margin above the 2^−800 target.
 
 The bit-boundary proof sketch (Section 15) formalizes the complementary duality: differential weakness concentrates at the MSB while linear weakness concentrates at the LSB. No single bit position is weak in both dimensions. All four theorems were verified constructively at 8-bit (exhaustive), 16-bit (exhaustive), and 32-bit (sampled), with 4/4 proved.
 
-However, both trail bounds rely on scaling extrapolation from reduced word sizes, not closed-form proofs at 64-bit. The absence of formal security reductions and independent third-party review means the KK permutation should not yet be considered production-ready for adversarial environments. These results provide a strong empirical and analytical foundation  - with both differential and linear trail bounds now formally established  - and justify the investment in formal verification.
+However, both trail bounds rely on scaling extrapolation from reduced word sizes, not closed-form proofs at 64-bit. The absence of formal security reductions and independent third-party review means the KK permutation should not yet be considered production-ready for adversarial environments. These results provide a strong empirical and analytical foundation, with both differential and linear trail bounds now formally established, and justify the investment in formal verification.
 
 ---
 
 ## 18. References
 
-1. **Reparaz, O., Balasch, J., Verbauwhede, I.** "Dude, is my code constant time?" *Design, Automation & Test in Europe Conference (DATE)*, 2017.  - The dudect methodology implemented in Test 1.
+1. **Reparaz, O., Balasch, J., Verbauwhede, I.** "Dude, is my code constant time?" *Design, Automation & Test in Europe Conference (DATE)*, 2017., The dudect methodology implemented in Test 1.
 
-2. **Webster, A.F., Tavares, S.E.** "On the design of S-boxes." *Advances in Cryptology  - CRYPTO '85*, LNCS 218, pp. 523–534, 1986.  - Original definitions of the Strict Avalanche Criterion and Bit Independence Criterion (Tests 2–3).
+2. **Webster, A.F., Tavares, S.E.** "On the design of S-boxes." *Advances in Cryptology, CRYPTO '85*, LNCS 218, pp. 523–534, 1986., Original definitions of the Strict Avalanche Criterion and Bit Independence Criterion (Tests 2–3).
 
-3. **Pearson, K.** "On the criterion that a given system of deviations from the probable in the case of a correlated system of variables is such that it can be reasonably supposed to have arisen from random sampling." *Philosophical Magazine*, Series 5, 50(302), pp. 157–175, 1900.  - The chi-squared goodness-of-fit test (Test 6).
+3. **Pearson, K.** "On the criterion that a given system of deviations from the probable in the case of a correlated system of variables is such that it can be reasonably supposed to have arisen from random sampling." *Philosophical Magazine*, Series 5, 50(302), pp. 157–175, 1900., The chi-squared goodness-of-fit test (Test 6).
 
-4. **Bertoni, G., Daemen, J., Peeters, M., Van Assche, G.** "Sponge functions." *ECRYPT Hash Workshop*, 2007.  - The sponge construction underlying the KK hash and MAC, and the basis for length-extension resistance (Test 5).
+4. **Bertoni, G., Daemen, J., Peeters, M., Van Assche, G.** "Sponge functions." *ECRYPT Hash Workshop*, 2007., The sponge construction underlying the KK hash and MAC, and the basis for length-extension resistance (Test 5).
 
-5. **NIST.** "SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions." *FIPS 202*, 2015.  - Reference sponge construction for comparison.
+5. **NIST.** "SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions." *FIPS 202*, 2015., Reference sponge construction for comparison.
 
-6. **Welford, B.P.** "Note on a method for calculating corrected sums of squares and products." *Technometrics*, 4(3), pp. 419–420, 1962.  - The online variance algorithm used in the dudect implementation.
+6. **Welford, B.P.** "Note on a method for calculating corrected sums of squares and products." *Technometrics*, 4(3), pp. 419–420, 1962., The online variance algorithm used in the dudect implementation.
 
 ---
 

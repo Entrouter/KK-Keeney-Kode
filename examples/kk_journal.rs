@@ -1,7 +1,11 @@
-// Copyright (c) 2026 John Keeney. MIT License.
-// See LICENSE file in the project root for full license information.
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
 
-//! KK Journal  - An encrypted diary powered by the Keeney Kode.
+//! KK Journal, An encrypted diary powered by the Keeney Kode.
 //!
 //! Every entry is encrypted at its unique entropic moment.
 //! Without the passphrase AND the captured ε, the words are gone forever.
@@ -32,7 +36,7 @@ fn journal_dir() -> PathBuf {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  Entry metadata  - stored in filename, no decryption needed to list
+//  Entry metadata, stored in filename, no decryption needed to list
 // ─────────────────────────────────────────────────────────────────
 
 struct EntryMeta {
@@ -72,7 +76,7 @@ fn list_entries() -> Vec<EntryMeta> {
 // ─────────────────────────────────────────────────────────────────
 
 fn format_timestamp(epoch_secs: u64) -> String {
-    // Simple breakdown  - good enough for a journal
+    // Simple breakdown, good enough for a journal
     let secs = epoch_secs;
     let days = secs / 86400;
     let time_of_day = secs % 86400;
@@ -111,7 +115,7 @@ fn days_to_date(mut days: u64) -> (u64, u64, u64) {
 fn cmd_write() {
     println!();
     println!("  ╔═══════════════════════════════════════════╗");
-    println!("  ║  KK Journal  - New Entry                   ║");
+    println!("  ║  KK Journal, New Entry                   ║");
     println!("  ╚═══════════════════════════════════════════╝");
     println!();
 
@@ -148,7 +152,7 @@ fn cmd_write() {
     }
 
     if lines.is_empty() {
-        println!("  Empty entry  - nothing saved.");
+        println!("  Empty entry, nothing saved.");
         return;
     }
 
@@ -170,7 +174,7 @@ fn cmd_write() {
     fs::write(&path, &wire).expect("Failed to write entry");
 
     println!();
-    println!("  ✓ Entry saved  - {} bytes encrypted", wire.len());
+    println!("  ✓ Entry saved, {} bytes encrypted", wire.len());
     println!("    Entropy ε: {}...", hex(&packet.entropy_snapshot.bytes[..8]));
     println!("    Timestamp: {}", format_timestamp(timestamp));
     println!("    That entropic moment is now gone. The entry is sealed.");
@@ -182,7 +186,7 @@ fn cmd_list() {
 
     println!();
     println!("  ╔═══════════════════════════════════════════╗");
-    println!("  ║  KK Journal  - Entries                     ║");
+    println!("  ║  KK Journal, Entries                     ║");
     println!("  ╚═══════════════════════════════════════════╝");
     println!();
 
@@ -255,7 +259,7 @@ fn read_single_entry(passphrase: &str, entry: &EntryMeta, number: usize) {
     let packet = match kk_crypto::KkPacket::from_bytes(&wire) {
         Ok(p) => p,
         Err(e) => {
-            eprintln!("  Entry #{number}: corrupted packet  - {e}");
+            eprintln!("  Entry #{number}: corrupted packet, {e}");
             return;
         }
     };
@@ -263,7 +267,7 @@ fn read_single_entry(passphrase: &str, entry: &EntryMeta, number: usize) {
     match kk_crypto::decode(passphrase.as_bytes(), &packet) {
         Ok(plaintext) => {
             let text = String::from_utf8_lossy(&plaintext);
-            println!("  ┌─── Entry #{number}  - {} ───", format_timestamp(entry.timestamp_secs));
+            println!("  ┌─── Entry #{number}, {} ───", format_timestamp(entry.timestamp_secs));
             println!("  │");
             for line in text.lines() {
                 println!("  │  {line}");
@@ -335,7 +339,7 @@ fn hex(data: &[u8]) -> String {
 
 fn print_usage() {
     println!();
-    println!("  KK Journal  - Encrypted diary powered by the Keeney Kode");
+    println!("  KK Journal, Encrypted diary powered by the Keeney Kode");
     println!();
     println!("  Usage:");
     println!("    kk-journal write          Write a new encrypted entry");
