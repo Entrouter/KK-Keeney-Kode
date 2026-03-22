@@ -434,6 +434,24 @@ impl KkSponge {
         }
     }
 
+    /// Return a copy of the raw sponge state (for GPU offload).
+    #[cfg(any(feature = "gpu", feature = "cuda"))]
+    pub fn state(&self) -> KkState {
+        self.state
+    }
+
+    /// Return the rotation schedule (for GPU offload).
+    #[cfg(any(feature = "gpu", feature = "cuda"))]
+    pub fn rotations(&self) -> [[u32; 2]; 15] {
+        self.rotations
+    }
+
+    /// Finalize absorption with KDF domain separation (for GPU offload).
+    #[cfg(any(feature = "gpu", feature = "cuda"))]
+    pub fn finalize_absorb_kdf(&mut self) {
+        self.finalize_absorb(DOMAIN_KDF);
+    }
+
     /// Apply the permutation on the current state.
     fn permute(&mut self) {
         kk_permute_with_schedule(&mut self.state, &self.rotations);

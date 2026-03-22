@@ -41,6 +41,9 @@ pub enum KkError {
 
     #[cfg_attr(feature = "std", error("stale nonce: verifier nonce was already used or not recognized"))]
     StaleNonce,
+
+    #[cfg_attr(feature = "std", error("GPU error: {0}"))]
+    GpuError(String),
 }
 
 #[cfg(not(feature = "std"))]
@@ -55,6 +58,7 @@ impl fmt::Display for KkError {
                 write!(f, "epoch drift too large: claimed {claimed_nanos} ns, drift {drift_nanos} ns exceeds max {max_nanos} ns")
             }
             Self::StaleNonce => write!(f, "stale nonce"),
+            Self::GpuError(s) => write!(f, "GPU error: {s}"),
         }
     }
 }

@@ -104,6 +104,10 @@ pub mod error;
 #[cfg(feature = "std")]
 pub mod kdf;
 pub mod kk_mix;
+#[cfg(feature = "gpu")]
+pub mod gpu;
+#[cfg(feature = "cuda")]
+pub mod cuda;
 #[cfg(all(target_arch = "x86_64", feature = "std"))]
 pub(crate) mod kk_mix_avx512;
 #[cfg(feature = "std")]
