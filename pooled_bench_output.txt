@@ -1,0 +1,38 @@
+﻿encode_pooled/1         time:   [11.548 ┬Ás 11.620 ┬Ás 11.692 ┬Ás]
+                        thrpt:  [83.521 KiB/s 84.042 KiB/s 84.567 KiB/s]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
+encode_pooled/64        time:   [12.266 ┬Ás 12.342 ┬Ás 12.416 ┬Ás]
+                        thrpt:  [4.9159 MiB/s 4.9453 MiB/s 4.9761 MiB/s]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+encode_pooled/256       time:   [13.259 ┬Ás 13.362 ┬Ás 13.465 ┬Ás]
+                        thrpt:  [18.131 MiB/s 18.272 MiB/s 18.413 MiB/s]
+encode_pooled/1024      time:   [18.478 ┬Ás 18.599 ┬Ás 18.717 ┬Ás]
+                        thrpt:  [52.175 MiB/s 52.506 MiB/s 52.851 MiB/s]
+encode_pooled/4096      time:   [55.312 ┬Ás 55.415 ┬Ás 55.522 ┬Ás]
+                        thrpt:  [70.355 MiB/s 70.491 MiB/s 70.622 MiB/s]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
+encode_pooled/16384     time:   [213.01 ┬Ás 213.40 ┬Ás 213.83 ┬Ás]
+                        thrpt:  [73.073 MiB/s 73.218 MiB/s 73.354 MiB/s]
+encode_pooled/65536     time:   [624.43 ┬Ás 627.25 ┬Ás 630.07 ┬Ás]
+                        thrpt:  [99.196 MiB/s 99.641 MiB/s 100.09 MiB/s]
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+encode_pooled/262144    time:   [2.3505 ms 2.3595 ms 2.3685 ms]
+                        thrpt:  [105.55 MiB/s 105.95 MiB/s 106.36 MiB/s]
+encode_pooled/1048576   time:   [8.8413 ms 8.8594 ms 8.8784 ms]
+                        thrpt:  [112.63 MiB/s 112.87 MiB/s 113.11 MiB/s]
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+encode_pooled/10485760  time:   [84.232 ms 84.326 ms 84.421 ms]
+                        thrpt:  [118.45 MiB/s 118.59 MiB/s 118.72 MiB/s]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) low mild
+
+entropy_pool_draw       time:   [9.6520 ┬Ás 9.7199 ┬Ás 9.7838 ┬Ás]
+

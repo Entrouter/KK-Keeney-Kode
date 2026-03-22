@@ -12,6 +12,10 @@
 
 use kk_crypto::{decode, encode, KkPacket};
 use kk_crypto::{encode_bound, decode_bound, KkBoundPacket, generate_challenge, GENESIS_MAC};
+use kk_crypto::{EntropyPool, encode_pooled, encode_aead_pooled};
+use kk_crypto::{encode_aead_batch, decode_aead_batch, encode_aead, decode_aead, KkAeadPacket};
+use kk_crypto::{encode_parallel, decode_parallel, KkParallelPacket, PARALLEL_CHUNK_SIZE};
+use kk_crypto::KkRngPool;
 use std::time::Duration;
 
 /// Core property: encode then decode recovers original message.
@@ -523,7 +527,6 @@ fn session_wrong_secret_rejected() {
 //  AEAD (Authenticated Encryption with Associated Data) tests
 // ─────────────────────────────────────────────────────────────────
 
-use kk_crypto::{encode_aead, decode_aead, KkAeadPacket};
 use kk_crypto::{encode_session_aead, decode_session_aead};
 
 /// Direct kk_mac collision test: two messages differing by one byte must produce different MACs.
@@ -824,4 +827,303 @@ fn eka_to_rope_ratchet_end_to_end() {
     let packet = encode_session(&mut sender, plaintext).unwrap();
     let recovered = decode_session(&mut receiver, &packet).unwrap();
     assert_eq!(plaintext.as_slice(), recovered.as_slice());
+}
+
+// ── Pooled Entropy Tests ──────────────────────────────────────────
+
+/// Pooled encode/decode roundtrip produces identical plaintext.
+#[test]
+fn pooled_roundtrip_basic() {
+    let pool = EntropyPool::new(16).unwrap();
+    let secret = b"pooled-basic-secret";
+    let msg = b"Pooled entropy encode roundtrip";
+
+    let packet = encode_pooled(secret, msg, &pool).unwrap();
+    let recovered = decode(secret, &packet).unwrap();
+    assert_eq!(msg.as_slice(), recovered.as_slice());
+}
+
+/// Pooled AEAD roundtrip preserves plaintext and AAD.
+#[test]
+fn pooled_aead_roundtrip() {
+    let pool = EntropyPool::new(16).unwrap();
+    let secret = b"pooled-aead-secret";
+    let msg = b"AEAD pooled test";
+    let aad = b"associated-data";
+
+    let packet = encode_aead_pooled(secret, msg, aad, &pool).unwrap();
+    let recovered = decode_aead(secret, &packet).unwrap();
+    assert_eq!(msg.as_slice(), recovered.as_slice());
+}
+
+/// Pooled encode works for all byte values (binary safety).
+#[test]
+fn pooled_roundtrip_binary() {
+    let pool = EntropyPool::new(16).unwrap();
+    let secret = b"pooled-binary";
+    let msg: Vec<u8> = (0..=255).collect();
+
+    let packet = encode_pooled(secret, &msg, &pool).unwrap();
+    let recovered = decode(secret, &packet).unwrap();
+    assert_eq!(msg, recovered);
+}
+
+/// Pooled encode handles a 1 MB payload correctly.
+#[test]
+fn pooled_roundtrip_large() {
+    let pool = EntropyPool::new(16).unwrap();
+    let secret = b"pooled-large";
+    let msg = vec![0xABu8; 1_048_576]; // 1 MB
+
+    let packet = encode_pooled(secret, &msg, &pool).unwrap();
+    let recovered = decode(secret, &packet).unwrap();
+    assert_eq!(msg, recovered);
+}
+
+/// Multiple pooled encodes of the same plaintext produce different ciphertexts.
+#[test]
+fn pooled_temporal_uniqueness() {
+    let pool = EntropyPool::new(16).unwrap();
+    let secret = b"pooled-unique";
+    let msg = b"same message twice";
+
+    let p1 = encode_pooled(secret, msg, &pool).unwrap();
+    let p2 = encode_pooled(secret, msg, &pool).unwrap();
+    assert_ne!(p1.ciphertext, p2.ciphertext);
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Batched AEAD tests (Phase 7)
+// ─────────────────────────────────────────────────────────────────
+
+/// Batch encode → batch decode roundtrip with 100 messages of varying sizes.
+#[test]
+fn batch_aead_roundtrip_100() {
+    let secret = b"batch-integration-secret";
+    let pool = EntropyPool::new(64).unwrap();
+
+    let plaintexts: Vec<Vec<u8>> = (0..100)
+        .map(|i| vec![(i & 0xFF) as u8; 64 + i * 10])
+        .collect();
+    let aad = b"batch-test-aad";
+    let messages: Vec<(&[u8], &[u8])> = plaintexts.iter()
+        .map(|pt| (pt.as_slice(), aad.as_slice()))
+        .collect();
+
+    let packets = encode_aead_batch(secret, &messages, Some(&pool)).unwrap();
+    assert_eq!(packets.len(), 100);
+
+    let recovered = decode_aead_batch(secret, &packets).unwrap();
+    assert_eq!(recovered.len(), 100);
+    for (i, (pt, rec)) in plaintexts.iter().zip(recovered.iter()).enumerate() {
+        assert_eq!(pt.as_slice(), rec.as_slice(), "mismatch at message {i}");
+    }
+}
+
+/// Batch with a single message degenerates to single encode/decode.
+#[test]
+fn batch_aead_single_message() {
+    let secret = b"batch-single-secret";
+    let pool = EntropyPool::new(16).unwrap();
+    let plaintext = b"single message in batch";
+    let aad = b"single-aad";
+    let messages: Vec<(&[u8], &[u8])> = vec![(plaintext.as_slice(), aad.as_slice())];
+
+    let packets = encode_aead_batch(secret, &messages, Some(&pool)).unwrap();
+    assert_eq!(packets.len(), 1);
+
+    let recovered = decode_aead_batch(secret, &packets).unwrap();
+    assert_eq!(recovered[0].as_slice(), plaintext.as_slice());
+}
+
+/// Batch with mixed message sizes.
+#[test]
+fn batch_aead_mixed_sizes() {
+    let secret = b"batch-mixed-secret";
+    let pool = EntropyPool::new(32).unwrap();
+
+    let small = vec![0xAAu8; 16];
+    let medium = vec![0xBBu8; 4096];
+    let large = vec![0xCCu8; 65536];
+    let aad1 = b"aad-small";
+    let aad2 = b"aad-medium";
+    let aad3 = b"aad-large";
+
+    let messages: Vec<(&[u8], &[u8])> = vec![
+        (small.as_slice(), aad1.as_slice()),
+        (medium.as_slice(), aad2.as_slice()),
+        (large.as_slice(), aad3.as_slice()),
+    ];
+
+    let packets = encode_aead_batch(secret, &messages, Some(&pool)).unwrap();
+    let recovered = decode_aead_batch(secret, &packets).unwrap();
+
+    assert_eq!(recovered[0].as_slice(), small.as_slice());
+    assert_eq!(recovered[1].as_slice(), medium.as_slice());
+    assert_eq!(recovered[2].as_slice(), large.as_slice());
+}
+
+/// Batch results match sequential encode/decode.
+#[test]
+fn batch_aead_matches_sequential() {
+    let secret = b"batch-seq-match-secret";
+    let pool = EntropyPool::new(32).unwrap();
+
+    let plaintexts: Vec<Vec<u8>> = (0..10)
+        .map(|i| vec![i as u8; 512])
+        .collect();
+    let aad = b"match-aad";
+    let messages: Vec<(&[u8], &[u8])> = plaintexts.iter()
+        .map(|pt| (pt.as_slice(), aad.as_slice()))
+        .collect();
+
+    // Batch encode → decode
+    let packets = encode_aead_batch(secret, &messages, Some(&pool)).unwrap();
+    let batch_recovered = decode_aead_batch(secret, &packets).unwrap();
+
+    // Each recovered plaintext must match the original
+    for (i, (pt, rec)) in plaintexts.iter().zip(batch_recovered.iter()).enumerate() {
+        assert_eq!(pt.as_slice(), rec.as_slice(), "batch mismatch at {i}");
+    }
+
+    // Also verify: batch-encoded packets can be decoded individually
+    for (i, pkt) in packets.iter().enumerate() {
+        let individual = decode_aead(secret, pkt).unwrap();
+        assert_eq!(plaintexts[i].as_slice(), individual.as_slice());
+    }
+}
+
+/// Batch encode without pool (synchronous entropy) still works.
+#[test]
+fn batch_aead_no_pool() {
+    let secret = b"batch-nopool-secret";
+    let plaintexts: Vec<Vec<u8>> = (0..5)
+        .map(|i| vec![i as u8; 256])
+        .collect();
+    let aad = b"nopool-aad";
+    let messages: Vec<(&[u8], &[u8])> = plaintexts.iter()
+        .map(|pt| (pt.as_slice(), aad.as_slice()))
+        .collect();
+
+    let packets = encode_aead_batch(secret, &messages, None).unwrap();
+    let recovered = decode_aead_batch(secret, &packets).unwrap();
+
+    for (i, (pt, rec)) in plaintexts.iter().zip(recovered.iter()).enumerate() {
+        assert_eq!(pt.as_slice(), rec.as_slice(), "no-pool mismatch at {i}");
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  KkRngPool integration tests
+// ─────────────────────────────────────────────────────────────────
+
+#[test]
+fn rng_pool_deterministic_across_instances() {
+    let pool1 = KkRngPool::new(b"integration-seed", 8);
+    let pool2 = KkRngPool::new(b"integration-seed", 8);
+    for _ in 0..16 {
+        assert_eq!(pool1.next_bytes(256), pool2.next_bytes(256));
+    }
+}
+
+#[test]
+fn rng_pool_fill_parallel_deterministic() {
+    let pool1 = KkRngPool::new(b"fill-integ", 4);
+    let pool2 = KkRngPool::new(b"fill-integ", 4);
+    let mut buf1 = vec![0u8; 100_000];
+    let mut buf2 = vec![0u8; 100_000];
+    pool1.fill_bytes_parallel(&mut buf1);
+    pool2.fill_bytes_parallel(&mut buf2);
+    assert_eq!(buf1, buf2);
+    // Should not be all zeros
+    assert!(buf1.iter().any(|&b| b != 0));
+}
+
+#[test]
+fn rng_pool_different_seeds_independent() {
+    let pool_a = KkRngPool::new(b"seed-alpha", 4);
+    let pool_b = KkRngPool::new(b"seed-beta", 4);
+    let mut buf_a = vec![0u8; 4096];
+    let mut buf_b = vec![0u8; 4096];
+    pool_a.fill_bytes_parallel(&mut buf_a);
+    pool_b.fill_bytes_parallel(&mut buf_b);
+    assert_ne!(buf_a, buf_b);
+}
+
+#[test]
+fn rng_pool_large_parallel_fill() {
+    let pool = KkRngPool::new(b"large-fill", 16);
+    let mut buf = vec![0u8; 1_000_000];
+    pool.fill_bytes_parallel(&mut buf);
+    // Basic statistical check: not all same byte
+    let first = buf[0];
+    assert!(buf.iter().any(|&b| b != first));
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Parallel Encode / Decode
+// ─────────────────────────────────────────────────────────────────
+
+#[test]
+fn parallel_roundtrip_various_sizes() {
+    let secret = b"parallel-integration-secret";
+    let aad = b"parallel-aad";
+    for size in [1, 100, 4096, 65_536, 1 << 20] {
+        let msg: Vec<u8> = (0..size).map(|i| (i % 251) as u8).collect();
+        let packet = encode_parallel(secret, &msg, aad, PARALLEL_CHUNK_SIZE, None).unwrap();
+        let recovered = decode_parallel(secret, &packet).unwrap();
+        assert_eq!(msg, recovered, "roundtrip mismatch at size {}", size);
+    }
+}
+
+#[test]
+fn parallel_custom_chunk_size() {
+    let secret = b"parallel-chunk-test";
+    let msg = vec![0xCDu8; 50_000];
+    // Use a small chunk to get many chunks
+    let packet = encode_parallel(secret, &msg, b"aad", 4096, None).unwrap();
+    assert!(packet.chunks.len() > 1);
+    let recovered = decode_parallel(secret, &packet).unwrap();
+    assert_eq!(msg, recovered);
+}
+
+#[test]
+fn parallel_merkle_tamper_detected() {
+    let secret = b"parallel-tamper-test";
+    let msg = vec![0xABu8; 8192];
+    let mut packet = encode_parallel(secret, &msg, b"aad", 2048, None).unwrap();
+    // Swap first two chunks → Merkle root should mismatch
+    if packet.chunks.len() >= 2 {
+        packet.chunks.swap(0, 1);
+        assert!(decode_parallel(secret, &packet).is_err());
+    }
+}
+
+#[test]
+fn parallel_wrong_secret_rejected() {
+    let msg = vec![0x42u8; 4096];
+    let packet = encode_parallel(b"correct-secret", &msg, b"aad", 2048, None).unwrap();
+    assert!(decode_parallel(b"wrong-secret", &packet).is_err());
+}
+
+#[test]
+fn parallel_serde_roundtrip_integration() {
+    let secret = b"parallel-serde-int";
+    let msg: Vec<u8> = (0..10_000).map(|i| (i % 199) as u8).collect();
+    let packet = encode_parallel(secret, &msg, b"aad", 2048, None).unwrap();
+    let bytes = packet.to_bytes();
+    let restored = KkParallelPacket::from_bytes(&bytes).unwrap();
+    let recovered = decode_parallel(secret, &restored).unwrap();
+    assert_eq!(msg, recovered);
+}
+
+#[test]
+fn parallel_single_chunk_equivalent() {
+    let secret = b"parallel-single-chunk";
+    let msg = b"small message";
+    // Chunk size larger than message → single chunk
+    let packet = encode_parallel(secret, msg, b"aad", 1 << 20, None).unwrap();
+    assert_eq!(packet.chunks.len(), 1);
+    let recovered = decode_parallel(secret, &packet).unwrap();
+    assert_eq!(msg.as_slice(), recovered.as_slice());
 }

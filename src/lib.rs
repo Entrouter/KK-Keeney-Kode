@@ -98,6 +98,8 @@ pub mod codec;
 pub mod eka;
 #[cfg(feature = "std")]
 pub mod entropy;
+#[cfg(feature = "std")]
+pub mod entropy_pool;
 pub mod error;
 #[cfg(feature = "std")]
 pub mod kdf;
@@ -128,6 +130,14 @@ pub use codec::{StreamEncoder, StreamDecoder};
 pub use codec::{encode_with_snapshot, encode_aead_with_snapshot};
 #[cfg(feature = "std")]
 pub use entropy::EntropySnapshot;
+#[cfg(feature = "std")]
+pub use entropy_pool::EntropyPool;
+#[cfg(feature = "std")]
+pub use codec::{encode_pooled, encode_aead_pooled};
+#[cfg(feature = "std")]
+pub use codec::{encode_aead_batch, decode_aead_batch};
+#[cfg(feature = "std")]
+pub use codec::{encode_parallel, decode_parallel, KkParallelPacket, PARALLEL_CHUNK_SIZE};
 pub use error::KkError;
 #[cfg(feature = "std")]
 pub use temporal::{generate_challenge, TemporalProof, GENESIS_MAC};
@@ -150,5 +160,7 @@ pub use qkd::{
 #[cfg(feature = "std")]
 pub use eka::{EkaInitiator, EkaResponder, EkaMsg1, EkaMsg2, EkaMsg3};
 
-// RNG re-export (works in no_std + alloc)
+// RNG re-exports
 pub use rng::KkRng;
+#[cfg(feature = "std")]
+pub use rng::KkRngPool;

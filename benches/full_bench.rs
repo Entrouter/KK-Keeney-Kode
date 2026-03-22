@@ -30,6 +30,10 @@ use kk_crypto::{
     encode_session_aead, decode_session_aead, RopeRatchet,
     // EKA
     EkaInitiator, EkaResponder,
+    // Parallel encode
+    encode_parallel, decode_parallel, PARALLEL_CHUNK_SIZE,
+    // Entropy pool
+    EntropyPool,
 };
 
 const SECRET: &[u8] = b"bench-shared-secret-2026";
@@ -404,6 +408,100 @@ fn bench_rng_reseed(c: &mut Criterion) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+//  KkRngPool  - Parallel RNG throughput
+// ─────────────────────────────────────────────────────────────────
+
+fn bench_rng_pool_next_bytes(c: &mut Criterion) {
+    let mut group = c.benchmark_group("kk_rng_pool_next_bytes");
+    let num_gen = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+    for size in [256, 1024, 4096, 65536] {
+        group.throughput(Throughput::Bytes(size as u64));
+        group.bench_with_input(BenchmarkId::new(format!("{}gen", num_gen), size), &size, |b, &len| {
+            let pool = kk_crypto::KkRngPool::new(b"bench-pool-seed-2026", num_gen);
+            b.iter(|| black_box(pool.next_bytes(len)));
+        });
+    }
+    group.finish();
+}
+
+fn bench_rng_pool_fill_parallel(c: &mut Criterion) {
+    let mut group = c.benchmark_group("kk_rng_pool_fill_parallel");
+    let num_gen = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+    for total in [65_536usize, 1_048_576, 10_485_760, 104_857_600] {
+        group.throughput(Throughput::Bytes(total as u64));
+        let label = match total {
+            65_536 => "64KB",
+            1_048_576 => "1MB",
+            10_485_760 => "10MB",
+            _ => "100MB",
+        };
+        group.bench_function(BenchmarkId::new(format!("{}gen", num_gen), label), |b| {
+            let pool = kk_crypto::KkRngPool::new(b"bench-pool-seed-2026", num_gen);
+            let mut buf = vec![0u8; total];
+            b.iter(|| {
+                pool.fill_bytes_parallel(black_box(&mut buf));
+            });
+        });
+    }
+    group.finish();
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Parallel Encode / Decode
+// ─────────────────────────────────────────────────────────────────
+
+fn bench_encode_parallel(c: &mut Criterion) {
+    let mut group = c.benchmark_group("encode_parallel");
+    let pool = EntropyPool::new(256).unwrap();
+    for &size in &[1 << 20, 10 << 20, 100 << 20] {
+        let label = match size {
+            1_048_576 => "1MB",
+            10_485_760 => "10MB",
+            _ => "100MB",
+        };
+        group.throughput(Throughput::Bytes(size as u64));
+        group.sample_size(10);
+        group.bench_with_input(BenchmarkId::from_parameter(label), &size, |b, &sz| {
+            let payload = vec![0xABu8; sz];
+            let aad = b"bench-aad";
+            b.iter(|| {
+                encode_parallel(
+                    black_box(SECRET),
+                    black_box(&payload),
+                    black_box(aad),
+                    PARALLEL_CHUNK_SIZE,
+                    Some(&pool),
+                )
+                .unwrap()
+            });
+        });
+    }
+    group.finish();
+}
+
+fn bench_decode_parallel(c: &mut Criterion) {
+    let mut group = c.benchmark_group("decode_parallel");
+    let pool = EntropyPool::new(256).unwrap();
+    for &size in &[1 << 20, 10 << 20, 100 << 20] {
+        let label = match size {
+            1_048_576 => "1MB",
+            10_485_760 => "10MB",
+            _ => "100MB",
+        };
+        group.throughput(Throughput::Bytes(size as u64));
+        group.sample_size(10);
+        let payload = vec![0xABu8; size];
+        let packet = encode_parallel(SECRET, &payload, b"bench-aad", PARALLEL_CHUNK_SIZE, Some(&pool)).unwrap();
+        group.bench_with_input(BenchmarkId::from_parameter(label), &packet, |b, pkt| {
+            b.iter(|| {
+                decode_parallel(black_box(SECRET), black_box(pkt)).unwrap()
+            });
+        });
+    }
+    group.finish();
+}
+
+// ─────────────────────────────────────────────────────────────────
 //  Registration
 // ─────────────────────────────────────────────────────────────────
 
@@ -458,6 +556,18 @@ criterion_group!(
     bench_rng_reseed,
 );
 
+criterion_group!(
+    rng_parallel,
+    bench_rng_pool_next_bytes,
+    bench_rng_pool_fill_parallel,
+);
+
+criterion_group!(
+    parallel_encode,
+    bench_encode_parallel,
+    bench_decode_parallel,
+);
+
 criterion_main!(
     primitives,
     codec_aead,
@@ -466,4 +576,6 @@ criterion_main!(
     session_and_eka,
     temporal_and_entropy,
     rng,
+    rng_parallel,
+    parallel_encode,
 );

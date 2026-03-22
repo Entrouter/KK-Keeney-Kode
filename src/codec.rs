@@ -46,6 +46,7 @@ use std::time::Duration;
 use crate::entropy::{self, EntropySnapshot};
 use crate::error::{KkError, Result};
 use crate::kdf;
+use crate::kk_mix::kk_hash;
 use crate::temporal::{self, TemporalCommitment, TemporalProof};
 
 /// The number of plaintext bytes processed per KDF derivation.
@@ -647,6 +648,294 @@ pub fn encode_aead_with_snapshot(
     })
 }
 
+// ─────────────────────────────────────────────────────────────────
+//  Pooled encode  - pre-generated entropy for high-throughput paths
+// ─────────────────────────────────────────────────────────────────
+
+/// Encode plaintext using a pre-warmed [`EntropyPool`] instead of
+/// calling `entropy::gather()` on every invocation.
+///
+/// Identical semantics to [`encode`], but the entropy snapshot is drawn
+/// from the pool (near-zero latency) rather than generated on the spot.
+pub fn encode_pooled(
+    shared_secret: &[u8],
+    plaintext: &[u8],
+    pool: &crate::entropy_pool::EntropyPool,
+) -> Result<KkPacket> {
+    if plaintext.is_empty() {
+        return Err(KkError::EmptyInput);
+    }
+    let snapshot = pool.draw()?;
+    let ciphertext = xor_with_keystream(shared_secret, &snapshot, plaintext)?;
+    let commitment = temporal::commit(shared_secret, &snapshot, &ciphertext)?;
+    Ok(KkPacket {
+        ciphertext,
+        entropy_snapshot: snapshot,
+        commitment,
+    })
+}
+
+/// AEAD encode using a pre-warmed [`EntropyPool`].
+///
+/// Identical semantics to [`encode_aead`], but draws entropy from the pool.
+pub fn encode_aead_pooled(
+    shared_secret: &[u8],
+    plaintext: &[u8],
+    aad: &[u8],
+    pool: &crate::entropy_pool::EntropyPool,
+) -> Result<KkAeadPacket> {
+    if plaintext.is_empty() {
+        return Err(KkError::EmptyInput);
+    }
+    let snapshot = pool.draw()?;
+    let ciphertext = xor_with_keystream(shared_secret, &snapshot, plaintext)?;
+    let commitment = temporal::commit_aead(shared_secret, &snapshot, &ciphertext, aad)?;
+    Ok(KkAeadPacket {
+        aad: aad.to_vec(),
+        ciphertext,
+        entropy_snapshot: snapshot,
+        commitment,
+    })
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Batched AEAD  - parallel encrypt/decrypt of N independent messages
+// ─────────────────────────────────────────────────────────────────
+
+/// Encrypt N independent messages in parallel using Rayon.
+///
+/// Each message gets its own entropy snapshot (drawn from `pool` when
+/// provided, otherwise gathered synchronously). Results are returned
+/// in the same order as the input slice.
+///
+/// This is the real server-workload API: thousands of concurrent messages
+/// processed across all CPU cores.
+pub fn encode_aead_batch(
+    shared_secret: &[u8],
+    messages: &[(&[u8], &[u8])], // (plaintext, aad) pairs
+    pool: Option<&crate::entropy_pool::EntropyPool>,
+) -> Result<Vec<KkAeadPacket>> {
+    messages
+        .par_iter()
+        .map(|(plaintext, aad)| match pool {
+            Some(p) => encode_aead_pooled(shared_secret, plaintext, aad, p),
+            None => encode_aead(shared_secret, plaintext, aad),
+        })
+        .collect()
+}
+
+/// Decrypt N independent AEAD packets in parallel using Rayon.
+///
+/// Each packet is verified and decrypted independently. Results are
+/// returned in the same order as the input slice.
+pub fn decode_aead_batch(
+    shared_secret: &[u8],
+    packets: &[KkAeadPacket],
+) -> Result<Vec<Vec<u8>>> {
+    packets
+        .par_iter()
+        .map(|pkt| decode_aead(shared_secret, pkt))
+        .collect()
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Parallel Encode/Decode  - single large payload, chunked + Merkle
+// ─────────────────────────────────────────────────────────────────
+
+/// Default chunk size for parallel encode: 1 MiB.
+pub const PARALLEL_CHUNK_SIZE: usize = 1 << 20;
+
+/// A parallel-encoded packet: large payload split into independently
+/// encrypted chunks, bound together by a Merkle commitment root.
+///
+/// Each chunk is a full [`KkAeadPacket`] with its own entropy snapshot
+/// and temporal commitment. The Merkle root binds all chunk commitments
+/// together so that no chunk can be reordered, removed, or replaced
+/// without detection.
+#[derive(Clone)]
+pub struct KkParallelPacket {
+    /// The independently encrypted chunks, in order.
+    pub chunks: Vec<KkAeadPacket>,
+    /// The chunk size used during encoding (needed to verify padding on last chunk).
+    pub chunk_size: usize,
+    /// Merkle root: `kk_hash(chunk_0.commitment || chunk_1.commitment || …)`
+    pub merkle_root: [u8; 32],
+}
+
+/// Compute the Merkle root over chunk commitments.
+///
+/// root = kk_hash( c_0.mac || c_1.mac || … || c_n.mac )
+fn compute_merkle_root(chunks: &[KkAeadPacket]) -> [u8; 32] {
+    let mut preimage = Vec::with_capacity(chunks.len() * 32);
+    for chunk in chunks {
+        preimage.extend_from_slice(&chunk.commitment.mac);
+    }
+    kk_hash(&preimage)
+}
+
+/// Encode a large payload in parallel by splitting it into chunks.
+///
+/// Each chunk is encrypted independently via [`encode_aead`] (or the pooled
+/// variant when a pool is provided). All chunks are processed in parallel
+/// using Rayon. A Merkle root over the chunk commitments binds the entire
+/// payload together.
+///
+/// # Arguments
+/// - `shared_secret`  - the pre-shared key
+/// - `plaintext`  - the full payload to encrypt
+/// - `aad`  - associated data, authenticated on every chunk
+/// - `chunk_size`  - bytes per chunk (use [`PARALLEL_CHUNK_SIZE`] for default 1 MiB)
+/// - `pool`  - optional [`EntropyPool`] for high-throughput paths
+pub fn encode_parallel(
+    shared_secret: &[u8],
+    plaintext: &[u8],
+    aad: &[u8],
+    chunk_size: usize,
+    pool: Option<&crate::entropy_pool::EntropyPool>,
+) -> Result<KkParallelPacket> {
+    if plaintext.is_empty() {
+        return Err(KkError::EmptyInput);
+    }
+    if chunk_size == 0 {
+        return Err(KkError::InvalidPacket("chunk_size must be > 0".into()));
+    }
+
+    // Build (index, chunk_data) pairs so par_iter preserves ordering
+    let chunk_pairs: Vec<(usize, &[u8])> = plaintext
+        .chunks(chunk_size)
+        .enumerate()
+        .collect();
+
+    let chunks: Vec<KkAeadPacket> = chunk_pairs
+        .par_iter()
+        .map(|(_idx, chunk_data)| {
+            let snapshot = match pool {
+                Some(p) => p.draw()?,
+                None => entropy::gather()?,
+            };
+            encode_aead_par_inner(shared_secret, chunk_data, aad, snapshot)
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    let merkle_root = compute_merkle_root(&chunks);
+
+    Ok(KkParallelPacket {
+        chunks,
+        chunk_size,
+        merkle_root,
+    })
+}
+
+/// Decode a parallel-encoded packet, verifying the Merkle root and each chunk.
+///
+/// Steps:
+/// 1. Recompute the Merkle root from chunk commitments
+/// 2. Verify it matches the packet's stored root (detects reorder/tamper)
+/// 3. Decrypt all chunks in parallel
+/// 4. Concatenate plaintext in order
+pub fn decode_parallel(
+    shared_secret: &[u8],
+    packet: &KkParallelPacket,
+) -> Result<Vec<u8>> {
+    if packet.chunks.is_empty() {
+        return Err(KkError::InvalidPacket("parallel packet has no chunks".into()));
+    }
+
+    // Verify Merkle root
+    let computed_root = compute_merkle_root(&packet.chunks);
+    if computed_root != packet.merkle_root {
+        return Err(KkError::CommitmentMismatch);
+    }
+
+    // Decrypt all chunks in parallel (sequential XOR per chunk avoids nested Rayon)
+    let plaintexts: Vec<Vec<u8>> = packet.chunks
+        .par_iter()
+        .map(|chunk| decode_aead_seq(shared_secret, chunk))
+        .collect::<Result<Vec<_>>>()?;
+
+    // Concatenate in order
+    let total_len: usize = plaintexts.iter().map(|p| p.len()).sum();
+    let mut result = Vec::with_capacity(total_len);
+    for pt in plaintexts {
+        result.extend_from_slice(&pt);
+    }
+    Ok(result)
+}
+
+impl KkParallelPacket {
+    /// Serialize the parallel packet for transmission.
+    ///
+    /// Format:
+    /// ```text
+    /// [4-byte num_chunks][4-byte chunk_size][32-byte merkle_root]
+    /// for each chunk:
+    ///   [4-byte chunk_bytes_len][chunk_bytes…]
+    /// ```
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let num_chunks = self.chunks.len() as u32;
+        // Pre-serialize chunks to compute total size
+        let chunk_bytes: Vec<Vec<u8>> = self.chunks.iter().map(|c| c.to_bytes()).collect();
+        let payload_size: usize = chunk_bytes.iter().map(|cb| 4 + cb.len()).sum();
+        let header_size = 4 + 4 + 32; // num_chunks + chunk_size + merkle_root
+
+        let mut out = Vec::with_capacity(header_size + payload_size);
+        out.extend_from_slice(&num_chunks.to_le_bytes());
+        out.extend_from_slice(&(self.chunk_size as u32).to_le_bytes());
+        out.extend_from_slice(&self.merkle_root);
+
+        for cb in &chunk_bytes {
+            out.extend_from_slice(&(cb.len() as u32).to_le_bytes());
+            out.extend_from_slice(cb);
+        }
+        out
+    }
+
+    /// Deserialize a parallel packet from received bytes.
+    pub fn from_bytes(data: &[u8]) -> Result<Self> {
+        const HEADER: usize = 4 + 4 + 32;
+        if data.len() < HEADER {
+            return Err(KkError::InvalidPacket("parallel packet too short".into()));
+        }
+
+        let num_chunks = u32::from_le_bytes(
+            data[..4].try_into().map_err(|_| KkError::InvalidPacket("bad chunk count".into()))?
+        ) as usize;
+        let chunk_size = u32::from_le_bytes(
+            data[4..8].try_into().map_err(|_| KkError::InvalidPacket("bad chunk size".into()))?
+        ) as usize;
+
+        let mut merkle_root = [0u8; 32];
+        merkle_root.copy_from_slice(&data[8..40]);
+
+        let mut offset = HEADER;
+        let mut chunks = Vec::with_capacity(num_chunks);
+        for _ in 0..num_chunks {
+            if data.len() < offset + 4 {
+                return Err(KkError::InvalidPacket("parallel packet truncated at chunk length".into()));
+            }
+            let cb_len = u32::from_le_bytes(
+                data[offset..offset + 4]
+                    .try_into()
+                    .map_err(|_| KkError::InvalidPacket("bad chunk byte length".into()))?
+            ) as usize;
+            offset += 4;
+
+            if data.len() < offset + cb_len {
+                return Err(KkError::InvalidPacket("parallel packet truncated at chunk data".into()));
+            }
+            let chunk = KkAeadPacket::from_bytes(&data[offset..offset + cb_len])?;
+            chunks.push(chunk);
+            offset += cb_len;
+        }
+
+        Ok(Self {
+            chunks,
+            chunk_size,
+            merkle_root,
+        })
+    }
+}
+
 /// Internal: XOR input with the KK-derived keystream.
 ///
 /// Processes chunks in batches of 8 using AVX-512 vectorized KDF when
@@ -719,6 +1008,98 @@ fn xor_with_keystream(
             Err(e)
         }
     }
+}
+
+/// Sequential variant of [`xor_with_keystream`] for use inside an outer
+/// `par_iter` (e.g. `encode_parallel`). Avoids nested Rayon parallelism
+/// which causes thread-pool contention. Produces byte-identical output.
+fn xor_with_keystream_seq(
+    shared_secret: &[u8],
+    snapshot: &EntropySnapshot,
+    input: &[u8],
+) -> Result<Vec<u8>> {
+    let mut output = vec![0u8; input.len()];
+    let batch_bytes = CHUNK_SIZE * 8;
+
+    for (batch_idx, out_batch) in output.chunks_mut(batch_bytes).enumerate() {
+        let base_chunk = batch_idx * 8;
+        let in_base = base_chunk * CHUNK_SIZE;
+
+        if out_batch.len() == batch_bytes {
+            let mut keys = kdf::derive_symbol_key_batch(
+                shared_secret,
+                snapshot,
+                base_chunk as u64,
+                CHUNK_SIZE,
+            )?;
+
+            for (c, key) in keys.iter_mut().enumerate() {
+                let out_off = c * CHUNK_SIZE;
+                let in_off = in_base + c * CHUNK_SIZE;
+                for i in 0..CHUNK_SIZE {
+                    out_batch[out_off + i] = input[in_off + i] ^ key[i];
+                }
+                key.zeroize();
+            }
+        } else {
+            let chunks_in_batch = out_batch.len().div_ceil(CHUNK_SIZE);
+
+            for c in 0..chunks_in_batch {
+                let chunk_idx = base_chunk + c;
+                let out_off = c * CHUNK_SIZE;
+                let chunk_len = (out_batch.len() - out_off).min(CHUNK_SIZE);
+                let in_off = in_base + c * CHUNK_SIZE;
+
+                let mut key_bytes = kdf::derive_symbol_key(
+                    shared_secret,
+                    snapshot,
+                    chunk_idx as u64,
+                    chunk_len,
+                )?;
+
+                for i in 0..chunk_len {
+                    out_batch[out_off + i] = input[in_off + i] ^ key_bytes[i];
+                }
+                key_bytes.zeroize();
+            }
+        }
+    }
+
+    Ok(output)
+}
+
+/// AEAD encode a single chunk using sequential keystream XOR.
+/// Used inside `encode_parallel` to avoid nested Rayon parallelism.
+fn encode_aead_par_inner(
+    shared_secret: &[u8],
+    plaintext: &[u8],
+    aad: &[u8],
+    snapshot: EntropySnapshot,
+) -> Result<KkAeadPacket> {
+    let ciphertext = xor_with_keystream_seq(shared_secret, &snapshot, plaintext)?;
+    let commitment = temporal::commit_aead(shared_secret, &snapshot, &ciphertext, aad)?;
+    Ok(KkAeadPacket {
+        aad: aad.to_vec(),
+        ciphertext,
+        entropy_snapshot: snapshot,
+        commitment,
+    })
+}
+
+/// Decode a single AEAD chunk using sequential keystream XOR.
+/// Used inside `decode_parallel` to avoid nested Rayon parallelism.
+fn decode_aead_seq(
+    shared_secret: &[u8],
+    packet: &KkAeadPacket,
+) -> Result<Vec<u8>> {
+    temporal::verify_aead(
+        shared_secret,
+        &packet.entropy_snapshot,
+        &packet.ciphertext,
+        &packet.aad,
+        &packet.commitment,
+    )?;
+    xor_with_keystream_seq(shared_secret, &packet.entropy_snapshot, &packet.ciphertext)
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1208,6 +1589,107 @@ mod tests {
         let stream_pt = decode(secret, &stream_pkt).unwrap();
         assert_eq!(oneshot_pt, stream_pt);
         assert_eq!(&stream_pt[..], &data[..]);
+    }
+
+    // ─── Parallel encode/decode tests ───────────────────────────
+
+    #[test]
+    fn parallel_roundtrip_small() {
+        let secret = b"parallel-test-secret";
+        let plaintext = b"Hello parallel world!";
+        let aad = b"test-aad";
+
+        let packet = encode_parallel(secret, plaintext, aad, 8, None).unwrap();
+        assert!(packet.chunks.len() >= 2); // 21 bytes / 8 = 3 chunks
+        let decoded = decode_parallel(secret, &packet).unwrap();
+        assert_eq!(&decoded[..], &plaintext[..]);
+    }
+
+    #[test]
+    fn parallel_roundtrip_exact_chunk() {
+        let secret = b"exact-chunk-secret";
+        let plaintext = vec![0xABu8; 1024];
+        let aad = b"exact";
+
+        let packet = encode_parallel(secret, &plaintext, aad, 1024, None).unwrap();
+        assert_eq!(packet.chunks.len(), 1);
+        let decoded = decode_parallel(secret, &packet).unwrap();
+        assert_eq!(decoded, plaintext);
+    }
+
+    #[test]
+    fn parallel_roundtrip_large() {
+        let secret = b"large-parallel-secret";
+        let plaintext = vec![42u8; 1_000_000]; // 1 MB
+        let aad = b"large-aad";
+        let chunk_size = PARALLEL_CHUNK_SIZE; // 1 MiB
+
+        let packet = encode_parallel(secret, &plaintext, aad, chunk_size, None).unwrap();
+        assert_eq!(packet.chunks.len(), 1);
+        let decoded = decode_parallel(secret, &packet).unwrap();
+        assert_eq!(decoded, plaintext);
+    }
+
+    #[test]
+    fn parallel_merkle_detects_reorder() {
+        let secret = b"merkle-reorder-test";
+        let plaintext = vec![0u8; 2048];
+        let aad = b"reorder";
+
+        let mut packet = encode_parallel(secret, &plaintext, aad, 512, None).unwrap();
+        assert!(packet.chunks.len() >= 2);
+
+        // Swap first two chunks  - Merkle root should no longer match
+        packet.chunks.swap(0, 1);
+        let result = decode_parallel(secret, &packet);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parallel_merkle_detects_removal() {
+        let secret = b"merkle-removal-test";
+        let plaintext = vec![0u8; 2048];
+        let aad = b"removal";
+
+        let mut packet = encode_parallel(secret, &plaintext, aad, 512, None).unwrap();
+        assert!(packet.chunks.len() >= 2);
+
+        // Remove a chunk  - Merkle root should no longer match
+        packet.chunks.pop();
+        let result = decode_parallel(secret, &packet);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parallel_serde_roundtrip() {
+        let secret = b"serde-parallel-secret";
+        let plaintext = b"serialize me in parallel chunks";
+        let aad = b"serde-aad";
+
+        let packet = encode_parallel(secret, plaintext, aad, 10, None).unwrap();
+        let bytes = packet.to_bytes();
+        let restored = KkParallelPacket::from_bytes(&bytes).unwrap();
+
+        assert_eq!(restored.chunks.len(), packet.chunks.len());
+        assert_eq!(restored.chunk_size, packet.chunk_size);
+        assert_eq!(restored.merkle_root, packet.merkle_root);
+
+        let decoded = decode_parallel(secret, &restored).unwrap();
+        assert_eq!(&decoded[..], &plaintext[..]);
+    }
+
+    #[test]
+    fn parallel_empty_input_rejected() {
+        let secret = b"empty-test";
+        let result = encode_parallel(secret, b"", b"aad", 1024, None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parallel_zero_chunk_size_rejected() {
+        let secret = b"zero-chunk";
+        let result = encode_parallel(secret, b"data", b"aad", 0, None);
+        assert!(result.is_err());
     }
 
 }

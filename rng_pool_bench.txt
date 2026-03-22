@@ -1,0 +1,94 @@
+﻿cargo :    Compiling kk-crypto v0.1.0 (F:\kk-crypto\KK-Keeney-Kode)
+At line:1 char:1
++ cargo bench --bench full_bench -- "rng_pool" 2>&1 | Out-File -FilePat ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (   Compiling kk...KK-Keeney-Kode):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+    Finished `bench` profile [optimized] target(s) in 32.53s
+     Running benches\full_bench.rs (target\release\deps\full_bench-001adb02a3324f5f.exe)
+Gnuplot not found, using plotters backend
+Benchmarking kk_rng_pool_next_bytes/32gen/256
+Benchmarking kk_rng_pool_next_bytes/32gen/256: Warming up for 3.0000 s
+Benchmarking kk_rng_pool_next_bytes/32gen/256: Collecting 100 samples in estimated 5.0088 s (2.5M iterations)
+Benchmarking kk_rng_pool_next_bytes/32gen/256: Analyzing
+kk_rng_pool_next_bytes/32gen/256
+                        time:   [2.0100 ┬Ás 2.0125 ┬Ás 2.0149 ┬Ás]
+                        thrpt:  [121.17 MiB/s 121.32 MiB/s 121.46 MiB/s]
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+Benchmarking kk_rng_pool_next_bytes/32gen/1024
+Benchmarking kk_rng_pool_next_bytes/32gen/1024: Warming up for 3.0000 s
+Benchmarking kk_rng_pool_next_bytes/32gen/1024: Collecting 100 samples in estimated 5.0045 s (864k 
+iterations)
+Benchmarking kk_rng_pool_next_bytes/32gen/1024: Analyzing
+kk_rng_pool_next_bytes/32gen/1024
+                        time:   [5.7867 ┬Ás 5.7943 ┬Ás 5.8017 ┬Ás]
+                        thrpt:  [168.32 MiB/s 168.54 MiB/s 168.76 MiB/s]
+Found 9 outliers among 100 measurements (9.00%)
+  8 (8.00%) low mild
+  1 (1.00%) high severe
+Benchmarking kk_rng_pool_next_bytes/32gen/4096
+Benchmarking kk_rng_pool_next_bytes/32gen/4096: Warming up for 3.0000 s
+Benchmarking kk_rng_pool_next_bytes/32gen/4096: Collecting 100 samples in estimated 5.0152 s (232k 
+iterations)
+Benchmarking kk_rng_pool_next_bytes/32gen/4096: Analyzing
+kk_rng_pool_next_bytes/32gen/4096
+                        time:   [22.177 ┬Ás 22.227 ┬Ás 22.276 ┬Ás]
+                        thrpt:  [175.36 MiB/s 175.74 MiB/s 176.14 MiB/s]
+Found 4 outliers among 100 measurements (4.00%)
+  4 (4.00%) high mild
+Benchmarking kk_rng_pool_next_bytes/32gen/65536
+Benchmarking kk_rng_pool_next_bytes/32gen/65536: Warming up for 3.0000 s
+Benchmarking kk_rng_pool_next_bytes/32gen/65536: Collecting 100 samples in estimated 5.0910 s (15k 
+iterations)
+Benchmarking kk_rng_pool_next_bytes/32gen/65536: Analyzing
+kk_rng_pool_next_bytes/32gen/65536
+                        time:   [334.60 ┬Ás 335.31 ┬Ás 336.03 ┬Ás]
+                        thrpt:  [185.99 MiB/s 186.39 MiB/s 186.79 MiB/s]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+
+Benchmarking kk_rng_pool_fill_parallel/32gen/64KB
+Benchmarking kk_rng_pool_fill_parallel/32gen/64KB: Warming up for 3.0000 s
+Benchmarking kk_rng_pool_fill_parallel/32gen/64KB: Collecting 100 samples in estimated 5.1294 s (96k 
+iterations)
+Benchmarking kk_rng_pool_fill_parallel/32gen/64KB: Analyzing
+kk_rng_pool_fill_parallel/32gen/64KB
+                        time:   [52.365 ┬Ás 53.360 ┬Ás 54.474 ┬Ás]
+                        thrpt:  [1.1204 GiB/s 1.1438 GiB/s 1.1656 GiB/s]
+Found 7 outliers among 100 measurements (7.00%)
+  6 (6.00%) high mild
+  1 (1.00%) high severe
+Benchmarking kk_rng_pool_fill_parallel/32gen/1MB
+Benchmarking kk_rng_pool_fill_parallel/32gen/1MB: Warming up for 3.0000 s
+Benchmarking kk_rng_pool_fill_parallel/32gen/1MB: Collecting 100 samples in estimated 5.3293 s (10k 
+iterations)
+Benchmarking kk_rng_pool_fill_parallel/32gen/1MB: Analyzing
+kk_rng_pool_fill_parallel/32gen/1MB
+                        time:   [526.87 ┬Ás 532.80 ┬Ás 539.04 ┬Ás]
+                        thrpt:  [1.8117 GiB/s 1.8329 GiB/s 1.8535 GiB/s]
+Found 4 outliers among 100 measurements (4.00%)
+  4 (4.00%) high mild
+Benchmarking kk_rng_pool_fill_parallel/32gen/10MB
+Benchmarking kk_rng_pool_fill_parallel/32gen/10MB: Warming up for 3.0000 s
+Benchmarking kk_rng_pool_fill_parallel/32gen/10MB: Collecting 100 samples in estimated 5.2014 s (1300 
+iterations)
+Benchmarking kk_rng_pool_fill_parallel/32gen/10MB: Analyzing
+kk_rng_pool_fill_parallel/32gen/10MB
+                        time:   [3.9432 ms 3.9669 ms 3.9916 ms]
+                        thrpt:  [2.4466 GiB/s 2.4618 GiB/s 2.4766 GiB/s]
+Found 4 outliers among 100 measurements (4.00%)
+  4 (4.00%) high mild
+Benchmarking kk_rng_pool_fill_parallel/32gen/100MB
+Benchmarking kk_rng_pool_fill_parallel/32gen/100MB: Warming up for 3.0000 s
+Benchmarking kk_rng_pool_fill_parallel/32gen/100MB: Collecting 100 samples in estimated 6.9498 s (200 
+iterations)
+Benchmarking kk_rng_pool_fill_parallel/32gen/100MB: Analyzing
+kk_rng_pool_fill_parallel/32gen/100MB
+                        time:   [34.609 ms 34.863 ms 35.135 ms]
+                        thrpt:  [2.7794 GiB/s 2.8012 GiB/s 2.8217 GiB/s]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+

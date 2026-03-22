@@ -1,0 +1,76 @@
+﻿cargo :     Finished `bench` profile [optimized] target(s) in 1.77s
+At line:1 char:1
++ cargo bench --bench kk_bench -- "kdf_8x" 2>&1 | Out-File -FilePath "a ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (    Finished `b...get(s) in 1.77s:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+     Running benches\kk_bench.rs (target\release\deps\kk_bench-8d874c4c670d4416.exe)
+Gnuplot not found, using plotters backend
+Benchmarking kdf_8x_32B/scalar_sequential
+Benchmarking kdf_8x_32B/scalar_sequential: Warming up for 3.0000 s
+Benchmarking kdf_8x_32B/scalar_sequential: Collecting 100 samples in estimated 5.0289 s (510k iterations)
+Benchmarking kdf_8x_32B/scalar_sequential: Analyzing
+kdf_8x_32B/scalar_sequential
+                        time:   [10.081 ┬Ás 10.110 ┬Ás 10.142 ┬Ás]
+                        change: [-1.0516% +0.7430% +2.1925%] (p = 0.40 > 0.05)
+                        No change in performance detected.
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low mild
+  5 (5.00%) high mild
+Benchmarking kdf_8x_32B/batch_kdf_batch_8
+Benchmarking kdf_8x_32B/batch_kdf_batch_8: Warming up for 3.0000 s
+Benchmarking kdf_8x_32B/batch_kdf_batch_8: Collecting 100 samples in estimated 5.0236 s (500k iterations)
+Benchmarking kdf_8x_32B/batch_kdf_batch_8: Analyzing
+kdf_8x_32B/batch_kdf_batch_8
+                        time:   [9.9911 ┬Ás 10.024 ┬Ás 10.060 ┬Ás]
+                        change: [-2.0503% -0.2435% +1.1965%] (p = 0.79 > 0.05)
+                        No change in performance detected.
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+
+Benchmarking kdf_8x_64B/scalar_sequential
+Benchmarking kdf_8x_64B/scalar_sequential: Warming up for 3.0000 s
+Benchmarking kdf_8x_64B/scalar_sequential: Collecting 100 samples in estimated 5.0089 s (505k iterations)
+Benchmarking kdf_8x_64B/scalar_sequential: Analyzing
+kdf_8x_64B/scalar_sequential
+                        time:   [10.018 ┬Ás 10.043 ┬Ás 10.069 ┬Ás]
+                        change: [-2.5533% -0.7855% +0.7209%] (p = 0.39 > 0.05)
+                        No change in performance detected.
+Found 6 outliers among 100 measurements (6.00%)
+  4 (4.00%) high mild
+  2 (2.00%) high severe
+Benchmarking kdf_8x_64B/batch_kdf_batch_8
+Benchmarking kdf_8x_64B/batch_kdf_batch_8: Warming up for 3.0000 s
+Benchmarking kdf_8x_64B/batch_kdf_batch_8: Collecting 100 samples in estimated 5.0220 s (500k iterations)
+Benchmarking kdf_8x_64B/batch_kdf_batch_8: Analyzing
+kdf_8x_64B/batch_kdf_batch_8
+                        time:   [9.9825 ┬Ás 10.009 ┬Ás 10.038 ┬Ás]
+                        change: [+2.2429% +2.5338% +2.8370%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+
+Benchmarking kdf_8x_256B/scalar_sequential
+Benchmarking kdf_8x_256B/scalar_sequential: Warming up for 3.0000 s
+Benchmarking kdf_8x_256B/scalar_sequential: Collecting 100 samples in estimated 5.0094 s (313k iterations)
+Benchmarking kdf_8x_256B/scalar_sequential: Analyzing
+kdf_8x_256B/scalar_sequential
+                        time:   [15.959 ┬Ás 16.028 ┬Ás 16.100 ┬Ás]
+                        change: [+1.8744% +2.1825% +2.5026%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+Benchmarking kdf_8x_256B/batch_kdf_batch_8
+Benchmarking kdf_8x_256B/batch_kdf_batch_8: Warming up for 3.0000 s
+Benchmarking kdf_8x_256B/batch_kdf_batch_8: Collecting 100 samples in estimated 5.0348 s (490k iterations)
+Benchmarking kdf_8x_256B/batch_kdf_batch_8: Analyzing
+kdf_8x_256B/batch_kdf_batch_8
+                        time:   [10.272 ┬Ás 10.289 ┬Ás 10.307 ┬Ás]
+                        change: [-0.0966% +0.1167% +0.3320%] (p = 0.30 > 0.05)
+                        No change in performance detected.
+Found 8 outliers among 100 measurements (8.00%)
+  4 (4.00%) low mild
+  1 (1.00%) high mild
+  3 (3.00%) high severe
+
