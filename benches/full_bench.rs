@@ -374,6 +374,36 @@ fn bench_bound_serde(c: &mut Criterion) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+//  KK-RNG (deterministic PRNG from KK sponge)
+// ─────────────────────────────────────────────────────────────────
+
+fn bench_rng_next_bytes(c: &mut Criterion) {
+    let mut group = c.benchmark_group("kk_rng_next_bytes");
+    for size in [32, 64, 256, 1024, 4096, 65536] {
+        group.throughput(Throughput::Bytes(size as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, &len| {
+            let mut rng = kk_crypto::KkRng::new(b"bench-seed-for-rng-2026");
+            b.iter(|| black_box(rng.next_bytes(len)));
+        });
+    }
+    group.finish();
+}
+
+fn bench_rng_next_u64(c: &mut Criterion) {
+    let mut rng = kk_crypto::KkRng::new(b"bench-seed-for-rng-2026");
+    c.bench_function("kk_rng_next_u64", |b| {
+        b.iter(|| black_box(rng.next_u64()));
+    });
+}
+
+fn bench_rng_reseed(c: &mut Criterion) {
+    let mut rng = kk_crypto::KkRng::new(b"bench-seed-for-rng-2026");
+    c.bench_function("kk_rng_reseed", |b| {
+        b.iter(|| rng.reseed(black_box(b"fresh-entropy-material")));
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────
 //  Registration
 // ─────────────────────────────────────────────────────────────────
 
@@ -421,6 +451,13 @@ criterion_group!(
     bench_entropy_snapshot,
 );
 
+criterion_group!(
+    rng,
+    bench_rng_next_bytes,
+    bench_rng_next_u64,
+    bench_rng_reseed,
+);
+
 criterion_main!(
     primitives,
     codec_aead,
@@ -428,4 +465,5 @@ criterion_main!(
     codec_bound,
     session_and_eka,
     temporal_and_entropy,
+    rng,
 );
