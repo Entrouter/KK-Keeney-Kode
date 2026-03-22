@@ -888,6 +888,367 @@ Each ratchet advance produces metadata that must be transmitted alongside the ci
 
 ## 12. KK-EKA (Entropy Key Agreement)
 
+KK-EKA is a 3-message, PSK-authenticated key agreement protocol.
+Two parties who share a pre-shared key (PSK) exchange fresh entropy
+and derive a session key without ever transmitting the PSK.
+
+→ `eka.rs`
+
+### 12.1 Overview
+
+| Property | Mechanism |
+|----------|-----------|
+| Mutual authentication | KK-MAC tags over entropy ‖ peer data, keyed by PSK |
+| Contributory entropy | Session key mixes entropy from **both** parties |
+| Commitment binding | Initiator commits to its entropy before seeing responder's |
+| Forward secrecy | Ephemeral entropy is zeroized after key derivation |
+| Temporal freshness | Each `EntropySnapshot` includes CPU counters and OS randomness |
+
+### 12.2 Wire Types
+
+| Message | Size | Layout |
+|---------|------|--------|
+| `EkaMsg1` | 32 B | `commit_a` (32 B) |
+| `EkaMsg2` | 80 B | `entropy_b_bytes` (48 B) ‖ `auth_b` (32 B) |
+| `EkaMsg3` | 80 B | `entropy_a_bytes` (48 B) ‖ `auth_a` (32 B) |
+
+- `commit_a = kk_hash(serialize(ε_a))`  - a 32-byte hash of the initiator's entropy snapshot.
+- `auth_b = kk_mac(psk, ε_b\_bytes \| commit_a)`  - authenticates responder's entropy bound to the initiator's commitment.
+- `auth_a = kk_mac(psk, ε_a\_bytes \| ε_b\_bytes)`  - authenticates initiator's entropy bound to both snapshots.
+
+### 12.3 Protocol Flow
+
+```
+Initiator (Alice)                     Responder (Bob)
+─────────────────                     ────────────────
+ε_a ← gather_entropy()
+commit_a ← kk_hash(ε_a.to_bytes())
+
+         ── EkaMsg1 {commit_a} ──▶
+
+                                      ε_b ← gather_entropy()
+                                      auth_b ← kk_mac(psk, ε_b ‖ commit_a)
+
+         ◀── EkaMsg2 {ε_b, auth_b} ──
+
+verify auth_b:
+  expected ← kk_mac(psk, ε_b ‖ commit_a)
+  assert constant_time_eq(auth_b, expected)
+auth_a ← kk_mac(psk, ε_a ‖ ε_b)
+
+         ── EkaMsg3 {ε_a, auth_a} ──▶
+
+                                      verify commit:
+                                        assert kk_hash(ε_a) == commit_a
+                                      verify auth_a:
+                                        expected ← kk_mac(psk, ε_a ‖ ε_b)
+                                        assert constant_time_eq(auth_a, expected)
+
+Both derive: session_key ← kk_kdf(psk, ε_a ‖ ε_b, "KK-EKA-session", 32)
+```
+
+### 12.4 State Machines
+
+**`EkaInitiator`**
+
+| Method | State transition |
+|--------|-----------------|
+| `new(psk)` | Gathers $ε_a$; computes $\text{commit}_a$; returns `(Self, EkaMsg1)` |
+| `process_msg2(msg2)` | Verifies $\text{auth}_b$; computes $\text{auth}_a$; derives session key; returns `(session_key, EkaMsg3)` |
+
+**`EkaResponder`**
+
+| Method | State transition |
+|--------|-----------------|
+| `new(psk, msg1)` | Gathers $ε_b$; computes $\text{auth}_b$; stores $\text{commit}_a$; returns `(Self, EkaMsg2)` |
+| `process_msg3(msg3)` | Verifies $\text{commit}_a$ (hash match); verifies $\text{auth}_a$; derives session key; returns `session_key` |
+
+### 12.5 Session Key Derivation
+
+$$
+\text{session\_key} = \text{kk\_kdf}(\text{psk},\; ε_a\_\text{bytes} \,\|\, ε_b\_\text{bytes},\; \texttt{"KK-EKA-session"},\; 32)
+$$
+
+The KDF is invoked with:
+- **key material:** the PSK
+- **salt:** concatenation of both entropy snapshots (96 bytes total)
+- **info:** the literal ASCII string `"KK-EKA-session"`
+- **output length:** 32 bytes
+
+### 12.6 Zeroization
+
+Both `EkaInitiator` and `EkaResponder` implement `Drop`. On drop:
+- All ephemeral entropy bytes are overwritten with zeros.
+- The stored PSK copy is overwritten with zeros.
+- Computed MAC values are overwritten with zeros.
+
+This ensures that compromise of memory after the handshake cannot recover the ephemeral material used to derive the session key.
+
+---
+
+## 13. Security Claims
+
+> **Disclaimer:** KK-Crypto is a novel, un-audited cryptographic primitive.
+> It has **not** been reviewed by third-party cryptographers.
+> Do not use for production security until a formal audit has been conducted.
+
+### 13.1 Threat Model
+
+KK assumes a **pre-shared key (PSK)** between sender and receiver. The attacker may:
+
+- Observe all ciphertext in transit.
+- Replay captured packets.
+- Modify or inject ciphertext.
+- Know the protocol specification and all public parameters.
+
+The attacker does **not** know the PSK.
+
+### 13.2 Confidentiality
+
+Each encoding captures a unique `EntropySnapshot` (CPU performance counters, thread scheduling jitter, OS-provided randomness). The snapshot feeds the KK-KDF to derive per-chunk keystream with the info string:
+
+$$
+\text{info} = \texttt{b"KK-sym-v1\textbackslash 0"} \,\|\, \text{LE8}(i) \,\|\, \text{LE16}(\text{timestamp})
+$$
+
+This ensures the same plaintext never produces the same ciphertext twice, even with the same key, because the entropy snapshot (and therefore the keystream) differs every time.
+
+### 13.3 Integrity
+
+Every `KkPacket` carries a KK-MAC tag over (ciphertext ‖ entropy snapshot). The `decode` function rejects any packet whose tag does not verify, preventing silent tampering. Verification uses constant-time comparison with `black_box` barriers to prevent compiler elision.
+
+### 13.4 Temporal Binding
+
+The `TemporalCommitment` in each packet commits to the entropy used during encoding:
+
+$$
+\text{commitment} = \text{kk\_mac}(\text{commit\_key},\; ε.\text{bytes} \,\|\, \text{LE16}(\text{timestamp}) \,\|\, C)
+$$
+
+where $\text{commit\_key} = \text{kk\_kdf}(\text{secret},\; ε.\text{bytes},\; \texttt{"KK-commit-v1"},\; 32)$.
+
+The receiver re-derives the commitment and rejects packets where it does not match.
+
+### 13.5 AEAD Binding
+
+In AEAD mode, associated data (AAD) is bound into the commitment:
+
+$$
+\text{msg} = \text{LE8}(|\text{AAD}|) \,\|\, \text{AAD} \,\|\, C
+$$
+
+This prevents an attacker from transplanting ciphertext between different AAD contexts.
+
+### 13.6 Forward Secrecy
+
+The base `codec` module provides **no** forward secrecy  - compromise of the long-term PSK exposes all past messages.
+
+The `session` module's **Rope Ratchet** provides ~192-bit forward secrecy:
+
+- 4 strands (entropy, temporal, chain, counter) are irreversibly evolved on every step.
+- Strand mixing produces a 64-byte intermediate via KK-Hash, split into a 32-byte message key and a new 32-byte chain strand.
+- Old strand values are overwritten and become unrecoverable.
+- The 384-bit sponge capacity bounds the security level at ~192 bits.
+
+### 13.7 Key Hygiene
+
+- Intermediate keys (commit keys, chunk keystream, message keys) are zeroized via the `zeroize` crate immediately after use.
+- Output buffers are zeroized on error paths to prevent partial plaintext leaks.
+- `EkaInitiator`, `EkaResponder`, and `RopeRatchet` all implement `Drop` with full zeroization.
+
+### 13.8 Known Limitations
+
+| Limitation | Mitigation |
+|------------|------------|
+| Novel, un-audited primitive | Treat as experimental; see §13 header |
+| No replay protection in base codec | Add sequence numbers or timestamps at the protocol layer, or use the Rope Ratchet (monotonic counter) |
+| PSK-only authentication | Use KK-EKA (§12) for ephemeral key agreement |
+| No post-quantum security claim | The permutation is symmetric; no public-key operations to attack with Grover/Shor, but no formal post-quantum analysis |
+| Entropy quality depends on platform | `gather_entropy()` uses OS randomness + CPU counters + jitter; degraded-entropy environments may weaken security |
+
+---
+
+## 14. Wire Format Summary
+
+All multi-byte integers are **little-endian**. All fields are concatenated with no padding or delimiters.
+
+### 14.1 EntropySnapshot
+
+| Offset | Size | Field |
+|--------|------|-------|
+| 0 | 32 B | `bytes`  - environmental entropy |
+| 32 | 16 B | `timestamp`  - `u128` nanosecond counter (LE) |
+| **Total** | **48 B** | |
+
+→ `entropy::EntropySnapshot`
+
+### 14.2 KkPacket
+
+| Offset | Size | Field |
+|--------|------|-------|
+| 0 | 4 B | `ct_len`  - ciphertext length (`u32` LE) |
+| 4 | `ct_len` | ciphertext |
+| 4 + ct_len | 48 B | `snapshot`  - `EntropySnapshot` |
+| 52 + ct_len | 32 B | `commitment`  - `TemporalCommitment` |
+| **Total** | **84 + ct_len** | |
+
+→ `codec::KkPacket`, `codec::encode()` / `codec::decode()`
+
+### 14.3 KkSealedMessage
+
+| Offset | Size | Field |
+|--------|------|-------|
+| 0 | 4 B | `ct_len`  - ciphertext length (`u32` LE) |
+| 4 | `ct_len` | ciphertext |
+| 4 + ct_len | 32 B | `commitment`  - `TemporalCommitment` |
+| **Total** | **36 + ct_len** | |
+
+→ `codec::KkSealedMessage`, `codec::encode_split()`
+
+### 14.4 KkBoundPacket
+
+| Offset | Size | Field |
+|--------|------|-------|
+| 0 | 4 B | `ct_len`  - ciphertext length (`u32` LE) |
+| 4 | `ct_len` | ciphertext |
+| 4 + ct_len | 48 B | `snapshot`  - `EntropySnapshot` |
+| 52 + ct_len | 96 B | `proof`  - `TemporalProof` |
+| **Total** | **148 + ct_len** | |
+
+→ `codec::KkBoundPacket`, `codec::encode_bound()`
+
+### 14.5 TemporalProof
+
+| Offset | Size | Field |
+|--------|------|-------|
+| 0 | 32 B | `mac`  - KK-MAC tag |
+| 32 | 32 B | `nonce`  - challenge nonce |
+| 64 | 32 B | `prev_mac`  - commitment to prior state |
+| **Total** | **96 B** | |
+
+→ `temporal::TemporalProof`
+
+### 14.6 KkAeadPacket
+
+| Offset | Size | Field |
+|--------|------|-------|
+| 0 | 4 B | `aad_len`  - AAD length (`u32` LE) |
+| 4 | `aad_len` | associated data (authenticated, not encrypted) |
+| 4 + aad_len | 4 B | `ct_len`  - ciphertext length (`u32` LE) |
+| 8 + aad_len | `ct_len` | ciphertext |
+| 8 + aad_len + ct_len | 48 B | `snapshot`  - `EntropySnapshot` |
+| 56 + aad_len + ct_len | 32 B | `commitment`  - `TemporalCommitment` |
+| **Total** | **88 + aad_len + ct_len** | |
+
+→ `codec::KkAeadPacket`, `codec::encode_aead()` / `codec::decode_aead()`
+
+### 14.7 RopeStep
+
+| Offset | Size | Field |
+|--------|------|-------|
+| 0 | 8 B | `counter`  - message sequence number (`u64` LE) |
+| 8 | 48 B | `snapshot`  - `EntropySnapshot` |
+| **Total** | **56 B** | |
+
+→ `session::RopeStep`
+
+### 14.8 RopePacket
+
+| Offset | Size | Field |
+|--------|------|-------|
+| 0 | 56 B | `step`  - `RopeStep` |
+| 56 | variable | inner `KkPacket` bytes |
+| **Total** | **56 + inner_len** | |
+
+→ `session::encode_session()` / `session::decode_session()`
+
+### 14.9 RopeAeadPacket
+
+| Offset | Size | Field |
+|--------|------|-------|
+| 0 | 56 B | `step`  - `RopeStep` |
+| 56 | variable | inner `KkAeadPacket` bytes |
+| **Total** | **56 + inner_len** | |
+
+→ `session::encode_session_aead()` / `session::decode_session_aead()`
+
+### 14.10 EKA Messages
+
+**EkaMsg1** (Initiator → Responder)
+
+| Offset | Size | Field |
+|--------|------|-------|
+| 0 | 32 B | `commit_a`  - `kk_hash(ε_a.to_bytes())` |
+| **Total** | **32 B** | |
+
+**EkaMsg2** (Responder → Initiator)
+
+| Offset | Size | Field |
+|--------|------|-------|
+| 0 | 48 B | `entropy_b_bytes`  - responder's `EntropySnapshot` |
+| 48 | 32 B | `auth_b`  - `kk_mac(psk, ε_b ‖ commit_a)` |
+| **Total** | **80 B** | |
+
+**EkaMsg3** (Initiator → Responder)
+
+| Offset | Size | Field |
+|--------|------|-------|
+| 0 | 48 B | `entropy_a_bytes`  - initiator's `EntropySnapshot` |
+| 48 | 32 B | `auth_a`  - `kk_mac(psk, ε_a ‖ ε_b)` |
+| **Total** | **80 B** | |
+
+→ `eka::EkaMsg1`, `eka::EkaMsg2`, `eka::EkaMsg3`
+
+---
+
+## 15. Test Vector Reference
+
+All test vectors are published in [`KK_TEST_VECTORS.md`](KK_TEST_VECTORS.md), generated deterministically by `examples/generate_vectors.rs` and verified by `tests/vectors.rs` (44 tests).
+
+### 15.1 Canonical Snapshots
+
+Five deterministic snapshots are used across all vectors:
+
+$$
+\text{snapshot}_i.\text{bytes}[j] = (i + j) \bmod 256, \quad \text{timestamp}_i = 1\,000\,000\,000\,000 + i \times 111\,111\,111
+$$
+
+for $i \in \{0, 1, 2, 3, 4\}$ and $j \in \{0, \ldots, 31\}$.
+
+### 15.2 Vector Categories
+
+| Category | Count | Description |
+|----------|-------|-------------|
+| `kk_hash` | 10 | Hash of canonical inputs (empty, single byte, repeated patterns, snapshot bytes) |
+| `kk_kdf` | 8 | Key derivation with varying key material, salt, info, and output lengths |
+| `kk_mac` | 6 | MAC tags over canonical messages with different keys |
+| `kk_mac_with_entropy` | 3 | Entropy-augmented MAC using canonical snapshots |
+| `kk_permute` | 1+ | Full 384-bit permutation output for all-zeros input |
+| `rotations_from_entropy` |  - | Entropy-derived rotation schedules |
+| `encode / decode` |  - | Codec roundtrip with deterministic snapshots |
+| `encode_aead / decode_aead` |  - | AEAD roundtrip with AAD binding |
+| `RopeRatchet` |  - | Session ratchet advance/receive consistency |
+
+### 15.3 Verification
+
+To regenerate and verify all vectors:
+
+```bash
+# Generate vectors (writes to docs/KK_TEST_VECTORS.md)
+cargo run --example generate_vectors
+
+# Verify vectors (44 tests)
+cargo test --test vectors
+```
+
+All vector tests parse the published hex strings and compare against live computation, ensuring the specification and implementation remain in agreement.
+
+---
+
+*End of specification.*
+
+## 12. KK-EKA (Entropy Key Agreement)
+
 ### 12.1 Overview
 
 KK-EKA is a 3-message PSK-based key agreement protocol where both parties contribute fresh entropy. No public-key cryptography  - authentication is via KK-MAC over a pre-shared key.
