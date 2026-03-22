@@ -74,6 +74,48 @@ fn bench_entropy(c: &mut Criterion) {
     });
 }
 
+/// Compare scalar (8× sequential kk_kdf) vs batch (kk_kdf_batch_8, AVX-512 when available).
+fn bench_avx512_vs_scalar(c: &mut Criterion) {
+    use kk_crypto::kk_mix::{kk_kdf, kk_kdf_batch_8};
+
+    let key = b"benchmark-key-for-kdf-comparison";
+    let salt = b"benchmark-salt";
+    let infos: [&[u8]; 8] = [
+        b"info-0", b"info-1", b"info-2", b"info-3",
+        b"info-4", b"info-5", b"info-6", b"info-7",
+    ];
+
+    for output_len in [32, 64, 256] {
+        let mut group = c.benchmark_group(format!("kdf_8x_{output_len}B"));
+
+        group.bench_function("scalar_sequential", |b| {
+            b.iter(|| {
+                for i in 0..8 {
+                    black_box(kk_kdf(
+                        black_box(key),
+                        black_box(salt),
+                        black_box(infos[i]),
+                        output_len,
+                    ));
+                }
+            });
+        });
+
+        group.bench_function("batch_kdf_batch_8", |b| {
+            b.iter(|| {
+                black_box(kk_kdf_batch_8(
+                    black_box(key),
+                    black_box(salt),
+                    black_box(infos),
+                    output_len,
+                ));
+            });
+        });
+
+        group.finish();
+    }
+}
+
 criterion_group!(
     benches,
     bench_encode,
@@ -81,5 +123,6 @@ criterion_group!(
     bench_roundtrip,
     bench_packet_serialization,
     bench_entropy,
+    bench_avx512_vs_scalar,
 );
 criterion_main!(benches);

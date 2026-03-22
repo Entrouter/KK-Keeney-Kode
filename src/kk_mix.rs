@@ -72,6 +72,9 @@
 use core::hint::black_box;
 use zeroize::Zeroize;
 
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
 // ─────────────────────────────────────────────────────────────────
 //  Constants
 // ─────────────────────────────────────────────────────────────────
@@ -207,7 +210,14 @@ fn mfr(a: u64, b: u64, rot: u32) -> u64 {
 /// without constant-time barrel shifters).
 #[inline(always)]
 fn ddr(a: u64, b: u64) -> u64 {
-    let s = b & 63;
+    // Fold all 64 bits into the 6-bit rotation selector.
+    // Without folding, only b's low 6 bits determined the rotation,
+    // so a difference confined to higher bytes of b (e.g. byte 6)
+    // would be invisible to ddr  - breaking diffusion for state
+    // words that always occupy the "c" position in quintet_round
+    // across all three phases (notably word 12, the grid center).
+    let folded = b ^ (b >> 32);
+    let s = (folded ^ (folded >> 16) ^ (folded >> 8)) & 63;
     let mut v = a;
     // Each step: branchless conditional rotation by 2^i.
     // mask = 0 (no rotate) or all-ones (rotate), computed without branching.
@@ -596,6 +606,7 @@ pub fn kk_kdf(key: &[u8], salt: &[u8], info: &[u8], output_len: usize) -> Vec<u8
 }
 
 /// Extract the rate portion of a raw `KkState` as bytes.
+#[cfg(all(target_arch = "x86_64", feature = "std"))]
 fn rate_bytes_from_state(state: &KkState) -> [u8; RATE_BYTES] {
     let mut out = [0u8; RATE_BYTES];
     for i in 0..RATE_WORDS {
@@ -639,7 +650,7 @@ pub fn kk_kdf_batch_8(
     }
 
     // --- AVX-512 vectorized squeeze ---
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(all(target_arch = "x86_64", feature = "std"))]
     {
         if is_x86_feature_detected!("avx512f") && is_x86_feature_detected!("avx512dq") {
             let mut raw_states: [KkState; 8] =
@@ -670,7 +681,7 @@ pub fn kk_kdf_batch_8(
 ///
 /// # Safety
 /// Requires AVX-512F + AVX-512DQ.
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", feature = "std"))]
 #[target_feature(enable = "avx512f,avx512dq")]
 unsafe fn vectorized_squeeze_8(
     states: &mut [KkState; 8],
@@ -1059,7 +1070,7 @@ mod tests {
         let h = kk_hash(b"");
         assert_eq!(
             hex::encode(h),
-            "8a2254a95c8537855961b5273bdd7e2921af6a1a6883d0607e9e9c2bf1962a65",
+            "04a533c98a06efc6ce3ce4273c99b676c55c50f3161594449ef19247a252bbc0",
             "REGRESSION: kk_hash(\"\") output changed"
         );
     }
@@ -1069,7 +1080,7 @@ mod tests {
         let h = kk_hash(b"KK-Keeney-Kode");
         assert_eq!(
             hex::encode(h),
-            "71bf809de9627879aa2e8db1342238b88c382c47b1155aae0ac73831da3ef4d6",
+            "100c04af52b0ec527808338bfff3929a1be6a90d6853b9327f842771a6458577",
             "REGRESSION: kk_hash(\"KK-Keeney-Kode\") output changed"
         );
     }
@@ -1079,7 +1090,7 @@ mod tests {
         let h = kk_hash(&[0xABu8; 1024]);
         assert_eq!(
             hex::encode(h),
-            "30110fbc9153edfaf6918b5286502fed52644d6275c7c82db07c5822511199f3",
+            "ed936c3519aba2752dc4e73869a28c05adeae814acc6bee0b327699e9407c7e7",
             "REGRESSION: kk_hash([0xAB; 1024]) output changed"
         );
     }
@@ -1089,7 +1100,7 @@ mod tests {
         let tag = kk_mac(b"secret-key-2026", b"authenticate this");
         assert_eq!(
             hex::encode(tag),
-            "01c107b4641f40d300d4652a6b0ba39d5a52e99946df4feef4f42a9f972d2bfc",
+            "d8c313255d0e7094a413ccc5bd62593c95388fd6e4eb05e90828d02f5202ed87",
             "REGRESSION: kk_mac output changed"
         );
     }
@@ -1099,7 +1110,7 @@ mod tests {
         let k = kk_kdf(b"master-key", b"salt-value", b"kdf-context", 32);
         assert_eq!(
             hex::encode(k),
-            "6045be9f33f111e1c23ccaef86951a147c33b3c5b6f24cb20139ef9c4394c392",
+            "7c1901d8f3c246d7275231886891b8ed39a942ebca1a2c41cf98b6acf5feaec6",
             "REGRESSION: kk_kdf output changed"
         );
     }
@@ -1157,5 +1168,57 @@ mod tests {
                 "Multi-block batch KDF lane {i} diverged from scalar"
             );
         }
+    }
+
+    #[test]
+    fn absorb_state_differs_for_different_messages() {
+        // Reproduce the kk_mac collision scenario with 32-byte key
+        let key = vec![0x78u8; 32];
+        let key_len_bytes = (key.len() as u64).to_le_bytes();
+
+        let msg1 = vec![0xAAu8; 76];
+        let mut msg2 = msg1.clone();
+        msg2[62] = 0x55;
+
+        // Build sponge 1
+        let mut s1 = KkSponge::new();
+        s1.absorb(&key_len_bytes);
+        s1.absorb(&key);
+        s1.absorb(&msg1);
+
+        // Build sponge 2
+        let mut s2 = KkSponge::new();
+        s2.absorb(&key_len_bytes);
+        s2.absorb(&key);
+        s2.absorb(&msg2);
+
+        // Check that states differ BEFORE finalize
+        for i in 0..STATE_WORDS {
+            if s1.state[i] != s2.state[i] { break; } // at least one word must differ
+        }
+        assert_ne!(s1.state, s2.state,
+            "Sponge states MUST differ after absorbing different messages");
+
+        // Apply finalize padding (same as finalize_absorb but manually)
+        let domain = DOMAIN_MAC;
+        s1.xor_rate_byte(s1.buf_pos, domain);
+        s1.xor_rate_byte(RATE_BYTES - 1, 0x80);
+        s2.xor_rate_byte(s2.buf_pos, domain);
+        s2.xor_rate_byte(RATE_BYTES - 1, 0x80);
+
+        // States should still differ (padding doesn't touch word 12)
+
+        assert_ne!(s1.state, s2.state,
+            "States must differ after padding, before permute");
+
+        // Now permute
+        let mut state1 = s1.state;
+        let mut state2 = s2.state;
+        kk_permute(&mut state1);
+        kk_permute(&mut state2);
+
+
+
+        assert_ne!(state1, state2, "Permutation MUST produce different outputs for different inputs");
     }
 }

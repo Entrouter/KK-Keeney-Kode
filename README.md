@@ -9,6 +9,10 @@ NOTICE: Removal of this header is a violation of the license.
 
 # KK, Keeney Kode
 
+[![CI](https://github.com/Entrouter/KK-Keeney-Kode/actions/workflows/ci.yml/badge.svg)](https://github.com/Entrouter/KK-Keeney-Kode/actions/workflows/ci.yml)
+[![Security](https://github.com/Entrouter/KK-Keeney-Kode/actions/workflows/security.yml/badge.svg)](https://github.com/Entrouter/KK-Keeney-Kode/actions/workflows/security.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 A novel cryptographic primitive where symbol values are temporal functions of universal entropy.
 
 ## Core Principle
@@ -50,7 +54,9 @@ No SHA-256, no HKDF, no HMAC, 100% original KK.
 | `kk_mix_avx512.rs` | AVX-512 vectorized permutation (8 states simultaneously) |
 | `kdf.rs` | Per-chunk keystream derivation (scalar + batched AVX-512) |
 | `temporal.rs` | Temporal commitment (binds ciphertext to entropy snapshot) |
-| `codec.rs` | Public `encode`/`decode` API, packet serialization |
+| `codec.rs` | Public `encode`/`decode` API, packet serialization, streaming API |
+| `session.rs` | Rope Ratchet forward-secret session encoding |
+| `eka.rs` | KK-EKA three-message entropy key agreement |
 | `qkd.rs` | BB84 quantum key distribution simulation |
 
 ## Security Model
@@ -73,7 +79,7 @@ The output buffer is zeroized on error paths to prevent partial plaintext leaks.
 ### Limitations
 
 - **Un-audited:** KK is a novel primitive, it has **not** been reviewed by third-party cryptographers. Do not use for production security.
-- **No forward secrecy:** Compromise of the shared secret exposes all past and future messages.
+- **Forward secrecy via Rope Ratchet:** The session module provides ~192-bit forward secrecy through a 4-strand ratchet. Compromise of a single session key does not expose past or future messages.
 - **No replay protection:** Callers must add sequence numbers or timestamps at the protocol layer.
 
 ## Building & Testing
@@ -82,6 +88,9 @@ The output buffer is zeroized on error paths to prevent partial plaintext leaks.
 cargo build
 cargo test
 cargo clippy
+
+# no_std build (exposes kk_mix core only)
+cargo build --no-default-features
 ```
 
 ## Fuzzing
@@ -93,7 +102,18 @@ cargo fuzz run hash_fuzz
 cargo fuzz run kdf_fuzz
 cargo fuzz run mac_fuzz
 cargo fuzz run roundtrip_fuzz
+cargo fuzz run aead_fuzz
+cargo fuzz run session_fuzz
+cargo fuzz run temporal_fuzz
+cargo fuzz run eka_fuzz
 ```
+
+## Documentation
+
+- [Whitepaper](docs/KK_WHITEPAPER.md)  - complete design specification, empirical analysis & performance benchmarks
+- [Integration Guide](docs/integration-guide.md)  - examples for all codec modes, streaming, sessions, EKA
+- [Changelog](CHANGELOG.md)
+- [Security Policy](docs/SECURITY.md)
 
 ## License
 

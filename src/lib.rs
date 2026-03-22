@@ -79,34 +79,74 @@
 //! **Limitations:**
 //! - KK is a novel, un-audited primitive, it has **not** been reviewed
 //!   by third-party cryptographers. Do not use for production security.
-//! - No forward secrecy: compromise of the shared secret exposes all
-//!   past and future messages.
+//! - The base codec has no forward secrecy. Use the `session` module's
+//!   Rope Ratchet (`encode_session`/`decode_session`) for ~192-bit
+//!   forward secrecy via 4-strand ratcheting.
 //! - Replay protection is **not** built in; callers must add sequence
 //!   numbers or timestamps at the protocol layer.
 //!
 //! J.A. Keeney, Australia, 2026
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
+#[cfg(feature = "std")]
 pub mod codec;
+#[cfg(feature = "std")]
+pub mod eka;
+#[cfg(feature = "std")]
 pub mod entropy;
+#[cfg(feature = "std")]
 pub mod error;
+#[cfg(feature = "std")]
 pub mod kdf;
 pub mod kk_mix;
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", feature = "std"))]
 pub(crate) mod kk_mix_avx512;
+#[cfg(feature = "std")]
 pub mod qkd;
+#[cfg(feature = "std")]
+pub mod session;
+#[cfg(feature = "std")]
 pub mod temporal;
 
 // Re-export the primary API
+#[cfg(feature = "std")]
 pub use codec::{decode, encode, KkPacket};
+#[cfg(feature = "std")]
 pub use codec::{decode_split, encode_split, KkSealedMessage};
+#[cfg(feature = "std")]
 pub use codec::{decode_bound, encode_bound, KkBoundPacket};
+#[cfg(feature = "std")]
+pub use codec::{decode_aead, encode_aead, KkAeadPacket};
+#[cfg(feature = "std")]
+pub use codec::{StreamEncoder, StreamDecoder};
+#[cfg(feature = "std")]
+#[doc(hidden)]
+pub use codec::{encode_with_snapshot, encode_aead_with_snapshot};
+#[cfg(feature = "std")]
 pub use entropy::EntropySnapshot;
+#[cfg(feature = "std")]
 pub use error::KkError;
+#[cfg(feature = "std")]
 pub use temporal::{generate_challenge, TemporalProof, GENESIS_MAC};
 
+// Session (forward secrecy) re-exports
+#[cfg(feature = "std")]
+pub use session::{encode_session, decode_session, RopeRatchet, RopeStep, RopePacket};
+#[cfg(feature = "std")]
+pub use session::{encode_session_aead, decode_session_aead, RopeAeadPacket};
+
 // QKD re-exports
+#[cfg(feature = "std")]
 pub use qkd::{
     alice_prepare, bob_measure, distill_key, eve_intercept,
     encrypt_epsilon, decrypt_epsilon,
     Bb84Result, Basis, Qubit,
 };
+
+// EKA (Entropy Key Agreement) re-exports
+#[cfg(feature = "std")]
+pub use eka::{EkaInitiator, EkaResponder, EkaMsg1, EkaMsg2, EkaMsg3};

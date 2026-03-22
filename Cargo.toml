@@ -14,20 +14,33 @@ description = "KK (Keeney Kode), A novel cryptographic primitive where symbol va
 license = "Apache-2.0"
 
 [dependencies]
-rand = "0.8"
-rayon = "1.10"
+rand = { version = "0.8", optional = true }
+rayon = { version = "1.10", optional = true }
 zeroize = { version = "1", features = ["derive"] }
-thiserror = "1"
+thiserror = { version = "1", optional = true }
+
+[features]
+default = ["std"]
+std = ["rand", "rayon", "thiserror"]
 
 [dev-dependencies]
 hex = "0.4"
 criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1"
 ratatui = "0.29"
 crossterm = "0.28"
 rpassword = "5"
 
 [[bench]]
 name = "kk_bench"
+harness = false
+
+[[bench]]
+name = "session_bench"
+harness = false
+
+[[bench]]
+name = "full_bench"
 harness = false
 
 [[example]]

@@ -450,6 +450,203 @@ pub fn decode_bound(
     xor_with_keystream(shared_secret, &packet.entropy_snapshot, &packet.ciphertext)
 }
 
+// ─────────────────────────────────────────────────────────────────
+//  AEAD API, authenticated encryption with associated data
+// ─────────────────────────────────────────────────────────────────
+
+/// A KK-AEAD packet: ciphertext + authenticated associated data.
+///
+/// Contains:
+///   - Associated data (AAD)  - transmitted in the clear, authenticated
+///   - The ciphertext (XOR of plaintext with per-symbol key stream)
+///   - The entropy snapshot ε (the unrepeatable moment)
+///   - Temporal commitment (binds ciphertext + AAD to the entropic moment)
+///
+/// The AAD is NOT encrypted but IS integrity-protected by the commitment.
+/// Any modification to the AAD or ciphertext will be detected on decode.
+#[derive(Clone)]
+pub struct KkAeadPacket {
+    /// Associated data, authenticated but not encrypted
+    pub aad: Vec<u8>,
+    /// The encoded bytes
+    pub ciphertext: Vec<u8>,
+    /// The entropy snapshot
+    pub entropy_snapshot: EntropySnapshot,
+    /// Temporal commitment binding ciphertext + AAD to the entropic moment
+    pub commitment: TemporalCommitment,
+}
+
+impl KkAeadPacket {
+    /// Serialize for transmission.
+    ///
+    /// Format: `[4-byte aad_len][aad][4-byte ct_len][ciphertext][48-byte snapshot][32-byte commitment]`
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let aad_len = self.aad.len() as u32;
+        let ct_len = self.ciphertext.len() as u32;
+        let snap_bytes = self.entropy_snapshot.to_bytes();
+        let commit_bytes = self.commitment.to_bytes();
+
+        let mut out = Vec::with_capacity(
+            4 + self.aad.len() + 4 + self.ciphertext.len() + snap_bytes.len() + commit_bytes.len(),
+        );
+        out.extend_from_slice(&aad_len.to_le_bytes());
+        out.extend_from_slice(&self.aad);
+        out.extend_from_slice(&ct_len.to_le_bytes());
+        out.extend_from_slice(&self.ciphertext);
+        out.extend_from_slice(&snap_bytes);
+        out.extend_from_slice(&commit_bytes);
+        out
+    }
+
+    /// Deserialize from received bytes.
+    pub fn from_bytes(data: &[u8]) -> Result<Self> {
+        if data.len() < 8 {
+            return Err(KkError::InvalidPacket("AEAD packet too short".into()));
+        }
+
+        let aad_len = u32::from_le_bytes(
+            data[..4].try_into().map_err(|_| KkError::InvalidPacket("bad aad length".into()))?
+        ) as usize;
+
+        if data.len() < 4 + aad_len + 4 {
+            return Err(KkError::InvalidPacket("AEAD packet truncated at ct_len".into()));
+        }
+
+        let aad = data[4..4 + aad_len].to_vec();
+        let ct_offset = 4 + aad_len;
+
+        let ct_len = u32::from_le_bytes(
+            data[ct_offset..ct_offset + 4]
+                .try_into()
+                .map_err(|_| KkError::InvalidPacket("bad ct length".into()))?
+        ) as usize;
+
+        let expected_min = ct_offset + 4 + ct_len + 48 + 32;
+        if data.len() < expected_min {
+            return Err(KkError::InvalidPacket(format!(
+                "AEAD packet too short: expected at least {expected_min}, got {}",
+                data.len()
+            )));
+        }
+
+        let ct_start = ct_offset + 4;
+        let ciphertext = data[ct_start..ct_start + ct_len].to_vec();
+        let snap_start = ct_start + ct_len;
+        let snapshot = EntropySnapshot::from_bytes(&data[snap_start..snap_start + 48])?;
+        let commitment = TemporalCommitment::from_bytes(&data[snap_start + 48..snap_start + 48 + 32])?;
+
+        Ok(Self {
+            aad,
+            ciphertext,
+            entropy_snapshot: snapshot,
+            commitment,
+        })
+    }
+}
+
+/// Encode plaintext with authenticated associated data (AEAD).
+///
+/// The AAD is included in the commitment MAC but is NOT encrypted.
+/// This is useful for metadata (headers, routing info, version tags)
+/// that must be readable in the clear but tamper-proof.
+///
+/// # Arguments
+/// - `shared_secret`  - the pre-shared key
+/// - `plaintext`  - data to encrypt
+/// - `aad`  - associated data to authenticate (not encrypted)
+pub fn encode_aead(
+    shared_secret: &[u8],
+    plaintext: &[u8],
+    aad: &[u8],
+) -> Result<KkAeadPacket> {
+    if plaintext.is_empty() {
+        return Err(KkError::EmptyInput);
+    }
+
+    let snapshot = entropy::gather()?;
+    let ciphertext = xor_with_keystream(shared_secret, &snapshot, plaintext)?;
+    let commitment = temporal::commit_aead(shared_secret, &snapshot, &ciphertext, aad)?;
+
+    Ok(KkAeadPacket {
+        aad: aad.to_vec(),
+        ciphertext,
+        entropy_snapshot: snapshot,
+        commitment,
+    })
+}
+
+/// Decode a KK-AEAD packet, verifying integrity of both ciphertext and AAD.
+///
+/// # Errors
+/// - `KkError::CommitmentMismatch` if the ciphertext or AAD was tampered with
+pub fn decode_aead(
+    shared_secret: &[u8],
+    packet: &KkAeadPacket,
+) -> Result<Vec<u8>> {
+    temporal::verify_aead(
+        shared_secret,
+        &packet.entropy_snapshot,
+        &packet.ciphertext,
+        &packet.aad,
+        &packet.commitment,
+    )?;
+
+    xor_with_keystream(shared_secret, &packet.entropy_snapshot, &packet.ciphertext)
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Deterministic helpers (fixed snapshot, for test-vector generation)
+// ─────────────────────────────────────────────────────────────────
+
+/// Encode plaintext with a caller-supplied [`EntropySnapshot`].
+///
+/// Identical to [`encode`] but skips `entropy::gather()` so the output
+/// is fully deterministic for a given (secret, plaintext, snapshot).
+///
+/// # Visibility
+/// Exposed for integration tests and the `generate_vectors` example.
+/// **Not part of the public API contract**  - may change without notice.
+#[doc(hidden)]
+pub fn encode_with_snapshot(
+    shared_secret: &[u8],
+    plaintext: &[u8],
+    snapshot: EntropySnapshot,
+) -> Result<KkPacket> {
+    if plaintext.is_empty() {
+        return Err(KkError::EmptyInput);
+    }
+    let ciphertext = xor_with_keystream(shared_secret, &snapshot, plaintext)?;
+    let commitment = temporal::commit(shared_secret, &snapshot, &ciphertext)?;
+    Ok(KkPacket {
+        ciphertext,
+        entropy_snapshot: snapshot,
+        commitment,
+    })
+}
+
+/// AEAD encode with a caller-supplied [`EntropySnapshot`].
+///
+/// Identical to [`encode_aead`] but deterministic when the snapshot is fixed.
+#[doc(hidden)]
+pub fn encode_aead_with_snapshot(
+    shared_secret: &[u8],
+    plaintext: &[u8],
+    aad: &[u8],
+    snapshot: EntropySnapshot,
+) -> Result<KkAeadPacket> {
+    if plaintext.is_empty() {
+        return Err(KkError::EmptyInput);
+    }
+    let ciphertext = xor_with_keystream(shared_secret, &snapshot, plaintext)?;
+    let commitment = temporal::commit_aead(shared_secret, &snapshot, &ciphertext, aad)?;
+    Ok(KkAeadPacket {
+        aad: aad.to_vec(),
+        ciphertext,
+        entropy_snapshot: snapshot,
+        commitment,
+    })
+}
+
 /// Internal: XOR input with the KK-derived keystream.
 ///
 /// Processes chunks in batches of 8 using AVX-512 vectorized KDF when
@@ -521,6 +718,172 @@ fn xor_with_keystream(
             output.zeroize();
             Err(e)
         }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Streaming API  - incremental encode / decode
+// ─────────────────────────────────────────────────────────────────
+
+/// Incremental encoder that accumulates plaintext via [`update`](StreamEncoder::update)
+/// and produces a single [`KkPacket`] on [`finalize`](StreamEncoder::finalize).
+///
+/// The entropy snapshot is captured once at construction and reused for the
+/// entire stream. This avoids capturing a new snapshot per chunk while still
+/// binding every byte to the same unrepeatable moment.
+///
+/// # Example
+///
+/// ```rust
+/// use kk_crypto::StreamEncoder;
+///
+/// let secret = b"our-shared-secret";
+/// let mut enc = StreamEncoder::new(secret).unwrap();
+/// enc.update(b"Hello ");
+/// enc.update(b"KK!");
+/// let packet = enc.finalize().unwrap();
+/// ```
+pub struct StreamEncoder {
+    shared_secret: Vec<u8>,
+    buffer: Vec<u8>,
+    snapshot: EntropySnapshot,
+}
+
+impl StreamEncoder {
+    /// Create a new streaming encoder.
+    ///
+    /// Captures the entropy snapshot immediately so the caller can feed
+    /// data at their own pace without worrying about timing skew.
+    pub fn new(shared_secret: &[u8]) -> Result<Self> {
+        let snapshot = entropy::gather()?;
+        Ok(Self {
+            shared_secret: shared_secret.to_vec(),
+            buffer: Vec::new(),
+            snapshot,
+        })
+    }
+
+    /// Append plaintext bytes to the internal buffer.
+    pub fn update(&mut self, data: &[u8]) {
+        self.buffer.extend_from_slice(data);
+    }
+
+    /// Consume the encoder and produce the final [`KkPacket`].
+    ///
+    /// Returns [`KkError::EmptyInput`] if no bytes were fed via [`update`](Self::update).
+    pub fn finalize(mut self) -> Result<KkPacket> {
+        if self.buffer.is_empty() {
+            return Err(KkError::EmptyInput);
+        }
+
+        let ciphertext = xor_with_keystream(&self.shared_secret, &self.snapshot, &self.buffer)?;
+        let commitment = temporal::commit(&self.shared_secret, &self.snapshot, &ciphertext)?;
+
+        self.shared_secret.zeroize();
+        self.buffer.zeroize();
+
+        Ok(KkPacket {
+            ciphertext,
+            entropy_snapshot: self.snapshot.clone(),
+            commitment,
+        })
+    }
+}
+
+impl Drop for StreamEncoder {
+    fn drop(&mut self) {
+        self.shared_secret.zeroize();
+        self.buffer.zeroize();
+    }
+}
+
+/// Incremental decoder that accumulates ciphertext via [`update`](StreamDecoder::update)
+/// and decodes at [`finalize`](StreamDecoder::finalize) using a pre-received
+/// entropy snapshot and commitment.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use kk_crypto::{StreamDecoder, StreamEncoder};
+///
+/// let secret = b"our-shared-secret";
+///
+/// // Sender side (streaming encode)
+/// let mut enc = StreamEncoder::new(secret).unwrap();
+/// enc.update(b"Hello ");
+/// enc.update(b"KK!");
+/// let packet = enc.finalize().unwrap();
+///
+/// // Receiver side (streaming decode)
+/// let mut dec = StreamDecoder::new(
+///     secret,
+///     packet.entropy_snapshot.clone(),
+///     packet.commitment.clone(),
+/// );
+/// dec.update(&packet.ciphertext);
+/// let plaintext = dec.finalize().unwrap();
+/// assert_eq!(plaintext, b"Hello KK!");
+/// ```
+pub struct StreamDecoder {
+    shared_secret: Vec<u8>,
+    buffer: Vec<u8>,
+    snapshot: EntropySnapshot,
+    commitment: TemporalCommitment,
+}
+
+impl StreamDecoder {
+    /// Create a new streaming decoder.
+    ///
+    /// The caller must supply the entropy snapshot and commitment from
+    /// the packet header (typically received before the ciphertext body).
+    pub fn new(
+        shared_secret: &[u8],
+        snapshot: EntropySnapshot,
+        commitment: TemporalCommitment,
+    ) -> Self {
+        Self {
+            shared_secret: shared_secret.to_vec(),
+            buffer: Vec::new(),
+            snapshot,
+            commitment,
+        }
+    }
+
+    /// Append ciphertext bytes to the internal buffer.
+    pub fn update(&mut self, data: &[u8]) {
+        self.buffer.extend_from_slice(data);
+    }
+
+    /// Consume the decoder, verify integrity, and return plaintext.
+    ///
+    /// Returns [`KkError::EmptyInput`] if no bytes were fed, or a
+    /// temporal verification error if the commitment does not match.
+    pub fn finalize(mut self) -> Result<Vec<u8>> {
+        if self.buffer.is_empty() {
+            return Err(KkError::EmptyInput);
+        }
+
+        // Verify temporal commitment before decoding
+        temporal::verify(
+            &self.shared_secret,
+            &self.snapshot,
+            &self.buffer,
+            &self.commitment,
+        )?;
+
+        let plaintext = xor_with_keystream(&self.shared_secret, &self.snapshot, &self.buffer)?;
+
+        self.shared_secret.zeroize();
+        self.buffer.zeroize();
+
+        Ok(plaintext)
+    }
+}
+
+impl Drop for StreamDecoder {
+    fn drop(&mut self) {
+        self.shared_secret.zeroize();
+        self.buffer.zeroize();
     }
 }
 
@@ -757,6 +1120,94 @@ mod tests {
         let nonce = temporal::generate_challenge().unwrap();
         let result = encode_bound(b"key", b"", &nonce, &temporal::GENESIS_MAC);
         assert!(result.is_err());
+    }
+
+    // ── Streaming API tests ──────────────────────────────────────
+
+    #[test]
+    fn stream_encode_decode_roundtrip() {
+        let secret = b"stream-secret";
+        let mut enc = StreamEncoder::new(secret).unwrap();
+        enc.update(b"Hello ");
+        enc.update(b"KK ");
+        enc.update(b"Stream!");
+        let packet = enc.finalize().unwrap();
+
+        let plaintext = decode(secret, &packet).unwrap();
+        assert_eq!(plaintext, b"Hello KK Stream!");
+    }
+
+    #[test]
+    fn stream_decoder_roundtrip() {
+        let secret = b"stream-dec-secret";
+        let mut enc = StreamEncoder::new(secret).unwrap();
+        enc.update(b"chunk1");
+        enc.update(b"chunk2");
+        let packet = enc.finalize().unwrap();
+
+        let mut dec = StreamDecoder::new(
+            secret,
+            packet.entropy_snapshot.clone(),
+            packet.commitment.clone(),
+        );
+        dec.update(&packet.ciphertext);
+        let plaintext = dec.finalize().unwrap();
+        assert_eq!(plaintext, b"chunk1chunk2");
+    }
+
+    #[test]
+    fn stream_decoder_incremental_ciphertext() {
+        let secret = b"stream-incr-secret";
+        let mut enc = StreamEncoder::new(secret).unwrap();
+        enc.update(b"ABCDEFGHIJ");
+        let packet = enc.finalize().unwrap();
+
+        // Feed ciphertext in two parts
+        let mid = packet.ciphertext.len() / 2;
+        let mut dec = StreamDecoder::new(
+            secret,
+            packet.entropy_snapshot.clone(),
+            packet.commitment.clone(),
+        );
+        dec.update(&packet.ciphertext[..mid]);
+        dec.update(&packet.ciphertext[mid..]);
+        let plaintext = dec.finalize().unwrap();
+        assert_eq!(plaintext, b"ABCDEFGHIJ");
+    }
+
+    #[test]
+    fn stream_encoder_empty_rejected() {
+        let enc = StreamEncoder::new(b"key").unwrap();
+        assert!(enc.finalize().is_err());
+    }
+
+    #[test]
+    fn stream_decoder_empty_rejected() {
+        let snapshot = crate::entropy::gather().unwrap();
+        let commitment = crate::temporal::commit(b"key", &snapshot, b"dummy").unwrap();
+        let dec = StreamDecoder::new(b"key", snapshot, commitment);
+        assert!(dec.finalize().is_err());
+    }
+
+    #[test]
+    fn stream_matches_oneshot() {
+        let secret = b"stream-vs-oneshot";
+        let data = b"The quick brown fox jumps over the lazy dog";
+
+        // One-shot encode with a specific snapshot
+        let snapshot = crate::entropy::gather().unwrap();
+        let oneshot = encode_with_snapshot(secret, data, snapshot.clone()).unwrap();
+
+        // Streaming encode would use its own snapshot, so we just verify
+        // the streaming roundtrip produces the same plaintext
+        let mut enc = StreamEncoder::new(secret).unwrap();
+        enc.update(data);
+        let stream_pkt = enc.finalize().unwrap();
+
+        let oneshot_pt = decode(secret, &oneshot).unwrap();
+        let stream_pt = decode(secret, &stream_pkt).unwrap();
+        assert_eq!(oneshot_pt, stream_pt);
+        assert_eq!(&stream_pt[..], &data[..]);
     }
 
 }

@@ -43,3 +43,23 @@ doc = false
 name = "roundtrip_fuzz"
 path = "fuzz_targets/roundtrip_fuzz.rs"
 doc = false
+
+[[bin]]
+name = "aead_fuzz"
+path = "fuzz_targets/aead_fuzz.rs"
+doc = false
+
+[[bin]]
+name = "session_fuzz"
+path = "fuzz_targets/session_fuzz.rs"
+doc = false
+
+[[bin]]
+name = "temporal_fuzz"
+path = "fuzz_targets/temporal_fuzz.rs"
+doc = false
+
+[[bin]]
+name = "eka_fuzz"
+path = "fuzz_targets/eka_fuzz.rs"
+doc = false

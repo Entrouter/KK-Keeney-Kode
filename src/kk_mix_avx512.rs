@@ -130,10 +130,11 @@ unsafe fn mfr_x8(a: __m512i, b: __m512i, rot: u32) -> __m512i {
 //  DDR ×8, Data-Dependent Rotation, 8 lanes
 // ─────────────────────────────────────────────────────────────────
 
-/// Vectorized DDR: rotate each lane of `a` left by (corresponding lane of `b` & 63).
+/// Vectorized DDR: rotate each lane of `a` left by a rotation amount derived
+/// from ALL 64 bits of each lane of `b`.
 ///
-/// In scalar this requires 6 conditional rotations. In AVX-512 it's
-/// a single `VPROLVQ` instruction. Same constant-time guarantee.
+/// Folds `b ^ (b >> 32) ^ (b >> 16) ^ (b >> 8)` then masks to 6 bits,
+/// matching the scalar `ddr()` fix that ensures full-word sensitivity.
 ///
 /// # Safety
 /// Requires AVX-512F.
@@ -141,8 +142,15 @@ unsafe fn mfr_x8(a: __m512i, b: __m512i, rot: u32) -> __m512i {
 #[inline]
 #[target_feature(enable = "avx512f")]
 unsafe fn ddr_x8(a: __m512i, b: __m512i) -> __m512i {
-    // Mask to 6 bits per lane (range 0–63)
-    let shift = _mm512_and_si512(b, _mm512_set1_epi64(63));
+    // Fold all 64 bits into the rotation selector (matches scalar ddr exactly)
+    // Scalar: let folded = b ^ (b >> 32);
+    //         let s = (folded ^ (folded >> 16) ^ (folded >> 8)) & 63;
+    let folded = _mm512_xor_si512(b, _mm512_srli_epi64(b, 32));
+    let shift = _mm512_xor_si512(
+        _mm512_xor_si512(folded, _mm512_srli_epi64(folded, 16)),
+        _mm512_srli_epi64(folded, 8),
+    );
+    let shift = _mm512_and_si512(shift, _mm512_set1_epi64(63));
     // Variable rotate left: each lane independently
     _mm512_rolv_epi64(a, shift)
 }

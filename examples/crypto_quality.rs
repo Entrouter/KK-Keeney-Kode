@@ -412,13 +412,13 @@ fn test_kats() -> (bool, String) {
 
     // Verify against frozen values
     let frozen_hashes: Vec<(&[u8], &str)> = vec![
-        (b"" as &[u8], "8a2254a95c8537855961b5273bdd7e2921af6a1a6883d0607e9e9c2bf1962a65"),
-        (&[0u8] as &[u8], "8a06fabeaff831b96879109ed34a1a876ebaa3339950d92a1d30b4e96708ffbf"),
-        (b"KK" as &[u8], "5ae9c2b6a5322c6e31f17d993ff4cad2efae61ad9df5c9eb6b37c0ef9c1ad435"),
-        (&[0u8; 152] as &[u8], "280f2b1e4d94aefb92013b142ecefe9f5b9b8fdeefa55aa99a57a740e79b30bb"),
-        (&[0u8; 153] as &[u8], "6e81a0cd022d34f77699bf3bcd39b2d0d86555cb194c843dd36636ed4f30ad86"),
+        (b"" as &[u8], "04a533c98a06efc6ce3ce4273c99b676c55c50f3161594449ef19247a252bbc0"),
+        (&[0u8] as &[u8], "631ece490b57f21b8f9f953cb936f007c3d647081b07dccb1cb4af82bd98c902"),
+        (b"KK" as &[u8], "f170642eb583aa001b5ca3bf95c27248dd5e2e5ae3a53d5b998c94fee8266125"),
+        (&[0u8; 152] as &[u8], "eea5acf7aa08f857b8227a4ae25a1f6f77f570842a6d4f65fe1b1b14f2ef86a0"),
+        (&[0u8; 153] as &[u8], "abaa9747a6ac93a3966c9cbbe10a1f4cafeb341e3b6fd44119f9d1089d03b2da"),
     ];
-    let frozen_mac = "9f0ac88d6b5a99e51faf1bb8324511fd705bc8a0182b9f625a86ad3c687957bb";
+    let frozen_mac = "adc026e40eafbb2e69b4efb6561dee911d34d844188865c01a7a52c0506766a2";
 
     let mut all_match = true;
     for (input, expected_hex) in &frozen_hashes {

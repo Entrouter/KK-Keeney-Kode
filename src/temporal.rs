@@ -129,6 +129,67 @@ pub fn verify(
 }
 
 // ─────────────────────────────────────────────────────────────────
+//  AEAD Commitment (integrity + associated data)
+// ─────────────────────────────────────────────────────────────────
+
+/// Create an AEAD commitment binding ciphertext, entropy, AND associated data.
+///
+/// The MAC message is:
+/// `snapshot.bytes(32B) || timestamp_nanos(16B LE) || aad_len(8B LE) || aad || ciphertext`
+///
+/// This ensures the AAD is authenticated alongside the ciphertext -any
+/// modification to either is detected.
+pub fn commit_aead(
+    shared_secret: &[u8],
+    snapshot: &EntropySnapshot,
+    ciphertext: &[u8],
+    aad: &[u8],
+) -> Result<TemporalCommitment> {
+    let mut commit_key = kdf::derive_commitment_key(shared_secret, snapshot)?;
+
+    let aad_len = aad.len() as u64;
+    let mut message = Vec::with_capacity(32 + 16 + 8 + aad.len() + ciphertext.len());
+    message.extend_from_slice(&snapshot.bytes);
+    message.extend_from_slice(&snapshot.timestamp_nanos.to_le_bytes());
+    message.extend_from_slice(&aad_len.to_le_bytes());
+    message.extend_from_slice(aad);
+    message.extend_from_slice(ciphertext);
+
+    let mac_bytes = kk_mix::kk_mac(&commit_key, &message);
+    commit_key.zeroize();
+
+    Ok(TemporalCommitment { mac: mac_bytes })
+}
+
+/// Verify an AEAD commitment (integrity + associated data).
+pub fn verify_aead(
+    shared_secret: &[u8],
+    snapshot: &EntropySnapshot,
+    ciphertext: &[u8],
+    aad: &[u8],
+    commitment: &TemporalCommitment,
+) -> Result<()> {
+    let mut commit_key = kdf::derive_commitment_key(shared_secret, snapshot)?;
+
+    let aad_len = aad.len() as u64;
+    let mut message = Vec::with_capacity(32 + 16 + 8 + aad.len() + ciphertext.len());
+    message.extend_from_slice(&snapshot.bytes);
+    message.extend_from_slice(&snapshot.timestamp_nanos.to_le_bytes());
+    message.extend_from_slice(&aad_len.to_le_bytes());
+    message.extend_from_slice(aad);
+    message.extend_from_slice(ciphertext);
+
+    let verified = kk_mix::kk_mac_verify(&commit_key, &message, &commitment.mac);
+    commit_key.zeroize();
+
+    if verified {
+        Ok(())
+    } else {
+        Err(KkError::CommitmentMismatch)
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
 //  Temporal Proof (the real thing)
 // ─────────────────────────────────────────────────────────────────
 

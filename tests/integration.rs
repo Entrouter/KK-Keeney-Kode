@@ -356,3 +356,472 @@ fn bound_tamper_detected() {
     let result = decode_bound(secret, &packet, &nonce, Duration::from_secs(30));
     assert!(result.is_err(), "Tampered ciphertext must fail bound verification");
 }
+
+// ─────────────────────────────────────────────────────────────────
+//  Rope Ratchet (session) integration tests
+// ─────────────────────────────────────────────────────────────────
+
+use kk_crypto::session::{encode_session, decode_session, RopeRatchet, RopePacket};
+
+/// Basic roundtrip: encode_session then decode_session recovers plaintext.
+#[test]
+fn session_roundtrip() {
+    let secret = b"session-roundtrip-test";
+    let mut sender = RopeRatchet::new(secret, b"a-to-b").unwrap();
+    let mut receiver = RopeRatchet::new(secret, b"a-to-b").unwrap();
+
+    let msg = b"hello forward secrecy";
+    let packet = encode_session(&mut sender, msg).unwrap();
+    let recovered = decode_session(&mut receiver, &packet).unwrap();
+    assert_eq!(msg.as_slice(), recovered.as_slice());
+}
+
+/// Multi-message sequence: 10 messages decode in order.
+#[test]
+fn session_multi_message() {
+    let secret = b"multi-msg-test";
+    let mut sender = RopeRatchet::new(secret, b"stream").unwrap();
+    let mut receiver = RopeRatchet::new(secret, b"stream").unwrap();
+
+    for i in 0u32..10 {
+        let msg = format!("message number {i}");
+        let packet = encode_session(&mut sender, msg.as_bytes()).unwrap();
+        let recovered = decode_session(&mut receiver, &packet).unwrap();
+        assert_eq!(msg.as_bytes(), recovered.as_slice(), "message {i} mismatch");
+    }
+
+    assert_eq!(sender.counter(), 10);
+    assert_eq!(receiver.counter(), 10);
+}
+
+/// Counter rejection: replaying or skipping a message is rejected.
+#[test]
+fn session_counter_rejection() {
+    let secret = b"counter-reject-test";
+    let mut sender = RopeRatchet::new(secret, b"dir").unwrap();
+    let mut receiver = RopeRatchet::new(secret, b"dir").unwrap();
+
+    // Send and receive message 1
+    let p1 = encode_session(&mut sender, b"first").unwrap();
+    decode_session(&mut receiver, &p1).unwrap();
+
+    // Send message 2
+    let p2 = encode_session(&mut sender, b"second").unwrap();
+
+    // Skip message 2 and send message 3
+    let p3 = encode_session(&mut sender, b"third").unwrap();
+
+    // Receiver expects counter 2 but gets counter 3 → reject
+    let result = decode_session(&mut receiver, &p3);
+    assert!(result.is_err(), "Skipped counter must be rejected (strict ordering)");
+
+    // Replay message 1 → counter 1 is in the past → reject
+    let result = decode_session(&mut receiver, &p1);
+    assert!(result.is_err(), "Replayed old message must be rejected");
+
+    // Message 2 should still work (it's the expected next counter)
+    let recovered = decode_session(&mut receiver, &p2).unwrap();
+    assert_eq!(recovered.as_slice(), b"second");
+}
+
+/// Direction independence: same secret but different contexts
+/// produce completely different key streams.
+#[test]
+fn session_direction_independence() {
+    let secret = b"direction-test";
+    let msg = b"same plaintext both directions";
+
+    let mut send_ab = RopeRatchet::new(secret, b"a-to-b").unwrap();
+    let mut send_ba = RopeRatchet::new(secret, b"b-to-a").unwrap();
+
+    let pkt_ab = encode_session(&mut send_ab, msg).unwrap();
+    let pkt_ba = encode_session(&mut send_ba, msg).unwrap();
+
+    // Different contexts must produce different inner ciphertexts
+    assert_ne!(
+        pkt_ab.inner.ciphertext, pkt_ba.inner.ciphertext,
+        "Different direction contexts must produce different ciphertexts"
+    );
+
+    // Each direction decodes with its own receiver
+    let mut recv_ab = RopeRatchet::new(secret, b"a-to-b").unwrap();
+    let mut recv_ba = RopeRatchet::new(secret, b"b-to-a").unwrap();
+
+    let dec_ab = decode_session(&mut recv_ab, &pkt_ab).unwrap();
+    let dec_ba = decode_session(&mut recv_ba, &pkt_ba).unwrap();
+    assert_eq!(dec_ab.as_slice(), msg.as_slice());
+    assert_eq!(dec_ba.as_slice(), msg.as_slice());
+}
+
+/// Wire format roundtrip: RopePacket → to_bytes → from_bytes → decode.
+#[test]
+fn session_wire_format_roundtrip() {
+    let secret = b"wire-session-test";
+    let msg = b"transmitted with forward secrecy over the wire";
+
+    let mut sender = RopeRatchet::new(secret, b"wire-dir").unwrap();
+    let mut receiver = RopeRatchet::new(secret, b"wire-dir").unwrap();
+
+    let packet = encode_session(&mut sender, msg).unwrap();
+
+    // Simulate transmission
+    let wire_bytes = packet.to_bytes();
+    let received = RopePacket::from_bytes(&wire_bytes).unwrap();
+
+    let recovered = decode_session(&mut receiver, &received).unwrap();
+    assert_eq!(msg.as_slice(), recovered.as_slice());
+}
+
+/// Forward secrecy: ratchet state after advance is unrelated to previous state.
+/// Verifying that successive message keys are cryptographically independent.
+#[test]
+fn session_forward_secrecy_key_independence() {
+    let secret = b"fs-key-test";
+    let mut ratchet = RopeRatchet::new(secret, b"fs-dir").unwrap();
+
+    let mut keys = Vec::new();
+    for _ in 0..5 {
+        let (key, _step) = ratchet.advance().unwrap();
+        keys.push(key);
+    }
+
+    // All message keys must be distinct
+    for i in 0..keys.len() {
+        for j in (i + 1)..keys.len() {
+            assert_ne!(keys[i], keys[j], "Message keys {i} and {j} must differ");
+        }
+    }
+}
+
+/// Tamper detection: modifying the inner ciphertext in a RopePacket
+/// causes decode_session to fail.
+#[test]
+fn session_tamper_inner_ciphertext() {
+    let secret = b"tamper-session-test";
+    let mut sender = RopeRatchet::new(secret, b"tamper-dir").unwrap();
+    let mut receiver = RopeRatchet::new(secret, b"tamper-dir").unwrap();
+
+    let mut packet = encode_session(&mut sender, b"sensitive data").unwrap();
+    packet.inner.ciphertext[0] ^= 0xFF;
+
+    let result = decode_session(&mut receiver, &packet);
+    assert!(result.is_err(), "Tampered ciphertext must fail integrity check");
+}
+
+/// Wrong secret: receiver with different shared secret cannot decode.
+#[test]
+fn session_wrong_secret_rejected() {
+    let mut sender = RopeRatchet::new(b"correct-secret", b"dir").unwrap();
+    let mut receiver = RopeRatchet::new(b"wrong-secret", b"dir").unwrap();
+
+    let packet = encode_session(&mut sender, b"private message").unwrap();
+    let result = decode_session(&mut receiver, &packet);
+    assert!(result.is_err(), "Wrong shared secret must fail");
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  AEAD (Authenticated Encryption with Associated Data) tests
+// ─────────────────────────────────────────────────────────────────
+
+use kk_crypto::{encode_aead, decode_aead, KkAeadPacket};
+use kk_crypto::{encode_session_aead, decode_session_aead};
+
+/// Direct kk_mac collision test: two messages differing by one byte must produce different MACs.
+#[test]
+fn kk_mac_no_collision() {
+    // Test with EXACT same conditions as AEAD: 32-byte key, 76-byte message, diff at pos 62
+    let key = vec![0x78u8; 32]; // 32-byte key like derive_commitment_key produces
+    let mut msg1 = vec![0u8; 76];
+    for i in 0..76 { msg1[i] = i as u8; }
+    let mut msg2 = msg1.clone();
+    msg2[62] ^= 0xFF; // flip one byte (same position as ciphertext[0] in AEAD message)
+
+    let mac1 = kk_crypto::kk_mix::kk_mac(&key, &msg1);
+    let mac2 = kk_crypto::kk_mix::kk_mac(&key, &msg2);
+
+    assert_ne!(mac1, mac2, "kk_mac must produce different tags for different 76B messages (32B key)");
+
+    // Also test total absorb: key_len(8) + key(32) + message(76) = 116 bytes
+    // All absorbed in one rate block (116 < RATE_BYTES=152)
+    // The differing byte is at absolute absorb position 8+32+62 = 102
+    
+    // Also test position 62 with 24-byte key (our passing test)
+    let key24 = vec![0x78u8; 24];
+    let mac3 = kk_crypto::kk_mix::kk_mac(&key24, &msg1);
+    let mac4 = kk_crypto::kk_mix::kk_mac(&key24, &msg2);
+
+    assert_ne!(mac3, mac4, "kk_mac must produce different tags for different 76B messages (24B key)");
+}
+
+/// AEAD roundtrip: encode then decode recovers plaintext, AAD intact.
+#[test]
+fn aead_roundtrip() {
+    let secret = b"aead-test-secret";
+    let plaintext = b"Hello, AEAD world!";
+    let aad = b"metadata-v1";
+
+    let packet = encode_aead(secret, plaintext, aad).unwrap();
+    assert_eq!(packet.aad, aad.as_slice());
+
+    let recovered = decode_aead(secret, &packet).unwrap();
+    assert_eq!(recovered.as_slice(), plaintext.as_slice());
+}
+
+/// AEAD tamper detection: modifying the AAD causes decode to fail.
+#[test]
+fn aead_tamper_aad() {
+    let secret = b"aead-tamper-test";
+    let plaintext = b"sensitive payload";
+    let aad = b"original-header";
+
+    let mut packet = encode_aead(secret, plaintext, aad).unwrap();
+    packet.aad[0] ^= 0xFF; // tamper with the AAD
+
+    let result = decode_aead(secret, &packet);
+    assert!(result.is_err(), "Tampered AAD must fail integrity check");
+}
+
+/// AEAD tamper detection: modifying the ciphertext causes decode to fail.
+#[test]
+fn aead_tamper_ciphertext() {
+    let secret = b"aead-ct-tamper";
+    let plaintext = b"important data";
+    let aad = b"header";
+
+    let packet = encode_aead(secret, plaintext, aad).unwrap();
+
+    // Manually reconstruct a tampered packet
+    let mut tampered_ct = packet.ciphertext.clone();
+    tampered_ct[0] ^= 0xFF;
+
+    // Test: verify_aead should fail with tampered ciphertext
+    // Re-encode to wire format and back to ensure no shortcuts
+    let tampered_packet = KkAeadPacket {
+        aad: packet.aad.clone(),
+        ciphertext: tampered_ct,
+        entropy_snapshot: packet.entropy_snapshot.clone(),
+        commitment: packet.commitment.clone(),
+    };
+
+    // Serialize to wire format and back
+    let wire = tampered_packet.to_bytes();
+    let roundtripped = KkAeadPacket::from_bytes(&wire).unwrap();
+
+    let result = decode_aead(secret, &roundtripped);
+
+    // Also test directly 
+    let result2 = decode_aead(secret, &tampered_packet);
+
+    assert!(result.is_err() || result2.is_err(), "Tampered ciphertext must fail integrity check");
+}
+
+/// AEAD with empty AAD: works like standard encode but uses AEAD commitment.
+#[test]
+fn aead_empty_aad() {
+    let secret = b"aead-empty-aad-test";
+    let plaintext = b"payload with no associated data";
+    let aad = b"";
+
+    let packet = encode_aead(secret, plaintext, aad).unwrap();
+    assert!(packet.aad.is_empty());
+
+    let recovered = decode_aead(secret, &packet).unwrap();
+    assert_eq!(recovered.as_slice(), plaintext.as_slice());
+}
+
+/// AEAD with large AAD: 10 KB of associated data.
+#[test]
+fn aead_large_aad() {
+    let secret = b"aead-large-aad";
+    let plaintext = b"small payload";
+    let aad = vec![0xABu8; 10_000];
+
+    let packet = encode_aead(secret, plaintext, &aad).unwrap();
+    assert_eq!(packet.aad.len(), 10_000);
+
+    let recovered = decode_aead(secret, &packet).unwrap();
+    assert_eq!(recovered.as_slice(), plaintext.as_slice());
+}
+
+/// AEAD wire format: to_bytes/from_bytes roundtrip.
+#[test]
+fn aead_wire_format_roundtrip() {
+    let secret = b"aead-wire-test";
+    let plaintext = b"wire format test";
+    let aad = b"routing-info";
+
+    let packet = encode_aead(secret, plaintext, aad).unwrap();
+    let wire = packet.to_bytes();
+    let restored = KkAeadPacket::from_bytes(&wire).unwrap();
+
+    assert_eq!(restored.aad, packet.aad);
+    assert_eq!(restored.ciphertext, packet.ciphertext);
+
+    let recovered = decode_aead(secret, &restored).unwrap();
+    assert_eq!(recovered.as_slice(), plaintext.as_slice());
+}
+
+/// Session AEAD roundtrip: forward secrecy + AAD authentication.
+#[test]
+fn session_aead_roundtrip() {
+    let secret = b"session-aead-secret";
+    let direction = b"alice-to-bob";
+    let mut sender = RopeRatchet::new(secret, direction).unwrap();
+    let mut receiver = RopeRatchet::new(secret, direction).unwrap();
+
+    let plaintext = b"Forward-secret AEAD message";
+    let aad = b"session-metadata";
+
+    let packet = encode_session_aead(&mut sender, plaintext, aad).unwrap();
+    assert_eq!(packet.inner.aad, aad.as_slice());
+
+    let recovered = decode_session_aead(&mut receiver, &packet).unwrap();
+    assert_eq!(recovered.as_slice(), plaintext.as_slice());
+}
+
+/// Session AEAD tamper: modifying AAD after encoding causes decode failure.
+#[test]
+fn session_aead_tamper_aad() {
+    let secret = b"session-aead-tamper";
+    let direction = b"tamper-dir";
+    let mut sender = RopeRatchet::new(secret, direction).unwrap();
+    let mut receiver = RopeRatchet::new(secret, direction).unwrap();
+
+    let mut packet = encode_session_aead(&mut sender, b"secret data", b"original-aad").unwrap();
+    packet.inner.aad[0] ^= 0xFF; // tamper
+
+    let result = decode_session_aead(&mut receiver, &packet);
+    assert!(result.is_err(), "Tampered session AAD must fail integrity check");
+}
+
+// ─── KK-EKA (Entropy Key Agreement) Tests ───────────────────────────────────
+
+use kk_crypto::{EkaInitiator, EkaResponder};
+
+/// EKA happy path: both parties derive the same session key.
+#[test]
+fn eka_happy_path() {
+    let psk = b"integration-eka-psk";
+
+    let (alice, msg1) = EkaInitiator::new(psk).unwrap();
+    let (bob, msg2) = EkaResponder::new(psk, &msg1).unwrap();
+    let (msg3, alice_key) = alice.process_msg2(&msg2).unwrap();
+    let bob_key = bob.process_msg3(&msg3).unwrap();
+
+    assert_eq!(alice_key, bob_key, "both parties must derive the same session key");
+    assert_ne!(alice_key, [0u8; 32], "session key must not be all zeros");
+}
+
+/// EKA wrong PSK: responder using a different PSK is rejected by initiator.
+#[test]
+fn eka_wrong_psk_rejected() {
+    let psk_alice = b"alice-psk";
+    let psk_bob = b"bob-different-psk";
+
+    let (alice, msg1) = EkaInitiator::new(psk_alice).unwrap();
+    let (_, msg2) = EkaResponder::new(psk_bob, &msg1).unwrap();
+
+    // Alice verifies auth_b using her PSK  - Bob's tag was computed with a different PSK
+    let result = alice.process_msg2(&msg2);
+    assert!(result.is_err(), "wrong PSK must cause auth_b verification to fail");
+}
+
+/// EKA tampered msg2: flipping a byte in entropy_b causes rejection.
+#[test]
+fn eka_tampered_msg2() {
+    let psk = b"tamper-test-psk";
+
+    let (alice, msg1) = EkaInitiator::new(psk).unwrap();
+    let (_, msg2) = EkaResponder::new(psk, &msg1).unwrap();
+
+    // Tamper with entropy_b
+    let mut tampered = msg2.clone();
+    tampered.entropy_b_bytes[0] ^= 0xFF;
+
+    let result = alice.process_msg2(&tampered);
+    assert!(result.is_err(), "tampered msg2 entropy must fail verification");
+}
+
+/// EKA tampered msg3: flipping a byte in entropy_a causes rejection.
+#[test]
+fn eka_tampered_msg3() {
+    let psk = b"tamper-msg3-psk";
+
+    let (alice, msg1) = EkaInitiator::new(psk).unwrap();
+    let (bob, msg2) = EkaResponder::new(psk, &msg1).unwrap();
+    let (msg3, _) = alice.process_msg2(&msg2).unwrap();
+
+    // Tamper with entropy_a
+    let mut tampered = msg3.clone();
+    tampered.entropy_a_bytes[0] ^= 0xFF;
+
+    let result = bob.process_msg3(&tampered);
+    assert!(result.is_err(), "tampered msg3 entropy must fail verification");
+}
+
+/// EKA commitment binding: replacing msg3's entropy while keeping the auth tag fails.
+#[test]
+fn eka_commitment_binding() {
+    let psk = b"commitment-binding-psk";
+
+    let (alice, msg1) = EkaInitiator::new(psk).unwrap();
+    let (bob, msg2) = EkaResponder::new(psk, &msg1).unwrap();
+    let (msg3, _) = alice.process_msg2(&msg2).unwrap();
+
+    // Create a completely different entropy_a but keep the original auth_a
+    let mut fake_msg3 = msg3.clone();
+    // Flip all bytes in entropy_a  - the commitment hash will not match
+    for b in fake_msg3.entropy_a_bytes.iter_mut() {
+        *b ^= 0xFF;
+    }
+
+    let result = bob.process_msg3(&fake_msg3);
+    assert!(result.is_err(), "commitment binding: faked entropy must not pass commitment check");
+}
+
+/// EKA forward secrecy: different sessions with the same PSK produce different keys.
+#[test]
+fn eka_forward_secrecy() {
+    let psk = b"forward-secrecy-psk";
+
+    // Session 1
+    let (a1, m1a) = EkaInitiator::new(psk).unwrap();
+    let (b1, m2a) = EkaResponder::new(psk, &m1a).unwrap();
+    let (m3a, key1) = a1.process_msg2(&m2a).unwrap();
+    let _ = b1.process_msg3(&m3a).unwrap();
+
+    // Session 2
+    let (a2, m1b) = EkaInitiator::new(psk).unwrap();
+    let (b2, m2b) = EkaResponder::new(psk, &m1b).unwrap();
+    let (m3b, key2) = a2.process_msg2(&m2b).unwrap();
+    let _ = b2.process_msg3(&m3b).unwrap();
+
+    assert_ne!(key1, key2, "forward secrecy: different sessions must produce different keys even with same PSK");
+}
+
+/// EKA → Rope Ratchet end-to-end: EKA session key feeds into RopeRatchet for encrypted communication.
+#[test]
+fn eka_to_rope_ratchet_end_to_end() {
+    use kk_crypto::RopeRatchet;
+    use kk_crypto::session::{encode_session, decode_session};
+
+    let psk = b"eka-rope-e2e-psk";
+    let context = b"eka-session-context";
+
+    // Run EKA to establish a shared session key
+    let (alice, msg1) = EkaInitiator::new(psk).unwrap();
+    let (bob, msg2) = EkaResponder::new(psk, &msg1).unwrap();
+    let (msg3, alice_key) = alice.process_msg2(&msg2).unwrap();
+    let bob_key = bob.process_msg3(&msg3).unwrap();
+    assert_eq!(alice_key, bob_key);
+
+    // Both parties initialize RopeRatchet with the EKA session key
+    let mut sender = RopeRatchet::new(&alice_key, context).unwrap();
+    let mut receiver = RopeRatchet::new(&bob_key, context).unwrap();
+
+    // Send a message
+    let plaintext = b"Hello from Alice via EKA + Rope Ratchet!";
+    let packet = encode_session(&mut sender, plaintext).unwrap();
+    let recovered = decode_session(&mut receiver, &packet).unwrap();
+    assert_eq!(plaintext.as_slice(), recovered.as_slice());
+}
