@@ -63,6 +63,11 @@ path = "examples/split_demo.rs"
 name = "qkd_demo"
 path = "examples/qkd_demo.rs"
 
+[[bin]]
+name = "kk-tool"
+path = "src/bin/kk_tool.rs"
+required-features = ["std"]
+
 [profile.release]
 lto = true
 codegen-units = 1

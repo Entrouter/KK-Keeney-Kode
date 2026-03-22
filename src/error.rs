@@ -5,35 +5,58 @@
 // See the LICENSE file in the project root for full license information.
 // NOTICE: Removal of this header is a violation of the license.
 
+#[cfg(not(feature = "std"))]
+use alloc::string::String;
+#[cfg(not(feature = "std"))]
+use core::fmt;
+
+#[cfg(feature = "std")]
 use thiserror::Error;
 
 /// Errors that can occur during KK operations.
-#[derive(Debug, Error)]
+#[derive(Debug)]
+#[cfg_attr(feature = "std", derive(Error))]
 pub enum KkError {
-    #[error("entropy collection failed: {0}")]
+    #[cfg_attr(feature = "std", error("entropy collection failed: {0}"))]
     EntropyFailure(String),
 
-    #[error("temporal commitment verification failed, entropic moment mismatch")]
+    #[cfg_attr(feature = "std", error("temporal commitment verification failed, entropic moment mismatch"))]
     CommitmentMismatch,
 
-    #[error("invalid packet: {0}")]
+    #[cfg_attr(feature = "std", error("invalid packet: {0}"))]
     InvalidPacket(String),
 
-    #[error("empty input: nothing to encode")]
+    #[cfg_attr(feature = "std", error("empty input: nothing to encode"))]
     EmptyInput,
 
-    #[error(
+    #[cfg_attr(feature = "std", error(
         "epoch drift too large: claimed {claimed_nanos} ns, \
          drift {drift_nanos} ns exceeds max {max_nanos} ns"
-    )]
+    ))]
     EpochDrift {
         claimed_nanos: u128,
         drift_nanos: u128,
         max_nanos: u128,
     },
 
-    #[error("stale nonce: verifier nonce was already used or not recognized")]
+    #[cfg_attr(feature = "std", error("stale nonce: verifier nonce was already used or not recognized"))]
     StaleNonce,
 }
 
-pub type Result<T> = std::result::Result<T, KkError>;
+#[cfg(not(feature = "std"))]
+impl fmt::Display for KkError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::EntropyFailure(s) => write!(f, "entropy collection failed: {s}"),
+            Self::CommitmentMismatch => write!(f, "temporal commitment verification failed"),
+            Self::InvalidPacket(s) => write!(f, "invalid packet: {s}"),
+            Self::EmptyInput => write!(f, "empty input: nothing to encode"),
+            Self::EpochDrift { claimed_nanos, drift_nanos, max_nanos } => {
+                write!(f, "epoch drift too large: claimed {claimed_nanos} ns, drift {drift_nanos} ns exceeds max {max_nanos} ns")
+            }
+            Self::StaleNonce => write!(f, "stale nonce"),
+        }
+    }
+}
+
+pub type Result<T> = core::result::Result<T, KkError>;

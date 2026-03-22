@@ -98,7 +98,6 @@ pub mod codec;
 pub mod eka;
 #[cfg(feature = "std")]
 pub mod entropy;
-#[cfg(feature = "std")]
 pub mod error;
 #[cfg(feature = "std")]
 pub mod kdf;
@@ -107,6 +106,7 @@ pub mod kk_mix;
 pub(crate) mod kk_mix_avx512;
 #[cfg(feature = "std")]
 pub mod qkd;
+pub mod rng;
 #[cfg(feature = "std")]
 pub mod session;
 #[cfg(feature = "std")]
@@ -128,7 +128,6 @@ pub use codec::{StreamEncoder, StreamDecoder};
 pub use codec::{encode_with_snapshot, encode_aead_with_snapshot};
 #[cfg(feature = "std")]
 pub use entropy::EntropySnapshot;
-#[cfg(feature = "std")]
 pub use error::KkError;
 #[cfg(feature = "std")]
 pub use temporal::{generate_challenge, TemporalProof, GENESIS_MAC};
@@ -150,3 +149,6 @@ pub use qkd::{
 // EKA (Entropy Key Agreement) re-exports
 #[cfg(feature = "std")]
 pub use eka::{EkaInitiator, EkaResponder, EkaMsg1, EkaMsg2, EkaMsg3};
+
+// RNG re-export (works in no_std + alloc)
+pub use rng::KkRng;
