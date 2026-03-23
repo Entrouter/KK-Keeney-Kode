@@ -537,7 +537,7 @@ impl KkSponge {
     /// After finalization, the rate portion contains output bytes.
     /// If more bytes are needed than one rate-block, permute and
     /// squeeze again.
-    fn squeeze(&mut self, len: usize) -> Vec<u8> {
+    pub fn squeeze(&mut self, len: usize) -> Vec<u8> {
         let mut output = Vec::with_capacity(len);
         while output.len() < len {
             let rate = self.rate_bytes();
