@@ -7,114 +7,406 @@ See the LICENSE file in the project root for full license information.
 NOTICE: Removal of this header is a violation of the license.
 -->
 
-# KK, Keeney Kode
+<div align="center">
+
+# KK (Keeney Kode)
+
+**A novel cryptographic primitive where symbol values are temporal functions of universal entropy.**
+
+*One primitive. Zero borrowed code. Everything from scratch.*
 
 [![CI](https://github.com/Entrouter/KK-Keeney-Kode/actions/workflows/ci.yml/badge.svg)](https://github.com/Entrouter/KK-Keeney-Kode/actions/workflows/ci.yml)
-[![Security](https://github.com/Entrouter/KK-Keeney-Kode/actions/workflows/security.yml/badge.svg)](https://github.com/Entrouter/KK-Keeney-Kode/actions/workflows/security.yml)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Security Audit](https://github.com/Entrouter/KK-Keeney-Kode/actions/workflows/security.yml/badge.svg)](https://github.com/Entrouter/KK-Keeney-Kode/actions/workflows/security.yml)
+[![Fuzz](https://github.com/Entrouter/KK-Keeney-Kode/actions/workflows/fuzz.yml/badge.svg)](https://github.com/Entrouter/KK-Keeney-Kode/actions/workflows/fuzz.yml)
+[![Coverage](https://github.com/Entrouter/KK-Keeney-Kode/actions/workflows/coverage.yml/badge.svg)](https://github.com/Entrouter/KK-Keeney-Kode/actions/workflows/coverage.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0%20%2B%20Additional%20Terms-blue.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/rust-2021-orange.svg)](https://www.rust-lang.org)
+[![no_std](https://img.shields.io/badge/no__std-compatible-green.svg)](#no_std-support)
 
-A novel cryptographic primitive where symbol values are temporal functions of universal entropy.
+---
 
-## Core Principle
+```text
+KK(S) = S XOR E : state XOR universal entropy at the precise instant of creation
+```
 
-In all existing cryptography, symbol 'A' has a fixed value and encryption hides what 'A' means.
-In KK, symbol 'A' has no fixed value, its value is a function of the universe at the instant it was born.
-The same symbol encoded twice produces two cryptographically unrelated values.
+</div>
+
+> [!WARNING]
+> KK is a novel, un-audited cryptographic primitive. It has **not** been reviewed by third-party cryptographers. Do not use for production security until formal peer review is complete.
+
+## Table of Contents
+
+- [The Idea](#the-idea)
+- [Quick Start](#quick-start)
+- [The Primitive](#the-primitive)
+- [What Ships in the Box](#what-ships-in-the-box)
+- [Performance](#performance)
+- [Architecture](#architecture)
+- [Security Model](#security-model)
+- [Building](#building)
+- [Testing](#testing)
+- [Fuzzing](#fuzzing)
+- [no_std Support](#no_std-support)
+- [Documentation](#documentation)
+- [License](#license)
+
+---
+
+## The Idea
+
+In every cipher ever published, symbol `A` has a fixed value. Encryption hides what `A` means.
+
+In KK, symbol `A` has **no fixed value.** Its value is a function of the universe at the instant it was born. Encode the same byte twice, one nanosecond apart, and you get two cryptographically unrelated outputs. Not different ciphertext from the same algorithm. A **structurally different cipher** at each moment.
+
+---
 
 ## Quick Start
 
 ```rust
 use kk_crypto::{encode, decode};
 
-let shared_secret = b"our-shared-secret";
+let key = b"our-shared-secret";
 
 // Encode: symbol values become functions of this cosmic instant
-let packet = encode(shared_secret, b"Hello KK!").unwrap();
+let packet = encode(key, b"Hello KK!").unwrap();
 
-// Decode: same secret, same moment reference, same values
-let plaintext = decode(shared_secret, &packet).unwrap();
+// Decode: same secret, same moment reference, same message
+let plaintext = decode(key, &packet).unwrap();
 assert_eq!(plaintext, b"Hello KK!");
 ```
+
+<details>
+<summary><b>AEAD (Authenticated Encryption with Associated Data)</b></summary>
+
+```rust
+use kk_crypto::{encode_aead, decode_aead};
+
+let key = b"our-shared-secret";
+let aad = b"metadata-not-encrypted-but-authenticated";
+
+let packet = encode_aead(key, aad, b"secret payload").unwrap();
+let plaintext = decode_aead(key, aad, &packet).unwrap();
+assert_eq!(plaintext, b"secret payload");
+```
+
+</details>
+
+<details>
+<summary><b>Forward-Secret Sessions (Rope Ratchet)</b></summary>
+
+```rust
+use kk_crypto::{encode_session, decode_session, RopeRatchet};
+
+let key = b"session-key";
+let mut alice = RopeRatchet::new(key);
+let mut bob = RopeRatchet::new(key);
+
+// Each message ratchets the cipher's algebraic structure forward
+let (packet, step) = encode_session(&mut alice, b"message 1").unwrap();
+let plaintext = decode_session(&mut bob, &step, &packet).unwrap();
+assert_eq!(plaintext, b"message 1");
+// Old keys are gone. Backward computation is impossible.
+```
+
+</details>
+
+<details>
+<summary><b>Key Agreement (KK-EKA)</b></summary>
+
+```rust
+use kk_crypto::{EkaInitiator, EkaResponder};
+
+let psk = b"pre-shared-key";
+let (mut alice, msg1) = EkaInitiator::begin(psk).unwrap();
+let (mut bob, msg2)   = EkaResponder::respond(psk, &msg1).unwrap();
+let alice_key          = alice.finalize(&msg2).unwrap();
+let bob_key            = bob.finalize(&alice.msg3(&msg2).unwrap()).unwrap();
+// alice_key == bob_key, derived from mutual entropy contribution
+```
+
+</details>
+
+<details>
+<summary><b>Streaming (Large Messages)</b></summary>
+
+```rust
+use kk_crypto::{StreamEncoder, StreamDecoder};
+
+let key = b"stream-key";
+let mut encoder = StreamEncoder::new(key).unwrap();
+encoder.update(b"chunk 1").unwrap();
+encoder.update(b"chunk 2").unwrap();
+let packet = encoder.finalize().unwrap();
+
+let mut decoder = StreamDecoder::new(key, &packet).unwrap();
+let mut buf = Vec::new();
+decoder.read_to_end(&mut buf).unwrap();
+```
+
+</details>
+
+<details>
+<summary><b>Batch Encoding (High Throughput)</b></summary>
+
+```rust
+use kk_crypto::{encode_aead_batch, decode_aead_batch};
+
+let key = b"batch-key";
+let aad = b"batch-aad";
+let messages: Vec<&[u8]> = vec![b"msg1", b"msg2", b"msg3"];
+
+let packets = encode_aead_batch(key, aad, &messages).unwrap();
+let decoded = decode_aead_batch(key, aad, &packets).unwrap();
+```
+
+</details>
+
+---
+
+## The Primitive
+
+A 1600-bit sponge construction built entirely from first principles.
+
+```text
+State:     25 x 64-bit words  =  200 bytes  =  1600 bits
+Rate:      19 words  (152 bytes, 1216 bits)
+Capacity:   6 words  ( 48 bytes,  384 bits)  ~  192-bit security
+Rounds:    32, each with 15 quintet operations  =  480 quintet-rounds
+```
+
+Two novel operations that no published cipher uses:
+
+| Operation | What it does |
+|-----------|-------------|
+| **MFR** (Multiply-Fold-Rotate) | Widening 64-bit multiply, fold XOR, fixed rotation. Non-linear, bijective, full-word mixing. |
+| **DDR** (Data-Dependent Rotation) | Rotation distance derived from all 64 bits of input. Constant-time branchless implementation. No published analysis framework efficiently handles this. |
+
+Additional design properties:
+- **5-word quintet mixing:** no published cipher uses 5-word rounds
+- **Entropy-derived rotation schedules:** the algebraic structure of the permutation changes per invocation
+- **Nothing-up-my-sleeve constants:** 25 values from fractional parts of square roots of the first 25 primes
+- **Intra-round re-keying:** capacity words mixed back into rate every 8 rounds with round-dependent rotation
+
+---
+
+## What Ships in the Box
+
+Everything below is built from the KK permutation alone. Zero external cryptographic dependencies.
+
+| Primitive | Description |
+|-----------|-------------|
+| **KK-Hash** | 256-bit collision-resistant hash |
+| **KK-KDF** | Key derivation with entropy-derived rotation schedule per derivation |
+| **KK-MAC** | Message authentication, constant-time verification |
+| **KK Stream Cipher** | Per-chunk independent keystream derivation |
+| **KK-AEAD** | Authenticated encryption with associated data |
+| **Temporal Commitment** | Binds ciphertext to the exact entropic moment of creation |
+| **Bound Commitment** | Challenge-response with nonce chaining for replay prevention |
+| **Split-Channel Mode** | Entropy snapshot transmitted on a separate channel |
+| **Rope Ratchet** | 4-strand forward-secret session protocol, ~192-bit forward secrecy |
+| **KK-EKA** | 3-message entropy key agreement, zero external primitives |
+| **KK-RNG** | Forward-secret DRBG, ratchets on every call |
+| **AVX-512 Batch** | 8 independent sponge states in lockstep across 512-bit registers |
+| **GPU Acceleration** | wgpu compute shader + CUDA, RTX 5080 verified, byte-identical to CPU |
+| **no_std Core** | Bare permutation + hash + KDF + MAC + RNG for embedded / WASM |
+
+---
+
+## Performance
+
+All numbers measured on a single AMD Ryzen 9 9950X3D ($699 consumer CPU).
+16 cores / 32 threads, Zen 5, AVX-512, 5.35 GHz boost.
+Criterion framework, 100 samples per benchmark point, 251 tests passing.
+
+### Batch AEAD Throughput
+
+| Workload | Throughput | Messages/sec |
+|----------|-----------|-------------|
+| 1,000 x 64 KB | **5.22 GiB/s** | 85,000+ |
+| 1,000 x 16 KB | 2.40 GiB/s | 153,000+ |
+| 1,000 x 4 KB | 1.53 GiB/s | 430,000+ |
+| 10,000 x 4 KB | 1.67 GiB/s | 430,000+ |
+
+### Core Primitives
+
+| Primitive | Speed |
+|-----------|-------|
+| KK permutation (32 rounds, 1600-bit) | 1.14 us |
+| KK-Hash | 186 MiB/s |
+| KK-MAC | 127 MiB/s |
+| KK-KDF | 145 MiB/s |
+| KK-RNG (forward-secret per call) | 186 MiB/s |
+| Entropy rotation derivation | 11.4 ns |
+
+### Scaling
+
+| Config | Throughput | Notes |
+|--------|-----------|-------|
+| Single core (AVX-512 batch) | 497 MiB/s | Matches SHA-3/Keccak per-core while doing 4x the work per byte |
+| 16 threads | 4.09 GiB/s | Physical cores only |
+| 32 threads (SMT) | 5.22 GiB/s | +27% from hyperthreads (unusual for AVX-512) |
+| GPU (wgpu WGSL) | 1.01 GiB/s | Raw permutation |
+| GPU (CUDA native) | 2.08 GiB/s | Raw permutation, RTX 5080 |
+| KK-EKA handshake | 44.6 us | 22,400 authenticated key agreements/sec |
+| KK-RNG pool (32 threads) | 2.80 GiB/s | Forward-secret random bytes |
+
+---
 
 ## Architecture
 
 ```text
-Entropy Sources → KK-Mix → Per-Symbol Derivation → Temporal Binding → Encoding
-    (entropy.rs)  (kk_mix.rs)    (kdf.rs)            (temporal.rs)     (codec.rs)
+Entropy Sources  >  KK-Mix  >  Per-Symbol Derivation  >  Temporal Binding  >  Encoding
+  (entropy.rs)    (kk_mix.rs)       (kdf.rs)              (temporal.rs)       (codec.rs)
 ```
-
-Every cryptographic operation is built from a single novel primitive:
-the **KK permutation** (Multiply-Fold-Rotate sponge construction on a 1600-bit / 5×5×64 state).
-No SHA-256, no HKDF, no HMAC, 100% original KK.
 
 | Module | Role |
 |--------|------|
-| `entropy.rs` | Gathers non-deterministic entropy (RDTSC, thread jitter, OS RNG) |
 | `kk_mix.rs` | KK permutation, sponge, KK-Hash, KK-KDF, KK-MAC |
 | `kk_mix_avx512.rs` | AVX-512 vectorized permutation (8 states simultaneously) |
+| `entropy.rs` | Non-deterministic entropy (RDTSC, thread jitter, OS CSPRNG) |
 | `kdf.rs` | Per-chunk keystream derivation (scalar + batched AVX-512) |
-| `temporal.rs` | Temporal commitment (binds ciphertext to entropy snapshot) |
-| `codec.rs` | Public `encode`/`decode` API, packet serialization, streaming API |
-| `session.rs` | Rope Ratchet forward-secret session encoding |
+| `temporal.rs` | Temporal commitment binding |
+| `codec.rs` | Public API, packet serialization, streaming, batch encoding |
+| `session.rs` | Rope Ratchet forward-secret session protocol |
 | `eka.rs` | KK-EKA three-message entropy key agreement |
+| `rng.rs` | KK-RNG forward-secret DRBG |
 | `qkd.rs` | BB84 quantum key distribution simulation |
+
+---
 
 ## Security Model
 
-**Threat model:** KK assumes a pre-shared secret between sender and receiver.
-An attacker may observe, replay, or modify ciphertext in transit but does not know the shared secret.
+<details>
+<summary><b>Threat Model</b></summary>
 
-**Confidentiality:** Each encoding captures a unique `EntropySnapshot` (CPU counters, thread jitter, OS randomness).
-The snapshot feeds the KK-KDF to derive per-chunk keystream, ensuring the same plaintext never produces the same ciphertext twice.
+KK assumes a pre-shared secret between sender and receiver. An attacker may observe, replay, or modify ciphertext in transit but does not know the shared secret.
 
-**Integrity:** Every `KkPacket` carries a KK-MAC tag over (ciphertext ‖ entropy snapshot).
-`decode` rejects any packet whose tag does not verify, preventing silent tampering.
+</details>
 
-**Temporal binding:** The `TemporalCommitment` in each packet commits to the entropy used during encoding.
-The receiver re-derives the commitment from the embedded snapshot and the shared secret, rejecting packets if the commitment does not match.
+<details>
+<summary><b>Confidentiality</b></summary>
 
-**Key hygiene:** Intermediate keys (commit keys, chunk keystream) are zeroized via the `zeroize` crate immediately after use.
-The output buffer is zeroized on error paths to prevent partial plaintext leaks.
+Each encoding captures a unique `EntropySnapshot` (CPU counters, thread jitter, OS randomness). The snapshot feeds KK-KDF to derive per-chunk keystream. The same plaintext never produces the same ciphertext twice.
+
+</details>
+
+<details>
+<summary><b>Integrity</b></summary>
+
+Every packet carries a KK-MAC tag over (ciphertext + entropy snapshot). `decode` rejects any packet whose tag does not verify.
+
+</details>
+
+<details>
+<summary><b>Temporal Binding</b></summary>
+
+The `TemporalCommitment` in each packet commits to the entropy used during encoding. The receiver re-derives the commitment and rejects packets if it does not match.
+
+</details>
+
+<details>
+<summary><b>Key Hygiene</b></summary>
+
+All intermediate keys (commit keys, chunk keystream) are zeroized via the `zeroize` crate immediately after use. Output buffers are zeroized on error paths to prevent partial plaintext leaks.
+
+</details>
+
+<details>
+<summary><b>Formal Bounds</b></summary>
+
+| Property | Bound | Margin over 2^-800 target |
+|----------|-------|--------------------------|
+| Differential trail | 2^-26,712 | 25,912 bits |
+| Linear trail | 2^-2,544 | 1,744 bits |
+| DDR universal floor | LP <= 2^-12 per active quintet | Regardless of MFR behavior |
+| Full diffusion | 4 rounds | Confirmed |
+
+Complementary duality proven: MSB differential weakness and LSB linear weakness sit at opposite ends of the word. No single bit position is exploitable in both dimensions simultaneously.
+
+</details>
 
 ### Limitations
 
-- **Un-audited:** KK is a novel primitive, it has **not** been reviewed by third-party cryptographers. Do not use for production security.
-- **Forward secrecy via Rope Ratchet:** The session module provides ~192-bit forward secrecy through a 4-strand ratchet. Compromise of a single session key does not expose past or future messages.
-- **No replay protection:** Callers must add sequence numbers or timestamps at the protocol layer.
+- **Un-audited.** Novel primitive, not reviewed by third-party cryptographers.
+- **No replay protection.** Callers must add sequence numbers or timestamps at the protocol layer.
+- **Forward secrecy requires Rope Ratchet.** The base codec does not provide forward secrecy on its own.
 
-## Building & Testing
+---
+
+## Building
 
 ```bash
-cargo build
-cargo test
-cargo clippy
-
-# no_std build (exposes kk_mix core only)
-cargo build --no-default-features
+cargo build                          # standard build
+cargo build --no-default-features    # no_std (core primitives only)
+cargo build --features gpu           # wgpu GPU acceleration
+cargo build --features cuda          # CUDA GPU acceleration
 ```
+
+## Testing
+
+```bash
+cargo test            # 251 tests
+cargo clippy          # lint
+cargo bench           # 56 criterion benchmarks (100 samples each)
+```
+
+| Category | Count |
+|----------|-------|
+| Unit tests | 94 |
+| Integration tests | 63 |
+| Property tests (proptest) | 18 |
+| Deterministic test vectors | 44 |
+| Documentation tests | 8 |
+| GPU correctness tests | 10 |
+| Criterion benchmark points | 56 |
+| **Total** | **251 tests, zero failures** |
 
 ## Fuzzing
 
-Fuzz targets are under `fuzz/`. Requires [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz):
+8 fuzz targets under `fuzz/`. Requires [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz):
 
 ```bash
-cargo fuzz run hash_fuzz
-cargo fuzz run kdf_fuzz
-cargo fuzz run mac_fuzz
-cargo fuzz run roundtrip_fuzz
-cargo fuzz run aead_fuzz
-cargo fuzz run session_fuzz
-cargo fuzz run temporal_fuzz
-cargo fuzz run eka_fuzz
+cargo fuzz run hash_fuzz       # KK-Hash
+cargo fuzz run kdf_fuzz        # KK-KDF
+cargo fuzz run mac_fuzz        # KK-MAC
+cargo fuzz run roundtrip_fuzz  # encode/decode roundtrip
+cargo fuzz run aead_fuzz       # AEAD mode
+cargo fuzz run session_fuzz    # Rope Ratchet sessions
+cargo fuzz run temporal_fuzz   # temporal commitment
+cargo fuzz run eka_fuzz        # key agreement
 ```
+
+## no_std Support
+
+With `--no-default-features`, KK exposes the core permutation, KK-Hash, KK-KDF, KK-MAC, and KK-RNG for `no_std + alloc` environments (embedded, WASM).
+
+```toml
+[dependencies]
+kk-crypto = { version = "0.1", default-features = false }
+```
+
+---
 
 ## Documentation
 
-- [Whitepaper](docs/KK_WHITEPAPER.md) - complete design specification, empirical analysis & performance benchmarks
-- [Integration Guide](docs/integration-guide.md) - examples for all codec modes, streaming, sessions, EKA
-- [Changelog](CHANGELOG.md)
-- [Security Policy](docs/SECURITY.md)
+| Document | Description |
+|----------|-------------|
+| [Specification](docs/KK_SPECIFICATION.md) | 1,300+ line formal mathematical specification with LaTeX notation |
+| [Whitepaper](docs/KK_WHITEPAPER.md) | Complete empirical analysis, design rationale, and performance data |
+| [Test Vectors](docs/KK_TEST_VECTORS.md) | Deterministic reference vectors for cross-language implementation |
+| [Integration Guide](docs/integration-guide.md) | Examples for all codec modes, streaming, sessions, EKA |
+| [Technical Flex](docs/real_flex.md) | Full technical breakdown and competitive analysis |
+| [Security Policy](docs/SECURITY.md) | Responsible disclosure process |
+| [Changelog](CHANGELOG.md) | Version history |
+
+---
+
+<div align="center">
+
+**J.A. Keeney, Australia, 2026**
+
+</div>
 
 ## License
 
-Apache 2.0 with Additional Terms - NO COMMERCIAL USE without prior written authorization from John A Keeney / Entrouter. See [LICENSE](LICENSE) for details.
+Apache 2.0 with Additional Terms. **No commercial use** without prior written authorization from John A Keeney / Entrouter. See [LICENSE](LICENSE) for full terms. Contact: hello@entrouter.com
