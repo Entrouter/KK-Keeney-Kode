@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  RUSTFLAGS: ""
+
 jobs:
   fuzz:
     name: cargo-fuzz (${{ matrix.target }})
