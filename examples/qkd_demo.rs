@@ -18,11 +18,10 @@
 
 use std::io::{self, Write};
 
-use crossterm::style::{Attribute, Color, SetAttribute, SetForegroundColor, ResetColor};
+use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
 use kk_crypto::{
-    alice_prepare, bob_measure, distill_key, eve_intercept,
-    encrypt_epsilon, decrypt_epsilon,
-    encode_split, decode_split,
+    alice_prepare, bob_measure, decode_split, decrypt_epsilon, distill_key, encode_split,
+    encrypt_epsilon, eve_intercept,
 };
 
 fn color(c: Color, text: &str) {
@@ -30,14 +29,23 @@ fn color(c: Color, text: &str) {
 }
 
 fn bold(text: &str) {
-    print!("{}{}{}", SetAttribute(Attribute::Bold), text, SetAttribute(Attribute::Reset));
+    print!(
+        "{}{}{}",
+        SetAttribute(Attribute::Bold),
+        text,
+        SetAttribute(Attribute::Reset)
+    );
 }
 
 fn header(title: &str) {
     println!();
     print!("  ");
     bold(&format!("━━━ {} ", title));
-    let pad = if title.len() < 56 { 56 - title.len() } else { 4 };
+    let pad = if title.len() < 56 {
+        56 - title.len()
+    } else {
+        4
+    };
     println!("{}", "━".repeat(pad));
 }
 
@@ -64,7 +72,10 @@ fn main() {
     println!();
     bold("  ╔══════════════════════════════════════════════════════════════╗\n");
     bold("  ║");
-    color(Color::Cyan, "    BB84 QKD + KK SPLIT-CHANNEL, End-to-End Demonstration");
+    color(
+        Color::Cyan,
+        "    BB84 QKD + KK SPLIT-CHANNEL, End-to-End Demonstration",
+    );
     bold("   ║\n");
     bold("  ╚══════════════════════════════════════════════════════════════╝\n");
 
@@ -77,13 +88,19 @@ fn main() {
     // ═══════════════════════════════════════════════════════════════
     bold("\n  ┌──────────────────────────────────────────────────────────────┐\n");
     bold("  │");
-    color(Color::Green, "  SCENARIO 1: Secure Channel, No Eavesdropper");
+    color(
+        Color::Green,
+        "  SCENARIO 1: Secure Channel, No Eavesdropper",
+    );
     bold("               │\n");
     bold("  └──────────────────────────────────────────────────────────────┘\n");
 
     // Step 1: BB84 Key Exchange
     header("STEP 1, BB84 Quantum Key Exchange");
-    println!("    Alice prepares {} qubits (random bits × random bases)...", n_qubits);
+    println!(
+        "    Alice prepares {} qubits (random bits × random bases)...",
+        n_qubits
+    );
     out.flush().ok();
     let alice = alice_prepare(n_qubits);
 
@@ -117,7 +134,10 @@ fn main() {
     // Step 2: KK Split-Channel Encode
     header("STEP 2, KK Split-Channel Encode");
     print!("    Plaintext: ");
-    color(Color::Green, &format!("\"{}\"", String::from_utf8_lossy(plaintext)));
+    color(
+        Color::Green,
+        &format!("\"{}\"", String::from_utf8_lossy(plaintext)),
+    );
     println!();
 
     let (sealed, epsilon) = encode_split(shared_secret, plaintext).unwrap();
@@ -146,10 +166,16 @@ fn main() {
     println!();
     println!();
     print!("    ");
-    color(Color::DarkGrey, "ε can now travel on the SAME public wire as the ciphertext.");
+    color(
+        Color::DarkGrey,
+        "ε can now travel on the SAME public wire as the ciphertext.",
+    );
     println!();
     print!("    ");
-    color(Color::DarkGrey, "Only someone with the QKD key can unwrap it.");
+    color(
+        Color::DarkGrey,
+        "Only someone with the QKD key can unwrap it.",
+    );
     println!();
 
     // Step 4: Bob decrypts ε and decodes
@@ -163,7 +189,10 @@ fn main() {
     let recovered = decode_split(shared_secret, &sealed, &recovered_eps).unwrap();
 
     print!("    Result: ");
-    color(Color::Green, &format!("\"{}\"", String::from_utf8_lossy(&recovered)));
+    color(
+        Color::Green,
+        &format!("\"{}\"", String::from_utf8_lossy(&recovered)),
+    );
     println!();
     print!("    Match:  ");
     if recovered == plaintext {
@@ -178,7 +207,10 @@ fn main() {
     // ═══════════════════════════════════════════════════════════════
     bold("\n  ┌──────────────────────────────────────────────────────────────┐\n");
     bold("  │");
-    color(Color::Red, "  SCENARIO 2: Eve Intercepts the Quantum Channel");
+    color(
+        Color::Red,
+        "  SCENARIO 2: Eve Intercepts the Quantum Channel",
+    );
     bold("            │\n");
     bold("  └──────────────────────────────────────────────────────────────┘\n");
 
@@ -235,26 +267,40 @@ fn main() {
         println!();
     } else {
         print!("    ");
-        color(Color::Yellow, "Eve got lucky on the check bits, but her key ≠ Alice's key.");
+        color(
+            Color::Yellow,
+            "Eve got lucky on the check bits, but her key ≠ Alice's key.",
+        );
         println!();
         print!("    ");
-        color(Color::Yellow, "With more qubits, detection probability → 100%.");
+        color(
+            Color::Yellow,
+            "With more qubits, detection probability → 100%.",
+        );
         println!();
     }
 
     // Show what Eve actually got
     header("WHAT EVE KNOWS");
-    let eve_correct: usize = eve.bases.iter()
+    let eve_correct: usize = eve
+        .bases
+        .iter()
         .zip(alice2.bases.iter())
         .filter(|(e, a)| e == a)
         .count();
     let eve_pct = eve_correct * 100 / n_qubits;
 
     print!("    Eve's correct basis guesses: ");
-    color(Color::Yellow, &format!("{}/{} (~{}%)", eve_correct, n_qubits, eve_pct));
+    color(
+        Color::Yellow,
+        &format!("{}/{} (~{}%)", eve_correct, n_qubits, eve_pct),
+    );
     println!();
     print!("    Eve's key matches Alice's:   ");
-    color(Color::Red, "NO, different raw key bits, different HKDF output");
+    color(
+        Color::Red,
+        "NO, different raw key bits, different HKDF output",
+    );
     println!();
     print!("    Eve can decrypt ε:           ");
     color(Color::Red, "NO, wrong QKD key");
@@ -326,12 +372,18 @@ fn main() {
 
     println!();
     print!("    ");
-    color(Color::Green, "Result: security guaranteed by laws of physics, not computational assumptions.");
+    color(
+        Color::Green,
+        "Result: security guaranteed by laws of physics, not computational assumptions.",
+    );
     println!();
 
     println!();
     print!("  ");
-    color(Color::DarkGrey, "BB84 + KK Split-Channel, J.A. Keeney, Australia, 2026");
+    color(
+        Color::DarkGrey,
+        "BB84 + KK Split-Channel, J.A. Keeney, Australia, 2026",
+    );
     println!();
     println!();
 }

@@ -141,10 +141,20 @@ fn theorem1_msb_differential() -> bool {
             }
         }
     }
-    println!("    8-bit:  Δa=0x{:02X}, expected Δy=0x{:02X}", delta_a_8, expected_dy_8);
-    println!("            Verified {}/{} pairs: {}",
-        count_8, count_8,
-        if all_match_8 { "ALL MATCH ✓" } else { "MISMATCH ✗" });
+    println!(
+        "    8-bit:  Δa=0x{:02X}, expected Δy=0x{:02X}",
+        delta_a_8, expected_dy_8
+    );
+    println!(
+        "            Verified {}/{} pairs: {}",
+        count_8,
+        count_8,
+        if all_match_8 {
+            "ALL MATCH ✓"
+        } else {
+            "MISMATCH ✗"
+        }
+    );
 
     // Exhaustive verification at 16-bit
     let delta_a_16: u16 = 0x8000; // 2^15
@@ -163,11 +173,20 @@ fn theorem1_msb_differential() -> bool {
             }
         }
     }
-    println!("\n    16-bit: Δa=0x{:04X}, expected Δy=0x{:04X}",
-        delta_a_16, expected_dy_16);
-    println!("            Verified {}/{} pairs: {}",
-        count_16, count_16,
-        if all_match_16 { "ALL MATCH ✓" } else { "MISMATCH ✗" });
+    println!(
+        "\n    16-bit: Δa=0x{:04X}, expected Δy=0x{:04X}",
+        delta_a_16, expected_dy_16
+    );
+    println!(
+        "            Verified {}/{} pairs: {}",
+        count_16,
+        count_16,
+        if all_match_16 {
+            "ALL MATCH ✓"
+        } else {
+            "MISMATCH ✗"
+        }
+    );
 
     // Sampled verification at 32-bit (2^28 samples)
     let delta_a_32: u32 = 0x80000000; // 2^31
@@ -193,11 +212,19 @@ fn theorem1_msb_differential() -> bool {
             break;
         }
     }
-    println!("\n    32-bit: Δa=0x{:08X}, expected Δy=0x{:08X}",
-        delta_a_32, expected_dy_32);
-    println!("            Sampled {} pairs: {}",
+    println!(
+        "\n    32-bit: Δa=0x{:08X}, expected Δy=0x{:08X}",
+        delta_a_32, expected_dy_32
+    );
+    println!(
+        "            Sampled {} pairs: {}",
         n_samples,
-        if all_match_32 { "ALL MATCH ✓" } else { "MISMATCH ✗" });
+        if all_match_32 {
+            "ALL MATCH ✓"
+        } else {
+            "MISMATCH ✗"
+        }
+    );
 
     println!("\n  Mathematical structure:");
     println!("    2^(n-1) × c mod 2^n = 2^(n-1) for ANY odd c");
@@ -247,7 +274,7 @@ fn theorem2_lsb_linear() -> bool {
     println!("         → parity(α_a & a) = parity(β & MFR(a,b)) always.\n");
 
     // Exhaustive verification at 8-bit
-    let alpha: u8 = 0x01;       // bit 0
+    let alpha: u8 = 0x01; // bit 0
     let beta: u8 = 0x01 | 0x10; // bit 0 | bit 4 = 0x11
     let mut agree_8 = 0u64;
     let mut total_8 = 0u64;
@@ -258,19 +285,29 @@ fn theorem2_lsb_linear() -> bool {
             let y = mfr8(a as u8, b as u8);
             let op = parity8(beta & y);
             total_8 += 1;
-            if ip == op { agree_8 += 1; }
+            if ip == op {
+                agree_8 += 1;
+            }
         }
     }
     let lp_8 = (2.0 * agree_8 as f64 / total_8 as f64 - 1.0).powi(2);
     println!("    8-bit:  α=0x{:02X}, β=0x{:02X}", alpha, beta);
-    println!("            agree={}/{} → LP = {:.6}",
-        agree_8, total_8, lp_8);
-    println!("            {}",
-        if (lp_8 - 1.0).abs() < 1e-10 { "LP = 1.0 EXACT ✓" } else { "LP ≠ 1 ✗" });
+    println!(
+        "            agree={}/{} → LP = {:.6}",
+        agree_8, total_8, lp_8
+    );
+    println!(
+        "            {}",
+        if (lp_8 - 1.0).abs() < 1e-10 {
+            "LP = 1.0 EXACT ✓"
+        } else {
+            "LP ≠ 1 ✗"
+        }
+    );
 
     // Exhaustive verification at 16-bit
-    let alpha16: u16 = 0x0001;          // bit 0
-    let beta16: u16 = 0x0001 | 0x0100;  // bit 0 | bit 8 = 0x0101
+    let alpha16: u16 = 0x0001; // bit 0
+    let beta16: u16 = 0x0001 | 0x0100; // bit 0 | bit 8 = 0x0101
     let mut agree_16 = 0u64;
     let mut total_16 = 0u64;
 
@@ -280,15 +317,25 @@ fn theorem2_lsb_linear() -> bool {
             let y = mfr16(a as u16, b as u16);
             let op = parity16(beta16 & y);
             total_16 += 1;
-            if ip == op { agree_16 += 1; }
+            if ip == op {
+                agree_16 += 1;
+            }
         }
     }
     let lp_16 = (2.0 * agree_16 as f64 / total_16 as f64 - 1.0).powi(2);
     println!("\n    16-bit: α=0x{:04X}, β=0x{:04X}", alpha16, beta16);
-    println!("            agree={}/{} → LP = {:.6}",
-        agree_16, total_16, lp_16);
-    println!("            {}",
-        if (lp_16 - 1.0).abs() < 1e-10 { "LP = 1.0 EXACT ✓" } else { "LP ≠ 1 ✗" });
+    println!(
+        "            agree={}/{} → LP = {:.6}",
+        agree_16, total_16, lp_16
+    );
+    println!(
+        "            {}",
+        if (lp_16 - 1.0).abs() < 1e-10 {
+            "LP = 1.0 EXACT ✓"
+        } else {
+            "LP ≠ 1 ✗"
+        }
+    );
 
     // Sampled verification at 32-bit
     let alpha32: u32 = 0x00000001;
@@ -310,14 +357,24 @@ fn theorem2_lsb_linear() -> bool {
         let ip = parity32(alpha32 & a);
         let y = mfr32(a, b);
         let op = parity32(beta32 & y);
-        if ip == op { agree_32 += 1; }
+        if ip == op {
+            agree_32 += 1;
+        }
     }
     let lp_32 = (2.0 * agree_32 as f64 / n_samples as f64 - 1.0).powi(2);
     println!("\n    32-bit: α=0x{:08X}, β=0x{:08X}", alpha32, beta32);
-    println!("            agree={}/{} → LP = {:.6}",
-        agree_32, n_samples, lp_32);
-    println!("            {}",
-        if (lp_32 - 1.0).abs() < 1e-10 { "LP = 1.0 EXACT ✓" } else { "LP ≠ 1 ✗" });
+    println!(
+        "            agree={}/{} → LP = {:.6}",
+        agree_32, n_samples, lp_32
+    );
+    println!(
+        "            {}",
+        if (lp_32 - 1.0).abs() < 1e-10 {
+            "LP = 1.0 EXACT ✓"
+        } else {
+            "LP ≠ 1 ✗"
+        }
+    );
 
     println!("\n  Mathematical structure:");
     println!("    bit_0(a × odd) = bit_0(a) × bit_0(odd) = bit_0(a) × 1 = bit_0(a)");
@@ -370,17 +427,24 @@ fn theorem3_scaling_laws() -> bool {
             }
         }
         for &c in &counts {
-            if c > max_count { max_count = c; }
+            if c > max_count {
+                max_count = c;
+            }
         }
         diff_mdp_8[bit as usize] = max_count as f64 / 65536.0;
     }
 
-    println!("    {:>5} {:>10} {:>10} {:>10}", "bit", "MDP", "log2(MDP)", "expected");
+    println!(
+        "    {:>5} {:>10} {:>10} {:>10}",
+        "bit", "MDP", "log2(MDP)", "expected"
+    );
     for bit in 0..8usize {
         let expected_log = -((7 - bit) as f64); // MSB=bit 7 has MDP=1
         let actual_log = diff_mdp_8[bit].log2();
-        println!("    bit {} {:>10.6} {:>10.2} {:>10.1}",
-            bit, diff_mdp_8[bit], actual_log, expected_log);
+        println!(
+            "    bit {} {:>10.6} {:>10.2} {:>10.1}",
+            bit, diff_mdp_8[bit], actual_log, expected_log
+        );
     }
 
     // 8-bit linear: per-bit LP for single-bit α_a
@@ -396,45 +460,69 @@ fn theorem3_scaling_laws() -> bool {
                 for b in 0..=255u16 {
                     let ip = parity8(alpha & (a as u8));
                     let op = parity8(beta & mfr8(a as u8, b as u8));
-                    if ip == op { agree += 1; }
+                    if ip == op {
+                        agree += 1;
+                    }
                 }
             }
             let corr = 2.0 * agree as f64 / 65536.0 - 1.0;
             let lp = corr * corr;
-            if lp > best_lp { best_lp = lp; }
+            if lp > best_lp {
+                best_lp = lp;
+            }
         }
         lin_lp_8[bit as usize] = best_lp;
     }
 
-    println!("    {:>5} {:>10} {:>10} {:>10}", "bit", "LP", "log2(LP)", "expected");
+    println!(
+        "    {:>5} {:>10} {:>10} {:>10}",
+        "bit", "LP", "log2(LP)", "expected"
+    );
     for bit in 0..8usize {
         let expected_log = -2.0 * bit as f64; // LSB=bit 0 has LP=1
         let actual_log = lin_lp_8[bit].log2();
-        println!("    bit {} {:>10.6} {:>10.2} {:>10.1}",
-            bit, lin_lp_8[bit], actual_log, expected_log);
+        println!(
+            "    bit {} {:>10.6} {:>10.2} {:>10.1}",
+            bit, lin_lp_8[bit], actual_log, expected_log
+        );
     }
 
     // Verify the complementary duality
     println!("\n  Complementary duality at 8-bit:");
-    println!("    {:>5} {:>12} {:>12} {:>12}", "bit", "diff_log", "lin_log", "sum");
+    println!(
+        "    {:>5} {:>12} {:>12} {:>12}",
+        "bit", "diff_log", "lin_log", "sum"
+    );
     let mut duality_ok = true;
     for bit in 0..8usize {
         let diff_log = diff_mdp_8[bit].log2();
         let lin_log = lin_lp_8[bit].log2();
         let sum = diff_log + lin_log;
-        println!("    bit {} {:>12.2} {:>12.2} {:>12.2}", bit, diff_log, lin_log, sum);
+        println!(
+            "    bit {} {:>12.2} {:>12.2} {:>12.2}",
+            bit, diff_log, lin_log, sum
+        );
         // For each bit, diff + linear penalty should be substantial
         // (excluding the boundary bits 0 and 7)
-        if bit > 0 && bit < 7 && sum > -2.0 { duality_ok = false; }
+        if bit > 0 && bit < 7 && sum > -2.0 {
+            duality_ok = false;
+        }
     }
     println!("\n    Bit 0: weakest in linear  (LP=2^0),    strong in diff (MDP=2^-7)");
     println!("    Bit 7: weakest in diff (MDP=2^0),       strong in linear (LP=2^-14)");
     println!("    Middle bits: balanced, both penalties substantial");
-    println!("    {}", if duality_ok { "Duality confirmed ✓" } else { "Duality check FAILED ✗" });
+    println!(
+        "    {}",
+        if duality_ok {
+            "Duality confirmed ✓"
+        } else {
+            "Duality check FAILED ✗"
+        }
+    );
 
     // Overall check
     let diff_ok = (diff_mdp_8[7] - 1.0).abs() < 1e-6; // MSB MDP = 1
-    let lin_ok = (lin_lp_8[0] - 1.0).abs() < 1e-6;     // LSB LP = 1
+    let lin_ok = (lin_lp_8[0] - 1.0).abs() < 1e-6; // LSB LP = 1
 
     diff_ok && lin_ok && duality_ok
 }
@@ -478,14 +566,18 @@ fn theorem4_ddr_floor() -> bool {
         let mut best_lp_non_parity = 0.0f64;
 
         for beta in 1..=255u8 {
-            if beta.count_ones() == 8 { continue; } // skip all-ones (parity)
+            if beta.count_ones() == 8 {
+                continue;
+            } // skip all-ones (parity)
             let mut agree = 0u64;
             for a in 0..=255u16 {
                 for b in 0..=255u16 {
                     let ip = parity8(alpha & (a as u8));
                     let y = (a as u8).rotate_left((b as u8 & 7) as u32);
                     let op = parity8(beta & y);
-                    if ip == op { agree += 1; }
+                    if ip == op {
+                        agree += 1;
+                    }
                 }
             }
             let corr = 2.0 * agree as f64 / 65536.0 - 1.0;
@@ -498,10 +590,16 @@ fn theorem4_ddr_floor() -> bool {
 
         let log_lp = best_lp_non_parity.log2();
         let matches = (log_lp - expected_8.log2()).abs() < 0.01;
-        println!("    bit {}: single-bit LP = 2^{:.2} (expected 2^{:.2}) {}",
-            bit, log_lp, expected_8.log2(),
-            if matches { "✓" } else { "✗" });
-        if !matches { all_match_8 = false; }
+        println!(
+            "    bit {}: single-bit LP = 2^{:.2} (expected 2^{:.2}) {}",
+            bit,
+            log_lp,
+            expected_8.log2(),
+            if matches { "✓" } else { "✗" }
+        );
+        if !matches {
+            all_match_8 = false;
+        }
     }
 
     println!("\n  Scaling formula: LP_DDR(n) = 1/n²");
@@ -582,32 +680,60 @@ fn main() {
     println!("THEOREM 1: MSB Differential Determinism");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     let t1 = theorem1_msb_differential();
-    println!("\n  RESULT: {}\n", if t1 { "PROVED ✅" } else { "FAILED ❌" });
-    if t1 { pass += 1; } else { fail += 1; }
+    println!(
+        "\n  RESULT: {}\n",
+        if t1 { "PROVED ✅" } else { "FAILED ❌" }
+    );
+    if t1 {
+        pass += 1;
+    } else {
+        fail += 1;
+    }
 
     // ── Theorem 2 ───────────────────────────────────────────────
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!("THEOREM 2: LSB Linear Approximation Determinism");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     let t2 = theorem2_lsb_linear();
-    println!("\n  RESULT: {}\n", if t2 { "PROVED ✅" } else { "FAILED ❌" });
-    if t2 { pass += 1; } else { fail += 1; }
+    println!(
+        "\n  RESULT: {}\n",
+        if t2 { "PROVED ✅" } else { "FAILED ❌" }
+    );
+    if t2 {
+        pass += 1;
+    } else {
+        fail += 1;
+    }
 
     // ── Theorem 3 ───────────────────────────────────────────────
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!("THEOREM 3: Per-Bit Scaling + Complementary Duality");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     let t3 = theorem3_scaling_laws();
-    println!("\n  RESULT: {}\n", if t3 { "PROVED ✅" } else { "FAILED ❌" });
-    if t3 { pass += 1; } else { fail += 1; }
+    println!(
+        "\n  RESULT: {}\n",
+        if t3 { "PROVED ✅" } else { "FAILED ❌" }
+    );
+    if t3 {
+        pass += 1;
+    } else {
+        fail += 1;
+    }
 
     // ── Theorem 4 ───────────────────────────────────────────────
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!("THEOREM 4: DDR Universal LP Floor");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     let t4 = theorem4_ddr_floor();
-    println!("\n  RESULT: {}\n", if t4 { "PROVED ✅" } else { "FAILED ❌" });
-    if t4 { pass += 1; } else { fail += 1; }
+    println!(
+        "\n  RESULT: {}\n",
+        if t4 { "PROVED ✅" } else { "FAILED ❌" }
+    );
+    if t4 {
+        pass += 1;
+    } else {
+        fail += 1;
+    }
 
     // ── Corollary ───────────────────────────────────────────────
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -622,7 +748,10 @@ fn main() {
     println!("\n╔════════════════════════════════════════════════════════════════╗");
     println!("║  BIT-BOUNDARY PROOF SUMMARY                                    ║");
     println!("╠════════════════════════════════════════════════════════════════╣");
-    println!("║  Theorems proved:  {}/{}                                        ║", pass, total);
+    println!(
+        "║  Theorems proved:  {}/{}                                        ║",
+        pass, total
+    );
     println!("║                                                                ║");
     println!("║  Theorem 1: MSB MDP=1     (8-bit exhaustive, 16-bit, 32-bit)  ║");
     println!("║  Theorem 2: LSB LP=1      (8-bit exhaustive, 16-bit, 32-bit)  ║");
@@ -631,13 +760,19 @@ fn main() {
     println!("║                                                                ║");
     println!("║  Both phenomena are UNIVERSAL algebraic properties.             ║");
     println!("║  Neither compromises security: DDR provides the trail floor.   ║");
-    println!("║  Wall time: {:.1?}{}", wall,
-        " ".repeat(40 - format!("{:.1?}", wall).len().min(39)));
+    println!(
+        "║  Wall time: {:.1?}{}",
+        wall,
+        " ".repeat(40 - format!("{:.1?}", wall).len().min(39))
+    );
     println!("║                                                                ║");
     if fail == 0 {
         println!("║  OVERALL: ALL THEOREMS PROVED ✅                              ║");
     } else {
-        println!("║  OVERALL: {} theorem(s) FAILED ❌                               ║", fail);
+        println!(
+            "║  OVERALL: {} theorem(s) FAILED ❌                               ║",
+            fail
+        );
     }
     println!("╚════════════════════════════════════════════════════════════════╝");
 }

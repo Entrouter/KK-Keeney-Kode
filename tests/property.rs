@@ -10,17 +10,12 @@
 use proptest::prelude::*;
 use std::time::Duration;
 
-use kk_crypto::{
-    encode, decode,
-    encode_aead, decode_aead,
-    encode_split, decode_split,
-    encode_bound, decode_bound,
-    encode_session, decode_session,
-    encode_session_aead, decode_session_aead,
-    generate_challenge, GENESIS_MAC,
-    RopeRatchet,
-};
 use kk_crypto::kk_mix::{kk_hash, kk_kdf, kk_mac};
+use kk_crypto::{
+    decode, decode_aead, decode_bound, decode_session, decode_session_aead, decode_split, encode,
+    encode_aead, encode_bound, encode_session, encode_session_aead, encode_split,
+    generate_challenge, RopeRatchet, GENESIS_MAC,
+};
 
 // ─────────────────────────────────────────────────────────────────
 //  Strategies

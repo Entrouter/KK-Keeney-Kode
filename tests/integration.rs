@@ -10,12 +10,12 @@
 //! These tests demonstrate and verify the core security properties
 //! claimed by the KK primitive.
 
-use kk_crypto::{decode, encode, KkPacket};
-use kk_crypto::{encode_bound, decode_bound, KkBoundPacket, generate_challenge, GENESIS_MAC};
-use kk_crypto::{EntropyPool, encode_pooled, encode_aead_pooled};
-use kk_crypto::{encode_aead_batch, decode_aead_batch, encode_aead, decode_aead, KkAeadPacket};
-use kk_crypto::{encode_parallel, decode_parallel, KkParallelPacket, PARALLEL_CHUNK_SIZE};
 use kk_crypto::KkRngPool;
+use kk_crypto::{decode, encode, KkPacket};
+use kk_crypto::{decode_aead, decode_aead_batch, encode_aead, encode_aead_batch, KkAeadPacket};
+use kk_crypto::{decode_bound, encode_bound, generate_challenge, KkBoundPacket, GENESIS_MAC};
+use kk_crypto::{decode_parallel, encode_parallel, KkParallelPacket, PARALLEL_CHUNK_SIZE};
+use kk_crypto::{encode_aead_pooled, encode_pooled, EntropyPool};
 use std::time::Duration;
 
 /// Core property: encode then decode recovers original message.
@@ -119,8 +119,7 @@ fn temporal_uniqueness_full_message() {
 
     assert_ne!(p1.ciphertext, p2.ciphertext);
     assert_ne!(
-        p1.entropy_snapshot.bytes,
-        p2.entropy_snapshot.bytes,
+        p1.entropy_snapshot.bytes, p2.entropy_snapshot.bytes,
         "Different moments must have different entropy snapshots"
     );
 
@@ -152,7 +151,10 @@ fn kerckhoffs_principle() {
 
     for guess in attacker_guesses {
         let result = decode(guess, &packet);
-        assert!(result.is_err(), "Attacker key guess must fail commitment check");
+        assert!(
+            result.is_err(),
+            "Attacker key guess must fail commitment check"
+        );
     }
 }
 
@@ -241,8 +243,7 @@ fn per_position_independence() {
     // In a naive cipher, repeated plaintext = repeated ciphertext.
     // In KK, every position has its own derived key, so the ciphertext
     // should show no obvious repetition.
-    let unique_bytes: std::collections::HashSet<u8> =
-        packet.ciphertext.iter().copied().collect();
+    let unique_bytes: std::collections::HashSet<u8> = packet.ciphertext.iter().copied().collect();
 
     // With 256 bytes of ciphertext derived from independent keys,
     // we expect high entropy, many distinct byte values
@@ -262,14 +263,14 @@ fn batch_boundary_roundtrips() {
     let secret = b"batch-boundary-test";
     // pattern: position-dependent bytes so any lane swap is detectable
     for &size in &[
-        1,              // single byte, scalar only
-        4096,           // 1 full chunk, scalar tail
-        4097,           // 1 full chunk + 1 byte
-        32768,          // exactly 1 full batch of 8
-        32769,          // 1 full batch + 1 byte tail
-        65536,          // exactly 2 full batches
-        65537,          // 2 full batches + 1 byte
-        100_000,        // 3 batches + partial tail (100000 / 32768 = 3.05)
+        1,       // single byte, scalar only
+        4096,    // 1 full chunk, scalar tail
+        4097,    // 1 full chunk + 1 byte
+        32768,   // exactly 1 full batch of 8
+        32769,   // 1 full batch + 1 byte tail
+        65536,   // exactly 2 full batches
+        65537,   // 2 full batches + 1 byte
+        100_000, // 3 batches + partial tail (100000 / 32768 = 3.05)
     ] {
         let msg: Vec<u8> = (0..size).map(|i| (i % 251) as u8).collect();
         let packet = encode(secret, &msg).unwrap();
@@ -358,14 +359,17 @@ fn bound_tamper_detected() {
     packet.ciphertext[0] ^= 0xFF;
 
     let result = decode_bound(secret, &packet, &nonce, Duration::from_secs(30));
-    assert!(result.is_err(), "Tampered ciphertext must fail bound verification");
+    assert!(
+        result.is_err(),
+        "Tampered ciphertext must fail bound verification"
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────
 //  Rope Ratchet (session) integration tests
 // ─────────────────────────────────────────────────────────────────
 
-use kk_crypto::session::{encode_session, decode_session, RopeRatchet, RopePacket};
+use kk_crypto::session::{decode_session, encode_session, RopePacket, RopeRatchet};
 
 /// Basic roundtrip: encode_session then decode_session recovers plaintext.
 #[test]
@@ -417,7 +421,10 @@ fn session_counter_rejection() {
 
     // Receiver expects counter 2 but gets counter 3 → reject
     let result = decode_session(&mut receiver, &p3);
-    assert!(result.is_err(), "Skipped counter must be rejected (strict ordering)");
+    assert!(
+        result.is_err(),
+        "Skipped counter must be rejected (strict ordering)"
+    );
 
     // Replay message 1 → counter 1 is in the past → reject
     let result = decode_session(&mut receiver, &p1);
@@ -509,7 +516,10 @@ fn session_tamper_inner_ciphertext() {
     packet.inner.ciphertext[0] ^= 0xFF;
 
     let result = decode_session(&mut receiver, &packet);
-    assert!(result.is_err(), "Tampered ciphertext must fail integrity check");
+    assert!(
+        result.is_err(),
+        "Tampered ciphertext must fail integrity check"
+    );
 }
 
 /// Wrong secret: receiver with different shared secret cannot decode.
@@ -527,7 +537,7 @@ fn session_wrong_secret_rejected() {
 //  AEAD (Authenticated Encryption with Associated Data) tests
 // ─────────────────────────────────────────────────────────────────
 
-use kk_crypto::{encode_session_aead, decode_session_aead};
+use kk_crypto::{decode_session_aead, encode_session_aead};
 
 /// Direct kk_mac collision test: two messages differing by one byte must produce different MACs.
 #[test]
@@ -535,25 +545,33 @@ fn kk_mac_no_collision() {
     // Test with EXACT same conditions as AEAD: 32-byte key, 76-byte message, diff at pos 62
     let key = vec![0x78u8; 32]; // 32-byte key like derive_commitment_key produces
     let mut msg1 = vec![0u8; 76];
-    for (i, byte) in msg1.iter_mut().enumerate().take(76) { *byte = i as u8; }
+    for (i, byte) in msg1.iter_mut().enumerate().take(76) {
+        *byte = i as u8;
+    }
     let mut msg2 = msg1.clone();
     msg2[62] ^= 0xFF; // flip one byte (same position as ciphertext[0] in AEAD message)
 
     let mac1 = kk_crypto::kk_mix::kk_mac(&key, &msg1);
     let mac2 = kk_crypto::kk_mix::kk_mac(&key, &msg2);
 
-    assert_ne!(mac1, mac2, "kk_mac must produce different tags for different 76B messages (32B key)");
+    assert_ne!(
+        mac1, mac2,
+        "kk_mac must produce different tags for different 76B messages (32B key)"
+    );
 
     // Also test total absorb: key_len(8) + key(32) + message(76) = 116 bytes
     // All absorbed in one rate block (116 < RATE_BYTES=152)
     // The differing byte is at absolute absorb position 8+32+62 = 102
-    
+
     // Also test position 62 with 24-byte key (our passing test)
     let key24 = vec![0x78u8; 24];
     let mac3 = kk_crypto::kk_mix::kk_mac(&key24, &msg1);
     let mac4 = kk_crypto::kk_mix::kk_mac(&key24, &msg2);
 
-    assert_ne!(mac3, mac4, "kk_mac must produce different tags for different 76B messages (24B key)");
+    assert_ne!(
+        mac3, mac4,
+        "kk_mac must produce different tags for different 76B messages (24B key)"
+    );
 }
 
 /// AEAD roundtrip: encode then decode recovers plaintext, AAD intact.
@@ -612,10 +630,13 @@ fn aead_tamper_ciphertext() {
 
     let result = decode_aead(secret, &roundtripped);
 
-    // Also test directly 
+    // Also test directly
     let result2 = decode_aead(secret, &tampered_packet);
 
-    assert!(result.is_err() || result2.is_err(), "Tampered ciphertext must fail integrity check");
+    assert!(
+        result.is_err() || result2.is_err(),
+        "Tampered ciphertext must fail integrity check"
+    );
 }
 
 /// AEAD with empty AAD: works like standard encode but uses AEAD commitment.
@@ -694,7 +715,10 @@ fn session_aead_tamper_aad() {
     packet.inner.aad[0] ^= 0xFF; // tamper
 
     let result = decode_session_aead(&mut receiver, &packet);
-    assert!(result.is_err(), "Tampered session AAD must fail integrity check");
+    assert!(
+        result.is_err(),
+        "Tampered session AAD must fail integrity check"
+    );
 }
 
 // ─── KK-EKA (Entropy Key Agreement) Tests ───────────────────────────────────
@@ -711,7 +735,10 @@ fn eka_happy_path() {
     let (msg3, alice_key) = alice.process_msg2(&msg2).unwrap();
     let bob_key = bob.process_msg3(&msg3).unwrap();
 
-    assert_eq!(alice_key, bob_key, "both parties must derive the same session key");
+    assert_eq!(
+        alice_key, bob_key,
+        "both parties must derive the same session key"
+    );
     assert_ne!(alice_key, [0u8; 32], "session key must not be all zeros");
 }
 
@@ -726,7 +753,10 @@ fn eka_wrong_psk_rejected() {
 
     // Alice verifies auth_b using her PSK - Bob's tag was computed with a different PSK
     let result = alice.process_msg2(&msg2);
-    assert!(result.is_err(), "wrong PSK must cause auth_b verification to fail");
+    assert!(
+        result.is_err(),
+        "wrong PSK must cause auth_b verification to fail"
+    );
 }
 
 /// EKA tampered msg2: flipping a byte in entropy_b causes rejection.
@@ -742,7 +772,10 @@ fn eka_tampered_msg2() {
     tampered.entropy_b_bytes[0] ^= 0xFF;
 
     let result = alice.process_msg2(&tampered);
-    assert!(result.is_err(), "tampered msg2 entropy must fail verification");
+    assert!(
+        result.is_err(),
+        "tampered msg2 entropy must fail verification"
+    );
 }
 
 /// EKA tampered msg3: flipping a byte in entropy_a causes rejection.
@@ -759,7 +792,10 @@ fn eka_tampered_msg3() {
     tampered.entropy_a_bytes[0] ^= 0xFF;
 
     let result = bob.process_msg3(&tampered);
-    assert!(result.is_err(), "tampered msg3 entropy must fail verification");
+    assert!(
+        result.is_err(),
+        "tampered msg3 entropy must fail verification"
+    );
 }
 
 /// EKA commitment binding: replacing msg3's entropy while keeping the auth tag fails.
@@ -779,7 +815,10 @@ fn eka_commitment_binding() {
     }
 
     let result = bob.process_msg3(&fake_msg3);
-    assert!(result.is_err(), "commitment binding: faked entropy must not pass commitment check");
+    assert!(
+        result.is_err(),
+        "commitment binding: faked entropy must not pass commitment check"
+    );
 }
 
 /// EKA forward secrecy: different sessions with the same PSK produce different keys.
@@ -799,14 +838,17 @@ fn eka_forward_secrecy() {
     let (m3b, key2) = a2.process_msg2(&m2b).unwrap();
     let _ = b2.process_msg3(&m3b).unwrap();
 
-    assert_ne!(key1, key2, "forward secrecy: different sessions must produce different keys even with same PSK");
+    assert_ne!(
+        key1, key2,
+        "forward secrecy: different sessions must produce different keys even with same PSK"
+    );
 }
 
 /// EKA → Rope Ratchet end-to-end: EKA session key feeds into RopeRatchet for encrypted communication.
 #[test]
 fn eka_to_rope_ratchet_end_to_end() {
+    use kk_crypto::session::{decode_session, encode_session};
     use kk_crypto::RopeRatchet;
-    use kk_crypto::session::{encode_session, decode_session};
 
     let psk = b"eka-rope-e2e-psk";
     let context = b"eka-session-context";
@@ -906,7 +948,8 @@ fn batch_aead_roundtrip_100() {
         .map(|i| vec![(i & 0xFF) as u8; 64 + i * 10])
         .collect();
     let aad = b"batch-test-aad";
-    let messages: Vec<(&[u8], &[u8])> = plaintexts.iter()
+    let messages: Vec<(&[u8], &[u8])> = plaintexts
+        .iter()
         .map(|pt| (pt.as_slice(), aad.as_slice()))
         .collect();
 
@@ -969,11 +1012,10 @@ fn batch_aead_matches_sequential() {
     let secret = b"batch-seq-match-secret";
     let pool = EntropyPool::new(32).unwrap();
 
-    let plaintexts: Vec<Vec<u8>> = (0..10)
-        .map(|i| vec![i as u8; 512])
-        .collect();
+    let plaintexts: Vec<Vec<u8>> = (0..10).map(|i| vec![i as u8; 512]).collect();
     let aad = b"match-aad";
-    let messages: Vec<(&[u8], &[u8])> = plaintexts.iter()
+    let messages: Vec<(&[u8], &[u8])> = plaintexts
+        .iter()
         .map(|pt| (pt.as_slice(), aad.as_slice()))
         .collect();
 
@@ -997,11 +1039,10 @@ fn batch_aead_matches_sequential() {
 #[test]
 fn batch_aead_no_pool() {
     let secret = b"batch-nopool-secret";
-    let plaintexts: Vec<Vec<u8>> = (0..5)
-        .map(|i| vec![i as u8; 256])
-        .collect();
+    let plaintexts: Vec<Vec<u8>> = (0..5).map(|i| vec![i as u8; 256]).collect();
     let aad = b"nopool-aad";
-    let messages: Vec<(&[u8], &[u8])> = plaintexts.iter()
+    let messages: Vec<(&[u8], &[u8])> = plaintexts
+        .iter()
         .map(|pt| (pt.as_slice(), aad.as_slice()))
         .collect();
 

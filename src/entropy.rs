@@ -55,9 +55,7 @@ impl EntropySnapshot {
     /// Deserialize an entropy snapshot from transmitted bytes.
     pub fn from_bytes(data: &[u8]) -> Result<Self> {
         if data.len() < ENTROPY_SNAPSHOT_SIZE + 16 {
-            return Err(KkError::InvalidPacket(
-                "entropy snapshot too short".into(),
-            ));
+            return Err(KkError::InvalidPacket("entropy snapshot too short".into()));
         }
         let mut bytes = [0u8; ENTROPY_SNAPSHOT_SIZE];
         bytes.copy_from_slice(&data[..ENTROPY_SNAPSHOT_SIZE]);
@@ -142,12 +140,7 @@ pub fn gather() -> Result<EntropySnapshot> {
     let jitter_bytes = source_thread_jitter();
 
     // Mix all sources using KK entropy mixing
-    let sources: Vec<&[u8]> = vec![
-        &csprng_bytes,
-        &timestamp_bytes,
-        &cpu_bytes,
-        &jitter_bytes,
-    ];
+    let sources: Vec<&[u8]> = vec![&csprng_bytes, &timestamp_bytes, &cpu_bytes, &jitter_bytes];
     let mixed = kk_mix::kk_entropy_mix(&sources, ENTROPY_SNAPSHOT_SIZE);
 
     let mut output = [0u8; ENTROPY_SNAPSHOT_SIZE];

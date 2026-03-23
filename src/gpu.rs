@@ -37,9 +37,7 @@
 //! ```
 
 use crate::error::KkError;
-use crate::kk_mix::{
-    KkSponge, KkState, KDF_SQUEEZE_ROUNDS, RATE_BYTES, RATE_WORDS, STATE_WORDS,
-};
+use crate::kk_mix::{KkSponge, KkState, KDF_SQUEEZE_ROUNDS, RATE_BYTES, RATE_WORDS, STATE_WORDS};
 use wgpu::util::DeviceExt;
 use zeroize::Zeroize;
 
@@ -89,16 +87,19 @@ impl GpuAccelerator {
         let adapter_name = adapter.get_info().name.clone();
 
         let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor {
-                label: Some("kk-crypto-gpu"),
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits {
-                    max_storage_buffer_binding_size: 256 * 1024 * 1024, // 256 MiB
-                    max_buffer_size: 256 * 1024 * 1024,
-                    ..wgpu::Limits::default()
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    label: Some("kk-crypto-gpu"),
+                    required_features: wgpu::Features::empty(),
+                    required_limits: wgpu::Limits {
+                        max_storage_buffer_binding_size: 256 * 1024 * 1024, // 256 MiB
+                        max_buffer_size: 256 * 1024 * 1024,
+                        ..wgpu::Limits::default()
+                    },
+                    memory_hints: wgpu::MemoryHints::Performance,
                 },
-                memory_hints: wgpu::MemoryHints::Performance,
-            }, None)
+                None,
+            )
             .await
             .map_err(|e| KkError::GpuError(format!("device request failed: {e}")))?;
 
@@ -108,45 +109,44 @@ impl GpuAccelerator {
             source: wgpu::ShaderSource::Wgsl(shader_source.into()),
         });
 
-        let bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("kk_permute_bgl"),
-                entries: &[
-                    // binding 0: states (read_write storage)
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::COMPUTE,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Storage { read_only: false },
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("kk_permute_bgl"),
+            entries: &[
+                // binding 0: states (read_write storage)
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
                     },
-                    // binding 1: rotations (read-only storage)
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::COMPUTE,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Storage { read_only: true },
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
+                    count: None,
+                },
+                // binding 1: rotations (read-only storage)
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
                     },
-                    // binding 2: params (uniform)
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: wgpu::ShaderStages::COMPUTE,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
+                    count: None,
+                },
+                // binding 2: params (uniform)
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
                     },
-                ],
-            });
+                    count: None,
+                },
+            ],
+        });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("kk_permute_pl"),
@@ -183,12 +183,7 @@ impl GpuAccelerator {
     /// in parallel using one dispatch.
     ///
     /// `rounds`: number of permutation rounds (32 for full, 20 for KDF squeeze).
-    pub fn permute_batch(
-        &self,
-        states: &mut [KkState],
-        rotations: &[[u32; 2]; 15],
-        rounds: usize,
-    ) {
+    pub fn permute_batch(&self, states: &mut [KkState], rotations: &[[u32; 2]; 15], rounds: usize) {
         if states.is_empty() {
             return;
         }
@@ -225,23 +220,29 @@ impl GpuAccelerator {
         };
 
         // Create GPU buffers
-        let state_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("states"),
-            contents: bytemuck::cast_slice(&state_data),
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-        });
+        let state_buf = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("states"),
+                contents: bytemuck::cast_slice(&state_data),
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            });
 
-        let rot_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("rotations"),
-            contents: bytemuck::cast_slice(&rot_data),
-            usage: wgpu::BufferUsages::STORAGE,
-        });
+        let rot_buf = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("rotations"),
+                contents: bytemuck::cast_slice(&rot_data),
+                usage: wgpu::BufferUsages::STORAGE,
+            });
 
-        let params_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("params"),
-            contents: bytemuck::bytes_of(&params),
-            usage: wgpu::BufferUsages::UNIFORM,
-        });
+        let params_buf = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("params"),
+                contents: bytemuck::bytes_of(&params),
+                usage: wgpu::BufferUsages::UNIFORM,
+            });
 
         let readback_buf = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("readback"),

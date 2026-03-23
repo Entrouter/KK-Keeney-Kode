@@ -34,24 +34,52 @@ type KkState = [u64; STATE_WORDS];
 /// Local copy of DEFAULT_ROTATIONS (pub(crate) in library).
 const DEFAULT_ROTATIONS: [[u32; 2]; 15] = [
     // Row phase
-    [7, 41],  [13, 29], [19, 37], [23, 43], [3, 53],
+    [7, 41],
+    [13, 29],
+    [19, 37],
+    [23, 43],
+    [3, 53],
     // Column phase
-    [11, 47], [17, 39], [5, 59],  [31, 49], [9, 51],
+    [11, 47],
+    [17, 39],
+    [5, 59],
+    [31, 49],
+    [9, 51],
     // Diagonal phase
-    [15, 33], [21, 45], [27, 35], [1, 57],  [25, 55],
+    [15, 33],
+    [21, 45],
+    [27, 35],
+    [1, 57],
+    [25, 55],
 ];
 
 /// Local copy of KK_IV (pub(crate) in library).
 /// floor(frac(√p) × 2^64) for the first 25 primes.
 const KK_IV: [u64; STATE_WORDS] = [
-    0x6A09E667F3BCC908, 0xBB67AE8584CAA73B, 0x3C6EF372FE94F82B,
-    0xA54FF53A5F1D36F1, 0x510E527FADE682D1, 0x9B05688C2B3E6C1F,
-    0x1F83D9ABFB41BD6B, 0x5BE0CD19137E2179, 0xCBBB9D5DC1059ED8,
-    0x629A292A367CD507, 0x9159015A3070DD17, 0x152FECD8F70E5939,
-    0x67332667FFC00B31, 0x8EB44A8768581511, 0xDB0C2E0D64F98FA7,
-    0x47B5481DBEFA4FA4, 0xAE5F9156E7B6D99B, 0xCF6C85D39D1A1E15,
-    0x2F73477D6A4563CA, 0x6D1826CAFD82E1ED, 0x8B43D4570A51B936,
-    0xE360B596DC380C3F, 0x1C456002CE13E9F8, 0x6F19633143A0AF0E,
+    0x6A09E667F3BCC908,
+    0xBB67AE8584CAA73B,
+    0x3C6EF372FE94F82B,
+    0xA54FF53A5F1D36F1,
+    0x510E527FADE682D1,
+    0x9B05688C2B3E6C1F,
+    0x1F83D9ABFB41BD6B,
+    0x5BE0CD19137E2179,
+    0xCBBB9D5DC1059ED8,
+    0x629A292A367CD507,
+    0x9159015A3070DD17,
+    0x152FECD8F70E5939,
+    0x67332667FFC00B31,
+    0x8EB44A8768581511,
+    0xDB0C2E0D64F98FA7,
+    0x47B5481DBEFA4FA4,
+    0xAE5F9156E7B6D99B,
+    0xCF6C85D39D1A1E15,
+    0x2F73477D6A4563CA,
+    0x6D1826CAFD82E1ED,
+    0x8B43D4570A51B936,
+    0xE360B596DC380C3F,
+    0x1C456002CE13E9F8,
+    0x6F19633143A0AF0E,
     0xD94EBEB1AB313933,
 ];
 
@@ -61,7 +89,9 @@ const KK_IV: [u64; STATE_WORDS] = [
 
 struct Xorshift64(u64);
 impl Xorshift64 {
-    fn new(seed: u64) -> Self { Self(seed) }
+    fn new(seed: u64) -> Self {
+        Self(seed)
+    }
     fn next(&mut self) -> u64 {
         self.0 ^= self.0 << 13;
         self.0 ^= self.0 >> 7;
@@ -100,10 +130,7 @@ fn ddr(a: u64, b: u64) -> u64 {
     v
 }
 
-fn quintet_round(
-    a: &mut u64, b: &mut u64, c: &mut u64, d: &mut u64, e: &mut u64,
-    rot: [u32; 2],
-) {
+fn quintet_round(a: &mut u64, b: &mut u64, c: &mut u64, d: &mut u64, e: &mut u64, rot: [u32; 2]) {
     *a = mfr(*a, *b, rot[0]);
     *c ^= *a;
     *d = ddr(*d, *c);
@@ -128,34 +155,62 @@ fn kk_permute_local(state: &mut KkState, rounds: usize) {
         for (row, rot) in rotations.iter().enumerate().take(5) {
             let base = row * 5;
             let (mut s0, mut s1, mut s2, mut s3, mut s4) = (
-                state[base], state[base + 1], state[base + 2],
-                state[base + 3], state[base + 4],
+                state[base],
+                state[base + 1],
+                state[base + 2],
+                state[base + 3],
+                state[base + 4],
             );
             quintet_round(&mut s0, &mut s1, &mut s2, &mut s3, &mut s4, *rot);
-            state[base] = s0; state[base + 1] = s1; state[base + 2] = s2;
-            state[base + 3] = s3; state[base + 4] = s4;
+            state[base] = s0;
+            state[base + 1] = s1;
+            state[base + 2] = s2;
+            state[base + 3] = s3;
+            state[base + 4] = s4;
         }
 
         // Column phase
         for col in 0..5usize {
             let (mut s0, mut s1, mut s2, mut s3, mut s4) = (
-                state[col], state[col + 5], state[col + 10],
-                state[col + 15], state[col + 20],
+                state[col],
+                state[col + 5],
+                state[col + 10],
+                state[col + 15],
+                state[col + 20],
             );
-            quintet_round(&mut s0, &mut s1, &mut s2, &mut s3, &mut s4, rotations[5 + col]);
-            state[col] = s0; state[col + 5] = s1; state[col + 10] = s2;
-            state[col + 15] = s3; state[col + 20] = s4;
+            quintet_round(
+                &mut s0,
+                &mut s1,
+                &mut s2,
+                &mut s3,
+                &mut s4,
+                rotations[5 + col],
+            );
+            state[col] = s0;
+            state[col + 5] = s1;
+            state[col + 10] = s2;
+            state[col + 15] = s3;
+            state[col + 20] = s4;
         }
 
         // Diagonal phase
         for d in 0..5usize {
             let [i0, i1, i2, i3, i4] = DIAGS[d];
-            let (mut s0, mut s1, mut s2, mut s3, mut s4) = (
-                state[i0], state[i1], state[i2], state[i3], state[i4],
+            let (mut s0, mut s1, mut s2, mut s3, mut s4) =
+                (state[i0], state[i1], state[i2], state[i3], state[i4]);
+            quintet_round(
+                &mut s0,
+                &mut s1,
+                &mut s2,
+                &mut s3,
+                &mut s4,
+                rotations[10 + d],
             );
-            quintet_round(&mut s0, &mut s1, &mut s2, &mut s3, &mut s4, rotations[10 + d]);
-            state[i0] = s0; state[i1] = s1; state[i2] = s2;
-            state[i3] = s3; state[i4] = s4;
+            state[i0] = s0;
+            state[i1] = s1;
+            state[i2] = s2;
+            state[i3] = s3;
+            state[i4] = s4;
         }
 
         // Round constant injection
@@ -325,9 +380,7 @@ fn test_active_word_propagation() -> Vec<Vec<usize>> {
             kk_permute_local(&mut s1, r);
             kk_permute_local(&mut s2, r);
 
-            let active = (0..STATE_WORDS)
-                .filter(|&i| s1[i] != s2[i])
-                .count();
+            let active = (0..STATE_WORDS).filter(|&i| s1[i] != s2[i]).count();
             round_active.push(active);
         }
 
@@ -412,10 +465,10 @@ fn test_full_permutation_differential() -> (u64, u64, f64) {
 
     // Try several input differences
     let input_diffs: Vec<(usize, u64)> = vec![
-        (0, 1),                          // single bit in word 0
-        (0, 0xFFFFFFFFFFFFFFFF),         // all bits in word 0
-        (12, 1),                         // single bit in center word
-        (24, 1),                         // single bit in corner word
+        (0, 1),                  // single bit in word 0
+        (0, 0xFFFFFFFFFFFFFFFF), // all bits in word 0
+        (12, 1),                 // single bit in center word
+        (24, 1),                 // single bit in corner word
     ];
 
     let mut total_trials = 0u64;
@@ -547,10 +600,20 @@ fn main() {
 
     // ── Test 1: MFR Differential Probability ──
     println!("━━━ Test 1: MFR Differential Probability ━━━");
-    println!("  Sampling {} random input pairs per input difference...", 1u64 << 20);
+    println!(
+        "  Sampling {} random input pairs per input difference...",
+        1u64 << 20
+    );
     let (mfr_prob, mfr_da, mfr_db, mfr_out) = test_mfr_differential();
-    let mfr_log2 = if mfr_prob > 0.0 { mfr_prob.log2() } else { -64.0 };
-    println!("  Overall best diff:  Δa = {:016x}, Δb = {:016x}", mfr_da, mfr_db);
+    let mfr_log2 = if mfr_prob > 0.0 {
+        mfr_prob.log2()
+    } else {
+        -64.0
+    };
+    println!(
+        "  Overall best diff:  Δa = {:016x}, Δb = {:016x}",
+        mfr_da, mfr_db
+    );
     println!("  Best output diff:   {:016x}", mfr_out);
     println!("  Max probability:    {:.6} (2^{:.1})", mfr_prob, mfr_log2);
     println!();
@@ -567,9 +630,15 @@ fn main() {
         let mut best_nz_prob = 0.0f64;
         let mut best_nz_da = 0u64;
         let mut best_nz_db = 0u64;
-        for &(da, db) in &[(1u64, 1u64), (1, 0xFF), (0xFF, 1), (0xFFFF, 0xFFFF),
-                            (0xFFFFFFFF, 1), (1, 0xFFFFFFFF),
-                            (0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF)] {
+        for &(da, db) in &[
+            (1u64, 1u64),
+            (1, 0xFF),
+            (0xFF, 1),
+            (0xFFFF, 0xFFFF),
+            (0xFFFFFFFF, 1),
+            (1, 0xFFFFFFFF),
+            (0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF),
+        ] {
             use std::collections::HashMap;
             let mut counts: HashMap<u64, u64> = HashMap::new();
             for _ in 0..num_trials {
@@ -586,22 +655,43 @@ fn main() {
                 best_nz_db = db;
             }
         }
-        let log2_nz = if best_nz_prob > 0.0 { best_nz_prob.log2() } else { -64.0 };
+        let log2_nz = if best_nz_prob > 0.0 {
+            best_nz_prob.log2()
+        } else {
+            -64.0
+        };
         println!("  MFR with Δb≠0 (critical case):");
-        println!("    Best diff: Δa = {:016x}, Δb = {:016x}", best_nz_da, best_nz_db);
+        println!(
+            "    Best diff: Δa = {:016x}, Δb = {:016x}",
+            best_nz_da, best_nz_db
+        );
         println!("    Max prob:  {:.6} (2^{:.1})", best_nz_prob, log2_nz);
         let mfr_pass = best_nz_prob < 0.01; // < 2^-6.6 for the non-linear mixing case
-        println!("  Verdict: {} (Δb≠0 threshold < 2^-6.6 = 0.01)\n",
-            if mfr_pass { "PASS ✅" } else { "FAIL ❌" });
-        if !mfr_pass { all_pass = false; }
+        println!(
+            "  Verdict: {} (Δb≠0 threshold < 2^-6.6 = 0.01)\n",
+            if mfr_pass { "PASS ✅" } else { "FAIL ❌" }
+        );
+        if !mfr_pass {
+            all_pass = false;
+        }
     }
 
     // ── Test 2: DDR Differential Probability ──
     println!("━━━ Test 2: DDR Differential Probability ━━━");
-    println!("  Sampling {} random input pairs per input difference...", 1u64 << 20);
+    println!(
+        "  Sampling {} random input pairs per input difference...",
+        1u64 << 20
+    );
     let (ddr_prob, ddr_da, ddr_db, ddr_out) = test_ddr_differential();
-    let ddr_log2 = if ddr_prob > 0.0 { ddr_prob.log2() } else { -64.0 };
-    println!("  Overall best diff:  Δa = {:016x}, Δb = {:016x}", ddr_da, ddr_db);
+    let ddr_log2 = if ddr_prob > 0.0 {
+        ddr_prob.log2()
+    } else {
+        -64.0
+    };
+    println!(
+        "  Overall best diff:  Δa = {:016x}, Δb = {:016x}",
+        ddr_da, ddr_db
+    );
     println!("  Best output diff:   {:016x}", ddr_out);
     println!("  Max probability:    {:.6} (2^{:.1})", ddr_prob, ddr_log2);
     println!("  Note: When Δb=0 (same control word), DDR is a bijection (prob=1 expected).");
@@ -611,8 +701,16 @@ fn main() {
         let num_trials = 1u64 << 20;
         let mut rng = Xorshift64::new(0xAAAA_BBBB_CCCC_DDDD);
         let mut best_nonzero_prob = 0.0f64;
-        for &(da, db) in &[(0u64, 1u64), (0, 2), (0, 4), (0, 8), (0, 16), (0, 32),
-                            (1, 1), (0xFF, 0xFF)] {
+        for &(da, db) in &[
+            (0u64, 1u64),
+            (0, 2),
+            (0, 4),
+            (0, 8),
+            (0, 16),
+            (0, 32),
+            (1, 1),
+            (0xFF, 0xFF),
+        ] {
             use std::collections::HashMap;
             let mut counts: HashMap<u64, u64> = HashMap::new();
             for _ in 0..num_trials {
@@ -627,12 +725,23 @@ fn main() {
                 best_nonzero_prob = prob;
             }
         }
-        let log2_nz = if best_nonzero_prob > 0.0 { best_nonzero_prob.log2() } else { -64.0 };
-        println!("  DDR with Δb≠0 max prob: {:.6} (2^{:.1})", best_nonzero_prob, log2_nz);
+        let log2_nz = if best_nonzero_prob > 0.0 {
+            best_nonzero_prob.log2()
+        } else {
+            -64.0
+        };
+        println!(
+            "  DDR with Δb≠0 max prob: {:.6} (2^{:.1})",
+            best_nonzero_prob, log2_nz
+        );
         let ddr_nz_pass = best_nonzero_prob < 0.25;
-        println!("  Verdict: {} (threshold < 2^-2 = 0.25 for Δb≠0)\n",
-            if ddr_nz_pass { "PASS ✅" } else { "FAIL ❌" });
-        if !ddr_nz_pass { all_pass = false; }
+        println!(
+            "  Verdict: {} (threshold < 2^-2 = 0.25 for Δb≠0)\n",
+            if ddr_nz_pass { "PASS ✅" } else { "FAIL ❌" }
+        );
+        if !ddr_nz_pass {
+            all_pass = false;
+        }
     }
 
     // ── Test 3: Active Word Propagation ──
@@ -649,7 +758,9 @@ fn main() {
         let max = *active_counts.iter().max().unwrap();
         let avg = active_counts.iter().sum::<usize>() as f64 / 25.0;
         println!("  {:>6} {:>8} {:>8} {:>8.1}", r + 1, min, max, avg);
-        if min == 25 && fdr == 9 { fdr = r + 1; }
+        if min == 25 && fdr == 9 {
+            fdr = r + 1;
+        }
     }
     let full_diffusion_round = fdr;
     // For a 25-word wide-trail cipher, full diffusion in ≤4 rounds is good.
@@ -657,53 +768,99 @@ fn main() {
     // KK's MFR+DDR operations are heavier per-round, compensating for slower diffusion.
     let prop_pass = full_diffusion_round <= 4;
     if full_diffusion_round <= 8 {
-        println!("  Full diffusion (25/25) reached by round {} for ALL starting positions.", full_diffusion_round);
+        println!(
+            "  Full diffusion (25/25) reached by round {} for ALL starting positions.",
+            full_diffusion_round
+        );
     } else {
         println!("  Full diffusion NOT reached within 8 rounds for some starting positions.");
     }
-    println!("  Verdict: {} (threshold: full diffusion ≤ 4 rounds)\n",
-        if prop_pass { "PASS ✅" } else { "FAIL ❌" });
-    if !prop_pass { all_pass = false; }
+    println!(
+        "  Verdict: {} (threshold: full diffusion ≤ 4 rounds)\n",
+        if prop_pass { "PASS ✅" } else { "FAIL ❌" }
+    );
+    if !prop_pass {
+        all_pass = false;
+    }
 
     // ── Test 4: Multi-Round Differential Probability ──
     println!("━━━ Test 4: Multi-Round Differential Probability (1-8 rounds) ━━━");
-    println!("  {} random trials per round count, single-bit input diff...", 1u64 << 18);
+    println!(
+        "  {} random trials per round count, single-bit input diff...",
+        1u64 << 18
+    );
     let multiround = test_multiround_differential();
-    println!("  {:>6} {:>16} {:>12} {:>16}", "Rounds", "Max Prob", "Active Out", "log₂(prob)");
+    println!(
+        "  {:>6} {:>16} {:>12} {:>16}",
+        "Rounds", "Max Prob", "Active Out", "log₂(prob)"
+    );
     for &(rounds, prob, active) in &multiround {
         let log2 = if prob > 0.0 { prob.log2() } else { -64.0 };
-        println!("  {:>6} {:>16.8} {:>12} {:>16.1}", rounds, prob, active, log2);
+        println!(
+            "  {:>6} {:>16.8} {:>12} {:>16.1}",
+            rounds, prob, active, log2
+        );
     }
     // After 4+ rounds, no output difference should repeat (prob ≈ 1/N = noise)
     let noise_floor = 1.0 / (1u64 << 18) as f64;
-    let four_round_prob = multiround.iter()
+    let four_round_prob = multiround
+        .iter()
         .find(|&&(r, _, _)| r == 4)
         .map(|&(_, p, _)| p)
         .unwrap_or(1.0);
     let multiround_pass = four_round_prob <= noise_floor * 4.0; // Allow small margin
-    println!("  Noise floor at {} trials: {:.2e}", 1u64 << 18, noise_floor);
-    println!("  Verdict: {} (4-round prob should be at noise floor)\n",
-        if multiround_pass { "PASS ✅" } else { "FAIL ❌" });
-    if !multiround_pass { all_pass = false; }
+    println!(
+        "  Noise floor at {} trials: {:.2e}",
+        1u64 << 18,
+        noise_floor
+    );
+    println!(
+        "  Verdict: {} (4-round prob should be at noise floor)\n",
+        if multiround_pass {
+            "PASS ✅"
+        } else {
+            "FAIL ❌"
+        }
+    );
+    if !multiround_pass {
+        all_pass = false;
+    }
 
     // ── Test 5: Full 32-Round Differential Search ──
     println!("━━━ Test 5: Full 32-Round Differential Search ━━━");
-    println!("  {} random trials across 4 input differences...", 1u64 << 20);
+    println!(
+        "  {} random trials across 4 input differences...",
+        1u64 << 20
+    );
     let (total, max_reps, prob_bound) = test_full_permutation_differential();
-    let log2 = if prob_bound > 0.0 { prob_bound.log2() } else { -64.0 };
+    let log2 = if prob_bound > 0.0 {
+        prob_bound.log2()
+    } else {
+        -64.0
+    };
     println!("  Total trials:        {}", total);
-    println!("  Max diff repeats:    {} (expect 1 = no repeats)", max_reps);
+    println!(
+        "  Max diff repeats:    {} (expect 1 = no repeats)",
+        max_reps
+    );
     println!("  Prob upper bound:    {:.2e} (2^{:.1})", prob_bound, log2);
     let full_pass = max_reps <= 2; // In 250K+ trials with genuine 2^-1600 diffs, expect at most 1
-    println!("  Verdict: {} (no output diff should repeat in ~1M trials)\n",
-        if full_pass { "PASS ✅" } else { "FAIL ❌" });
-    if !full_pass { all_pass = false; }
+    println!(
+        "  Verdict: {} (no output diff should repeat in ~1M trials)\n",
+        if full_pass { "PASS ✅" } else { "FAIL ❌" }
+    );
+    if !full_pass {
+        all_pass = false;
+    }
 
     // ── Test 6: Quintet-Round Branch Number ──
     println!("━━━ Test 6: Quintet-Round Branch Number ━━━");
     println!("  {} trials across 5 input positions...", 1u64 << 18);
     let (min_branch, avg_active) = test_quintet_branch_number();
-    println!("  Minimum branch number: {} (input + output active words)", min_branch);
+    println!(
+        "  Minimum branch number: {} (input + output active words)",
+        min_branch
+    );
     println!("  Average output active: {:.2} / 5 words", avg_active);
     // Branch number 2 means there exists at least one input position where a
     // single-word difference only activates 1 output word in the best case.
@@ -712,15 +869,22 @@ fn main() {
     let branch_pass = min_branch >= 2 && avg_active >= 2.5;
     println!("  Note: Min branch # 2 occurs at specific positions; the row/col/diag");
     println!("  topology (15 quintets/round) compensates, as shown in Test 3.");
-    println!("  Verdict: {} (min branch ≥ 2 AND avg output active ≥ 2.5)\n",
-        if branch_pass { "PASS ✅" } else { "FAIL ❌" });
-    if !branch_pass { all_pass = false; }
+    println!(
+        "  Verdict: {} (min branch ≥ 2 AND avg output active ≥ 2.5)\n",
+        if branch_pass { "PASS ✅" } else { "FAIL ❌" }
+    );
+    if !branch_pass {
+        all_pass = false;
+    }
 
     // ── Summary ──
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!("SUMMARY");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    println!("  MFR differential:     Δb=0: 2^{:.1} (expected), Δb≠0: see above", mfr_log2);
+    println!(
+        "  MFR differential:     Δb=0: 2^{:.1} (expected), Δb≠0: see above",
+        mfr_log2
+    );
     println!("  DDR differential:     Δb≠0 analysis above (Δb=0 is bijection)");
     println!("  Full diffusion:       {} rounds", full_diffusion_round);
     println!("  4-round max diff:     {:.2e}", four_round_prob);
@@ -732,14 +896,24 @@ fn main() {
         // Compute the estimated 32-round bound
         // If best 1-round prob is p, then 32-round is roughly p^32
         // But we also have the direct measurement
-        let one_round_prob = multiround.iter()
+        let one_round_prob = multiround
+            .iter()
             .find(|&&(r, _, _)| r == 1)
             .map(|&(_, p, _)| p)
             .unwrap_or(1.0);
         let extrapolated = one_round_prob.powi(32);
-        println!("  Extrapolated 32-round bound (from 1-round): 2^{:.0}",
-            if extrapolated > 0.0 { extrapolated.log2() } else { -1600.0 });
-        println!("  Direct measurement bound:                   < 2^{:.1}", log2);
+        println!(
+            "  Extrapolated 32-round bound (from 1-round): 2^{:.0}",
+            if extrapolated > 0.0 {
+                extrapolated.log2()
+            } else {
+                -1600.0
+            }
+        );
+        println!(
+            "  Direct measurement bound:                   < 2^{:.1}",
+            log2
+        );
         println!();
         println!("  CONCLUSION: No exploitable differential trail found.");
         println!("  The KK permutation's differential resistance is consistent");

@@ -15,15 +15,20 @@
 
 use std::io::{self, Write};
 
-use crossterm::style::{Attribute, Color, SetAttribute, SetForegroundColor, ResetColor};
-use kk_crypto::{encode_split, decode_split};
+use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
+use kk_crypto::{decode_split, encode_split};
 
 fn color(c: Color, text: &str) {
     print!("{}{}{}", SetForegroundColor(c), text, ResetColor);
 }
 
 fn bold(text: &str) {
-    print!("{}{}{}", SetAttribute(Attribute::Bold), text, SetAttribute(Attribute::Reset));
+    print!(
+        "{}{}{}",
+        SetAttribute(Attribute::Bold),
+        text,
+        SetAttribute(Attribute::Reset)
+    );
 }
 
 fn header(title: &str) {
@@ -42,7 +47,10 @@ fn hex_dump(data: &[u8], max: usize) {
         color(Color::DarkGrey, &format!("{:02x}", byte));
     }
     if data.len() > max {
-        color(Color::DarkGrey, &format!(" ... +{} bytes", data.len() - max));
+        color(
+            Color::DarkGrey,
+            &format!(" ... +{} bytes", data.len() - max),
+        );
     }
     println!();
 }
@@ -54,7 +62,10 @@ fn main() {
     println!();
     bold("  ╔══════════════════════════════════════════════════════════╗\n");
     bold("  ║");
-    color(Color::Cyan, "        KK SPLIT-CHANNEL DEMO, Two Paths, One Truth");
+    color(
+        Color::Cyan,
+        "        KK SPLIT-CHANNEL DEMO, Two Paths, One Truth",
+    );
     bold("      ║\n");
     bold("  ╚══════════════════════════════════════════════════════════╝\n");
 
@@ -64,7 +75,10 @@ fn main() {
     // ─── Step 1: Show the plaintext ───
     header("PLAINTEXT");
     print!("    ");
-    color(Color::Green, &format!("\"{}\"", String::from_utf8_lossy(plaintext)));
+    color(
+        Color::Green,
+        &format!("\"{}\"", String::from_utf8_lossy(plaintext)),
+    );
     println!();
     print!("    ");
     color(Color::DarkGrey, &format!("{} bytes", plaintext.len()));
@@ -92,7 +106,10 @@ fn main() {
     println!();
     print!("    Size: ");
     color(Color::White, &format!("{} bytes", sealed_bytes.len()));
-    print!(" (4-byte len + {} ciphertext + 32-byte HMAC)", sealed.ciphertext.len());
+    print!(
+        " (4-byte len + {} ciphertext + 32-byte HMAC)",
+        sealed.ciphertext.len()
+    );
     println!();
     print!("    Data: ");
     println!();
@@ -135,10 +152,16 @@ fn main() {
     color(Color::Red, "Without ε, the HKDF salt is missing.");
     println!();
     print!("    ");
-    color(Color::Red, "Every passphrase guess produces a different salt-less");
+    color(
+        Color::Red,
+        "Every passphrase guess produces a different salt-less",
+    );
     println!();
     print!("    ");
-    color(Color::Red, "derivation, there is nothing to verify against.");
+    color(
+        Color::Red,
+        "derivation, there is nothing to verify against.",
+    );
     println!();
     print!("    ");
     color(Color::Red, "Brute force is meaningless.");
@@ -191,7 +214,10 @@ fn main() {
     println!();
     println!();
     print!("    ");
-    color(Color::Green, &format!("\"{}\"", String::from_utf8_lossy(&recovered)));
+    color(
+        Color::Green,
+        &format!("\"{}\"", String::from_utf8_lossy(&recovered)),
+    );
     println!();
 
     // ─── Step 7: Verification ───
@@ -208,10 +234,26 @@ fn main() {
     // ─── Summary ───
     header("SECURITY SUMMARY");
     let items = [
-        ("Channel 1 alone (ciphertext + HMAC)", Color::Red, "UNBREAKABLE, no salt for key derivation"),
-        ("Channel 2 alone (ε)", Color::Red, "USELESS, just 48 bytes of entropy, no ciphertext"),
-        ("Wrong ε + ciphertext", Color::Red, "REJECTED, HMAC verification fails"),
-        ("Both channels + secret", Color::Green, "DECRYPTS, all three factors present"),
+        (
+            "Channel 1 alone (ciphertext + HMAC)",
+            Color::Red,
+            "UNBREAKABLE, no salt for key derivation",
+        ),
+        (
+            "Channel 2 alone (ε)",
+            Color::Red,
+            "USELESS, just 48 bytes of entropy, no ciphertext",
+        ),
+        (
+            "Wrong ε + ciphertext",
+            Color::Red,
+            "REJECTED, HMAC verification fails",
+        ),
+        (
+            "Both channels + secret",
+            Color::Green,
+            "DECRYPTS, all three factors present",
+        ),
     ];
 
     for (label, c, desc) in &items {
@@ -224,7 +266,10 @@ fn main() {
 
     println!();
     print!("  ");
-    color(Color::DarkGrey, "KK Split-Channel, J.A. Keeney, Australia, 2026");
+    color(
+        Color::DarkGrey,
+        "KK Split-Channel, J.A. Keeney, Australia, 2026",
+    );
     println!();
     println!();
 }

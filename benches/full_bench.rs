@@ -13,28 +13,36 @@
 //! commitment.
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use std::time::Duration;
 use kk_crypto::{
+    decode_aead,
+    decode_bound,
+    decode_parallel,
+    decode_session_aead,
+    decode_split,
+    // Codec modes
+    encode_aead,
+    encode_bound,
+    // Parallel encode
+    encode_parallel,
+    // Session AEAD
+    encode_session_aead,
+    encode_split,
+    generate_challenge,
     // Primitives
     kk_mix::{
-        kk_hash, kk_kdf, kk_kdf_batch_8, kk_mac, kk_mac_verify,
-        kk_permute, kk_permute_with_schedule, rotations_from_entropy,
-        kk_entropy_mix, KkState,
+        kk_entropy_mix, kk_hash, kk_kdf, kk_kdf_batch_8, kk_mac, kk_mac_verify, kk_permute,
+        kk_permute_with_schedule, rotations_from_entropy, KkState,
     },
-    // Codec modes
-    encode_aead, decode_aead,
-    encode_split, decode_split,
-    encode_bound, decode_bound,
-    generate_challenge, GENESIS_MAC,
-    // Session AEAD
-    encode_session_aead, decode_session_aead, RopeRatchet,
     // EKA
-    EkaInitiator, EkaResponder,
-    // Parallel encode
-    encode_parallel, decode_parallel, PARALLEL_CHUNK_SIZE,
+    EkaInitiator,
+    EkaResponder,
     // Entropy pool
     EntropyPool,
+    RopeRatchet,
+    GENESIS_MAC,
+    PARALLEL_CHUNK_SIZE,
 };
+use std::time::Duration;
 
 const SECRET: &[u8] = b"bench-shared-secret-2026";
 
@@ -72,8 +80,7 @@ fn bench_kk_kdf_batch_8(c: &mut Criterion) {
     let key = b"benchmark-kdf-key-material";
     let salt = b"benchmark-kdf-salt";
     let infos: [&[u8]; 8] = [
-        b"info-0", b"info-1", b"info-2", b"info-3",
-        b"info-4", b"info-5", b"info-6", b"info-7",
+        b"info-0", b"info-1", b"info-2", b"info-3", b"info-4", b"info-5", b"info-6", b"info-7",
     ];
     for out_len in [32, 64, 128] {
         group.throughput(Throughput::Bytes((out_len * 8) as u64));
@@ -104,9 +111,13 @@ fn bench_kk_mac_verify(c: &mut Criterion) {
         let message: Vec<u8> = (0..size).map(|i| (i % 256) as u8).collect();
         let tag = kk_mac(key, &message);
         group.throughput(Throughput::Bytes(size as u64));
-        group.bench_with_input(BenchmarkId::from_parameter(size), &(message, tag), |b, (m, t)| {
-            b.iter(|| kk_mac_verify(black_box(key), black_box(m), black_box(t)));
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(size),
+            &(message, tag),
+            |b, (m, t)| {
+                b.iter(|| kk_mac_verify(black_box(key), black_box(m), black_box(t)));
+            },
+        );
     }
     group.finish();
 }
@@ -201,9 +212,13 @@ fn bench_decode_split(c: &mut Criterion) {
         let plaintext: Vec<u8> = (0..size).map(|i| (i % 256) as u8).collect();
         let (sealed, epsilon) = encode_split(SECRET, &plaintext).unwrap();
         group.throughput(Throughput::Bytes(size as u64));
-        group.bench_with_input(BenchmarkId::from_parameter(size), &(sealed, epsilon), |b, (s, e)| {
-            b.iter(|| decode_split(black_box(SECRET), black_box(s), black_box(e)).unwrap());
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(size),
+            &(sealed, epsilon),
+            |b, (s, e)| {
+                b.iter(|| decode_split(black_box(SECRET), black_box(s), black_box(e)).unwrap());
+            },
+        );
     }
     group.finish();
 }
@@ -219,7 +234,15 @@ fn bench_encode_bound(c: &mut Criterion) {
         let plaintext: Vec<u8> = (0..size).map(|i| (i % 256) as u8).collect();
         group.throughput(Throughput::Bytes(size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), &plaintext, |b, pt| {
-            b.iter(|| encode_bound(black_box(SECRET), black_box(pt), black_box(&nonce), black_box(&GENESIS_MAC)).unwrap());
+            b.iter(|| {
+                encode_bound(
+                    black_box(SECRET),
+                    black_box(pt),
+                    black_box(&nonce),
+                    black_box(&GENESIS_MAC),
+                )
+                .unwrap()
+            });
         });
     }
     group.finish();
@@ -234,7 +257,15 @@ fn bench_decode_bound(c: &mut Criterion) {
         let packet = encode_bound(SECRET, &plaintext, &nonce, &GENESIS_MAC).unwrap();
         group.throughput(Throughput::Bytes(size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), &packet, |b, pkt| {
-            b.iter(|| decode_bound(black_box(SECRET), black_box(pkt), black_box(&nonce), black_box(max_drift)).unwrap());
+            b.iter(|| {
+                decode_bound(
+                    black_box(SECRET),
+                    black_box(pkt),
+                    black_box(&nonce),
+                    black_box(max_drift),
+                )
+                .unwrap()
+            });
         });
     }
     group.finish();
@@ -305,19 +336,22 @@ fn bench_temporal_commit_verify(c: &mut Criterion) {
                     black_box(SECRET),
                     black_box(&pkt.entropy_snapshot),
                     black_box(&pkt.ciphertext),
-                ).unwrap()
+                )
+                .unwrap()
             });
         });
 
         group.bench_with_input(BenchmarkId::new("verify", size), &packet, |b, pkt| {
-            let commitment = temporal::commit(SECRET, &pkt.entropy_snapshot, &pkt.ciphertext).unwrap();
+            let commitment =
+                temporal::commit(SECRET, &pkt.entropy_snapshot, &pkt.ciphertext).unwrap();
             b.iter(|| {
                 temporal::verify(
                     black_box(SECRET),
                     black_box(&pkt.entropy_snapshot),
                     black_box(&pkt.ciphertext),
                     black_box(&commitment),
-                ).unwrap()
+                )
+                .unwrap()
             });
         });
     }
@@ -413,20 +447,28 @@ fn bench_rng_reseed(c: &mut Criterion) {
 
 fn bench_rng_pool_next_bytes(c: &mut Criterion) {
     let mut group = c.benchmark_group("kk_rng_pool_next_bytes");
-    let num_gen = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+    let num_gen = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4);
     for size in [256, 1024, 4096, 65536] {
         group.throughput(Throughput::Bytes(size as u64));
-        group.bench_with_input(BenchmarkId::new(format!("{}gen", num_gen), size), &size, |b, &len| {
-            let pool = kk_crypto::KkRngPool::new(b"bench-pool-seed-2026", num_gen);
-            b.iter(|| black_box(pool.next_bytes(len)));
-        });
+        group.bench_with_input(
+            BenchmarkId::new(format!("{}gen", num_gen), size),
+            &size,
+            |b, &len| {
+                let pool = kk_crypto::KkRngPool::new(b"bench-pool-seed-2026", num_gen);
+                b.iter(|| black_box(pool.next_bytes(len)));
+            },
+        );
     }
     group.finish();
 }
 
 fn bench_rng_pool_fill_parallel(c: &mut Criterion) {
     let mut group = c.benchmark_group("kk_rng_pool_fill_parallel");
-    let num_gen = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+    let num_gen = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4);
     for total in [65_536usize, 1_048_576, 10_485_760, 104_857_600] {
         group.throughput(Throughput::Bytes(total as u64));
         let label = match total {
@@ -491,11 +533,16 @@ fn bench_decode_parallel(c: &mut Criterion) {
         group.throughput(Throughput::Bytes(size as u64));
         group.sample_size(10);
         let payload = vec![0xABu8; size];
-        let packet = encode_parallel(SECRET, &payload, b"bench-aad", PARALLEL_CHUNK_SIZE, Some(&pool)).unwrap();
+        let packet = encode_parallel(
+            SECRET,
+            &payload,
+            b"bench-aad",
+            PARALLEL_CHUNK_SIZE,
+            Some(&pool),
+        )
+        .unwrap();
         group.bench_with_input(BenchmarkId::from_parameter(label), &packet, |b, pkt| {
-            b.iter(|| {
-                decode_parallel(black_box(SECRET), black_box(pkt)).unwrap()
-            });
+            b.iter(|| decode_parallel(black_box(SECRET), black_box(pkt)).unwrap());
         });
     }
     group.finish();
@@ -524,11 +571,7 @@ criterion_group!(
     bench_aead_serde,
 );
 
-criterion_group!(
-    codec_split,
-    bench_encode_split,
-    bench_decode_split,
-);
+criterion_group!(codec_split, bench_encode_split, bench_decode_split,);
 
 criterion_group!(
     codec_bound,

@@ -5,9 +5,7 @@
 #![cfg(feature = "cuda")]
 
 use kk_crypto::cuda::CudaAccelerator;
-use kk_crypto::kk_mix::{
-    kk_kdf, kk_permute_with_schedule, KkSponge, KkState, ROUNDS, STATE_WORDS,
-};
+use kk_crypto::kk_mix::{kk_kdf, kk_permute_with_schedule, KkSponge, KkState, ROUNDS, STATE_WORDS};
 
 const ROUNDS_U32: u32 = ROUNDS as u32;
 
@@ -203,7 +201,9 @@ fn cuda_kdf_batch_matches_cpu() {
     let salt = b"entropy-salt-value";
     let output_len = 64;
 
-    let infos: Vec<Vec<u8>> = (0..32u32).map(|i| format!("info-{i}").into_bytes()).collect();
+    let infos: Vec<Vec<u8>> = (0..32u32)
+        .map(|i| format!("info-{i}").into_bytes())
+        .collect();
     let info_slices: Vec<&[u8]> = infos.iter().map(|v| v.as_slice()).collect();
 
     let cuda_outs = cuda.kk_kdf_batch(key, salt, &info_slices, output_len);

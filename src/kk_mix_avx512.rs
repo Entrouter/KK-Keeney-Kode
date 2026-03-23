@@ -25,9 +25,7 @@
 #[cfg(target_arch = "x86_64")]
 use core::arch::x86_64::*;
 
-use crate::kk_mix::{
-    CAPACITY_WORDS, KkState, RATE_WORDS, STATE_WORDS,
-};
+use crate::kk_mix::{KkState, CAPACITY_WORDS, RATE_WORDS, STATE_WORDS};
 
 /// 8 sponge states packed lane-wise: `state8[word_idx]` holds that
 /// word from all 8 sponges in a single `__m512i`.
@@ -40,12 +38,16 @@ pub(crate) struct KkState8(pub(crate) [__m512i; STATE_WORDS]);
 #[cfg(target_arch = "x86_64")]
 impl core::ops::Deref for KkState8 {
     type Target = [__m512i; STATE_WORDS];
-    fn deref(&self) -> &Self::Target { &self.0 }
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 #[cfg(target_arch = "x86_64")]
 impl core::ops::DerefMut for KkState8 {
-    fn deref_mut(&mut self) -> &mut Self::Target { &mut self.0 }
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
 }
 
 /// Diagonal index patterns for the 5×5 grid (mirrors scalar DIAGS).
@@ -250,7 +252,14 @@ pub(crate) unsafe fn kk_permute_n_x8(
                 state[col + 15],
                 state[col + 20],
             );
-            quintet_round_x8(&mut s0, &mut s1, &mut s2, &mut s3, &mut s4, rotations[5 + col]);
+            quintet_round_x8(
+                &mut s0,
+                &mut s1,
+                &mut s2,
+                &mut s3,
+                &mut s4,
+                rotations[5 + col],
+            );
             state[col] = s0;
             state[col + 5] = s1;
             state[col + 10] = s2;
@@ -261,10 +270,16 @@ pub(crate) unsafe fn kk_permute_n_x8(
         // ── Diagonal phase: 5 quintet-rounds ──
         for d in 0..5usize {
             let [i0, i1, i2, i3, i4] = DIAGS[d];
-            let (mut s0, mut s1, mut s2, mut s3, mut s4) = (
-                state[i0], state[i1], state[i2], state[i3], state[i4],
+            let (mut s0, mut s1, mut s2, mut s3, mut s4) =
+                (state[i0], state[i1], state[i2], state[i3], state[i4]);
+            quintet_round_x8(
+                &mut s0,
+                &mut s1,
+                &mut s2,
+                &mut s3,
+                &mut s4,
+                rotations[10 + d],
             );
-            quintet_round_x8(&mut s0, &mut s1, &mut s2, &mut s3, &mut s4, rotations[10 + d]);
             state[i0] = s0;
             state[i1] = s1;
             state[i2] = s2;
@@ -305,7 +320,9 @@ pub(crate) unsafe fn kk_permute_n_x8(
 #[cfg(target_arch = "x86_64")]
 mod tests {
     use super::*;
-    use crate::kk_mix::{KK_IV, DEFAULT_ROTATIONS, KkState, ROUNDS, KDF_SQUEEZE_ROUNDS, kk_permute_n};
+    use crate::kk_mix::{
+        kk_permute_n, KkState, DEFAULT_ROTATIONS, KDF_SQUEEZE_ROUNDS, KK_IV, ROUNDS,
+    };
 
     #[test]
     fn avx512_matches_scalar_full_rounds() {

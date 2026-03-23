@@ -344,7 +344,12 @@ pub fn encrypt_epsilon(qkd_key: &[u8; 32], epsilon: &EntropySnapshot) -> Vec<u8>
     let epsilon_bytes = epsilon.to_bytes();
 
     // Derive keystream from QKD key
-    let mut keystream = kk_mix::kk_kdf(b"QKD-epsilon-transport", qkd_key, b"KK-QKD-epsilon-v1", epsilon_bytes.len());
+    let mut keystream = kk_mix::kk_kdf(
+        b"QKD-epsilon-transport",
+        qkd_key,
+        b"KK-QKD-epsilon-v1",
+        epsilon_bytes.len(),
+    );
 
     // XOR encrypt
     let encrypted: Vec<u8> = epsilon_bytes
@@ -359,7 +364,12 @@ pub fn encrypt_epsilon(qkd_key: &[u8; 32], epsilon: &EntropySnapshot) -> Vec<u8>
 
 /// Decrypt an `EntropySnapshot` (ε) using the QKD-derived key.
 pub fn decrypt_epsilon(qkd_key: &[u8; 32], encrypted: &[u8]) -> Result<EntropySnapshot> {
-    let mut keystream = kk_mix::kk_kdf(b"QKD-epsilon-transport", qkd_key, b"KK-QKD-epsilon-v1", encrypted.len());
+    let mut keystream = kk_mix::kk_kdf(
+        b"QKD-epsilon-transport",
+        qkd_key,
+        b"KK-QKD-epsilon-v1",
+        encrypted.len(),
+    );
 
     let decrypted: Vec<u8> = encrypted
         .iter()
@@ -404,7 +414,11 @@ mod tests {
         let result = distill_key(&alice, &bob).unwrap();
 
         // ~50% of qubits survive sifting
-        assert!(result.n_sifted > 1500, "expected ~2048 sifted bits, got {}", result.n_sifted);
+        assert!(
+            result.n_sifted > 1500,
+            "expected ~2048 sifted bits, got {}",
+            result.n_sifted
+        );
 
         // Error rate should be 0% (no Eve)
         assert_eq!(result.error_rate, 0.0, "no Eve means zero errors");
@@ -484,9 +498,7 @@ mod tests {
             basis: Basis::Rectilinear,
         };
         let trials = 1000;
-        let trues: usize = (0..trials)
-            .filter(|_| q.measure(Basis::Diagonal))
-            .count();
+        let trues: usize = (0..trials).filter(|_| q.measure(Basis::Diagonal)).count();
 
         // Should be roughly 500 ± some margin
         assert!(
@@ -498,7 +510,7 @@ mod tests {
     #[test]
     fn full_qkd_kk_integration() {
         // End-to-end: BB84 → encrypt ε → split-channel encode → decrypt ε → decode
-        use crate::codec::{encode_split, decode_split};
+        use crate::codec::{decode_split, encode_split};
 
         let shared_secret = b"integration-test-secret";
         let plaintext = b"QKD + KK = information-theoretic security";

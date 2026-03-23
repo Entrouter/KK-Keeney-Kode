@@ -50,13 +50,13 @@ fn list_entries() -> Vec<EntryMeta> {
     let mut entries: Vec<EntryMeta> = fs::read_dir(&dir)
         .unwrap_or_else(|_| panic!("Cannot read {}", dir.display()))
         .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.path()
-                .extension()
-                .is_some_and(|ext| ext == "kkj")
-        })
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "kkj"))
         .filter_map(|e| {
-            let ts_str = e.file_name().to_string_lossy().strip_suffix(".kkj")?.to_string();
+            let ts_str = e
+                .file_name()
+                .to_string_lossy()
+                .strip_suffix(".kkj")?
+                .to_string();
             let timestamp_secs: u64 = ts_str.parse().ok()?;
             let byte_size = e.metadata().ok()?.len();
             Some(EntryMeta {
@@ -141,8 +141,13 @@ fn cmd_write() {
 
     loop {
         let mut buf = String::new();
-        io::stdin().read_line(&mut buf).expect("Failed to read line");
-        let line = buf.trim_end_matches('\n').trim_end_matches('\r').to_string();
+        io::stdin()
+            .read_line(&mut buf)
+            .expect("Failed to read line");
+        let line = buf
+            .trim_end_matches('\n')
+            .trim_end_matches('\r')
+            .to_string();
         if line.is_empty() && !lines.is_empty() {
             break;
         }
@@ -160,8 +165,7 @@ fn cmd_write() {
     let plaintext = entry_text.as_bytes();
 
     // Encode with KK
-    let packet = kk_crypto::encode(passphrase.as_bytes(), plaintext)
-        .expect("Encoding failed");
+    let packet = kk_crypto::encode(passphrase.as_bytes(), plaintext).expect("Encoding failed");
 
     // Save
     let timestamp = SystemTime::now()
@@ -175,7 +179,10 @@ fn cmd_write() {
 
     println!();
     println!("  ✓ Entry saved, {} bytes encrypted", wire.len());
-    println!("    Entropy ε: {}...", hex(&packet.entropy_snapshot.bytes[..8]));
+    println!(
+        "    Entropy ε: {}...",
+        hex(&packet.entropy_snapshot.bytes[..8])
+    );
     println!("    Timestamp: {}", format_timestamp(timestamp));
     println!("    That entropic moment is now gone. The entry is sealed.");
     println!();
@@ -196,10 +203,7 @@ fn cmd_list() {
         return;
     }
 
-    println!(
-        "  {:>4}  {:<24} {:>10}",
-        "#", "Date", "Size"
-    );
+    println!("  {:>4}  {:<24} {:>10}", "#", "Date", "Size");
     println!("  ────  ────────────────────────  ──────────");
 
     for (i, entry) in entries.iter().enumerate() {
@@ -267,13 +271,19 @@ fn read_single_entry(passphrase: &str, entry: &EntryMeta, number: usize) {
     match kk_crypto::decode(passphrase.as_bytes(), &packet) {
         Ok(plaintext) => {
             let text = String::from_utf8_lossy(&plaintext);
-            println!("  ┌─── Entry #{number}, {} ───", format_timestamp(entry.timestamp_secs));
+            println!(
+                "  ┌─── Entry #{number}, {} ───",
+                format_timestamp(entry.timestamp_secs)
+            );
             println!("  │");
             for line in text.lines() {
                 println!("  │  {line}");
             }
             println!("  │");
-            println!("  └─── ε: {}... ───", hex(&packet.entropy_snapshot.bytes[..8]));
+            println!(
+                "  └─── ε: {}... ───",
+                hex(&packet.entropy_snapshot.bytes[..8])
+            );
             println!();
         }
         Err(_) => {

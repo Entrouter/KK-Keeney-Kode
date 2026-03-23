@@ -94,6 +94,8 @@ extern crate alloc;
 
 #[cfg(feature = "std")]
 pub mod codec;
+#[cfg(feature = "cuda")]
+pub mod cuda;
 #[cfg(feature = "std")]
 pub mod eka;
 #[cfg(feature = "std")]
@@ -101,13 +103,11 @@ pub mod entropy;
 #[cfg(feature = "std")]
 pub mod entropy_pool;
 pub mod error;
+#[cfg(feature = "gpu")]
+pub mod gpu;
 #[cfg(feature = "std")]
 pub mod kdf;
 pub mod kk_mix;
-#[cfg(feature = "gpu")]
-pub mod gpu;
-#[cfg(feature = "cuda")]
-pub mod cuda;
 #[cfg(all(target_arch = "x86_64", feature = "std"))]
 pub(crate) mod kk_mix_avx512;
 #[cfg(feature = "std")]
@@ -122,47 +122,46 @@ pub mod temporal;
 #[cfg(feature = "std")]
 pub use codec::{decode, encode, KkPacket};
 #[cfg(feature = "std")]
-pub use codec::{decode_split, encode_split, KkSealedMessage};
+pub use codec::{decode_aead, encode_aead, KkAeadPacket};
+#[cfg(feature = "std")]
+pub use codec::{decode_aead_batch, encode_aead_batch};
 #[cfg(feature = "std")]
 pub use codec::{decode_bound, encode_bound, KkBoundPacket};
 #[cfg(feature = "std")]
-pub use codec::{decode_aead, encode_aead, KkAeadPacket};
+pub use codec::{decode_parallel, encode_parallel, KkParallelPacket, PARALLEL_CHUNK_SIZE};
 #[cfg(feature = "std")]
-pub use codec::{StreamEncoder, StreamDecoder};
+pub use codec::{decode_split, encode_split, KkSealedMessage};
+#[cfg(feature = "std")]
+pub use codec::{encode_aead_pooled, encode_pooled};
 #[cfg(feature = "std")]
 #[doc(hidden)]
-pub use codec::{encode_with_snapshot, encode_aead_with_snapshot};
+pub use codec::{encode_aead_with_snapshot, encode_with_snapshot};
+#[cfg(feature = "std")]
+pub use codec::{StreamDecoder, StreamEncoder};
 #[cfg(feature = "std")]
 pub use entropy::EntropySnapshot;
 #[cfg(feature = "std")]
 pub use entropy_pool::EntropyPool;
-#[cfg(feature = "std")]
-pub use codec::{encode_pooled, encode_aead_pooled};
-#[cfg(feature = "std")]
-pub use codec::{encode_aead_batch, decode_aead_batch};
-#[cfg(feature = "std")]
-pub use codec::{encode_parallel, decode_parallel, KkParallelPacket, PARALLEL_CHUNK_SIZE};
 pub use error::KkError;
 #[cfg(feature = "std")]
 pub use temporal::{generate_challenge, TemporalProof, GENESIS_MAC};
 
 // Session (forward secrecy) re-exports
 #[cfg(feature = "std")]
-pub use session::{encode_session, decode_session, RopeRatchet, RopeStep, RopePacket};
+pub use session::{decode_session, encode_session, RopePacket, RopeRatchet, RopeStep};
 #[cfg(feature = "std")]
-pub use session::{encode_session_aead, decode_session_aead, RopeAeadPacket};
+pub use session::{decode_session_aead, encode_session_aead, RopeAeadPacket};
 
 // QKD re-exports
 #[cfg(feature = "std")]
 pub use qkd::{
-    alice_prepare, bob_measure, distill_key, eve_intercept,
-    encrypt_epsilon, decrypt_epsilon,
-    Bb84Result, Basis, Qubit,
+    alice_prepare, bob_measure, decrypt_epsilon, distill_key, encrypt_epsilon, eve_intercept,
+    Basis, Bb84Result, Qubit,
 };
 
 // EKA (Entropy Key Agreement) re-exports
 #[cfg(feature = "std")]
-pub use eka::{EkaInitiator, EkaResponder, EkaMsg1, EkaMsg2, EkaMsg3};
+pub use eka::{EkaInitiator, EkaMsg1, EkaMsg2, EkaMsg3, EkaResponder};
 
 // RNG re-exports
 pub use rng::KkRng;

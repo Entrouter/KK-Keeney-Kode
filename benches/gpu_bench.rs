@@ -55,8 +55,8 @@ fn bench_gpu_kdf_batch(c: &mut Criterion) {
                     for chunk in info_refs.chunks(8) {
                         if chunk.len() == 8 {
                             let batch: [&[u8]; 8] = [
-                                chunk[0], chunk[1], chunk[2], chunk[3],
-                                chunk[4], chunk[5], chunk[6], chunk[7],
+                                chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], chunk[5],
+                                chunk[6], chunk[7],
                             ];
                             results.extend(kk_kdf_batch_8(KEY, SALT, batch, OUTPUT_LEN));
                         } else {

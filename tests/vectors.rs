@@ -18,11 +18,11 @@
 
 use kk_crypto::entropy::EntropySnapshot;
 use kk_crypto::kk_mix::{
-    kk_hash, kk_kdf, kk_mac, kk_mac_with_entropy, kk_permute,
-    kk_permute_with_schedule, rotations_from_entropy, KkState,
+    kk_hash, kk_kdf, kk_mac, kk_mac_with_entropy, kk_permute, kk_permute_with_schedule,
+    rotations_from_entropy, KkState,
 };
-use kk_crypto::{decode, decode_aead, encode_aead_with_snapshot, encode_with_snapshot};
 use kk_crypto::session::RopeRatchet;
+use kk_crypto::{decode, decode_aead, encode_aead_with_snapshot, encode_with_snapshot};
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -274,8 +274,7 @@ fn test_vector_kk_permute_all_zeros() {
     let mut state: KkState = [0u64; 25];
     kk_permute(&mut state);
     // Expected output as 25 × 8 bytes = 200-byte hex
-    let want_hex =
-        "e582af7a2d6fe6bb8e2af9c30cbd668d5e5d357ada6d1a1e7e5de5640cfa0fc1\
+    let want_hex = "e582af7a2d6fe6bb8e2af9c30cbd668d5e5d357ada6d1a1e7e5de5640cfa0fc1\
          fff6c6e933a7be99c82ffb3c999ad72e214c205fe29ed271728c5972c9bf91ec\
          28cae91ebe18c484a78ed9439235397ad98e46ce5b371cf26afe7a71661932ce\
          0145d6f370056da3d467906207ddd169512add34d2d797b8f67646a9d34a1c2e\
@@ -294,8 +293,7 @@ fn test_vector_kk_permute_all_zeros() {
 fn test_vector_kk_permute_ascending() {
     let mut state: KkState = core::array::from_fn(|i| i as u64);
     kk_permute(&mut state);
-    let want_hex =
-        "05121470107bc01cb74ca6140bc9c92cde01c354fa1ae47498e8791ddab9e066\
+    let want_hex = "05121470107bc01cb74ca6140bc9c92cde01c354fa1ae47498e8791ddab9e066\
          9d962762c182cf1b3bb210feefef9e5fc4529b0478b58ec06eff2c687fdd7dcb\
          4010c3f3e0011e8bdd9dd53d97b330fa18205b89737c8f07f1a6c808910525e6\
          a312925c5782db38299c81886d816a4fc25ba9011c5c1bb81f98a729d93a0b14\
@@ -315,8 +313,7 @@ fn test_vector_kk_permute_custom_rotations_snap0() {
     let rots = rotations_from_entropy(&make_snapshot(0).bytes);
     let mut state: KkState = [0u64; 25];
     kk_permute_with_schedule(&mut state, &rots);
-    let want_hex =
-        "773aec528fe93fbbd2aa91aafc05ae031c9f986f5fd634930b352aadcf6892aa\
+    let want_hex = "773aec528fe93fbbd2aa91aafc05ae031c9f986f5fd634930b352aadcf6892aa\
          9b3120a33ef25d3d919dbd1d6cc3c0a696291846cc9860bb2778cdcccab1da6d\
          5e733b5c622a2e66b83027b59920bfef2af61c1a0de7f857705eb4e0c513e9f4\
          e68751dccead1edb3fcf48a96b5f909d36657f0aad37dfa402c2f0c2d2e4ca68\
@@ -336,8 +333,7 @@ fn test_vector_kk_permute_custom_rotations_snap2() {
     let rots = rotations_from_entropy(&make_snapshot(2).bytes);
     let mut state: KkState = [0u64; 25];
     kk_permute_with_schedule(&mut state, &rots);
-    let want_hex =
-        "03e7630b17d18e841b2a2f8d5430f2a1e54a5c375f66ad0dcb7d8f36f38142d2\
+    let want_hex = "03e7630b17d18e841b2a2f8d5430f2a1e54a5c375f66ad0dcb7d8f36f38142d2\
          48b6866df717e1c61b4e2de41ee32ca944079866e1be230fc8f19e20e4507ef9\
          242381e52e4e4497a77f94fc3961d03c555a7a4ad197234ff51bcb6b3499d86f\
          0ac4b0c20a565c15e5aeb7383993d27bfcbc6c7018037dd291160e79f8fea926\
@@ -358,8 +354,21 @@ fn test_vector_kk_permute_custom_rotations_snap2() {
 fn test_vector_rotations_from_entropy_snap0() {
     let rots = rotations_from_entropy(&make_snapshot(0).bytes);
     let want: [[u32; 2]; 15] = [
-        [1, 1], [3, 3], [5, 5], [7, 7], [9, 9], [11, 11], [13, 13], [15, 15],
-        [17, 17], [19, 19], [21, 21], [23, 23], [25, 25], [27, 27], [29, 29],
+        [1, 1],
+        [3, 3],
+        [5, 5],
+        [7, 7],
+        [9, 9],
+        [11, 11],
+        [13, 13],
+        [15, 15],
+        [17, 17],
+        [19, 19],
+        [21, 21],
+        [23, 23],
+        [25, 25],
+        [27, 27],
+        [29, 29],
     ];
     assert_eq!(rots, want);
 }
@@ -368,8 +377,21 @@ fn test_vector_rotations_from_entropy_snap0() {
 fn test_vector_rotations_from_entropy_snap1() {
     let rots = rotations_from_entropy(&make_snapshot(1).bytes);
     let want: [[u32; 2]; 15] = [
-        [1, 3], [3, 5], [5, 7], [7, 9], [9, 11], [11, 13], [13, 15], [15, 17],
-        [17, 19], [19, 21], [21, 23], [23, 25], [25, 27], [27, 29], [29, 31],
+        [1, 3],
+        [3, 5],
+        [5, 7],
+        [7, 9],
+        [9, 11],
+        [11, 13],
+        [13, 15],
+        [15, 17],
+        [17, 19],
+        [19, 21],
+        [21, 23],
+        [23, 25],
+        [25, 27],
+        [27, 29],
+        [29, 31],
     ];
     assert_eq!(rots, want);
 }
@@ -378,8 +400,21 @@ fn test_vector_rotations_from_entropy_snap1() {
 fn test_vector_rotations_from_entropy_snap2() {
     let rots = rotations_from_entropy(&make_snapshot(2).bytes);
     let want: [[u32; 2]; 15] = [
-        [3, 3], [5, 5], [7, 7], [9, 9], [11, 11], [13, 13], [15, 15], [17, 17],
-        [19, 19], [21, 21], [23, 23], [25, 25], [27, 27], [29, 29], [31, 31],
+        [3, 3],
+        [5, 5],
+        [7, 7],
+        [9, 9],
+        [11, 11],
+        [13, 13],
+        [15, 15],
+        [17, 17],
+        [19, 19],
+        [21, 21],
+        [23, 23],
+        [25, 25],
+        [27, 27],
+        [29, 29],
+        [31, 31],
     ];
     assert_eq!(rots, want);
 }
@@ -415,7 +450,9 @@ fn test_vector_encode_long() {
     let snap = make_snapshot(2);
     let plaintext = b"The quick brown fox jumps over the lazy dog";
     let packet = encode_with_snapshot(b"key-three", plaintext, snap).unwrap();
-    let want_ct = from_hex("08f3c2a10e74a1fa59b66557f603bb370dc56075f45f57cc88f150fef67b2662153c63daa95372cdd07906");
+    let want_ct = from_hex(
+        "08f3c2a10e74a1fa59b66557f603bb370dc56075f45f57cc88f150fef67b2662153c63daa95372cdd07906",
+    );
     let want_mac = from_hex32("e197fc2127d74fdccd56843bf3049409d6d5d8dec1c8f41eded3389c6bce38ff");
     assert_eq!(packet.ciphertext, want_ct);
     assert_eq!(packet.commitment.mac, want_mac);
@@ -440,7 +477,8 @@ fn test_vector_encode_single_byte() {
 #[test]
 fn test_vector_encode_aead_basic() {
     let snap = make_snapshot(0);
-    let packet = encode_aead_with_snapshot(b"shared-secret", b"Hello AEAD!", b"header-v1", snap).unwrap();
+    let packet =
+        encode_aead_with_snapshot(b"shared-secret", b"Hello AEAD!", b"header-v1", snap).unwrap();
     let want_ct = from_hex("bb27129666c053a8888928");
     let want_mac = from_hex32("be90d081d0792edf1ce6b684806628324c6debc8a552098d0871b7960072d59c");
     assert_eq!(packet.ciphertext, want_ct);
@@ -490,7 +528,12 @@ fn test_vector_rope_ratchet_sequential_steps() {
         let snap = make_snapshot(i as u8);
         let (key, step) = ratchet.advance_with_snapshot(snap).unwrap();
         assert_eq!(&key, want_key, "ratchet step {} key mismatch", i);
-        assert_eq!(step.counter, (i + 1) as u64, "ratchet step {} counter mismatch", i);
+        assert_eq!(
+            step.counter,
+            (i + 1) as u64,
+            "ratchet step {} counter mismatch",
+            i
+        );
     }
 }
 

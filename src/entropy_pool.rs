@@ -200,7 +200,10 @@ mod tests {
         let pool = EntropyPool::new(16).unwrap();
         let s1 = pool.draw().unwrap();
         let s2 = pool.draw().unwrap();
-        assert_ne!(s1.bytes, s2.bytes, "two draws must produce different snapshots");
+        assert_ne!(
+            s1.bytes, s2.bytes,
+            "two draws must produce different snapshots"
+        );
     }
 
     #[test]

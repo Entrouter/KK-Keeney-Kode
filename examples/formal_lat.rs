@@ -64,7 +64,9 @@ fn mfr64(a: u64, b: u64) -> u64 {
 
 struct Xorshift64(u64);
 impl Xorshift64 {
-    fn new(seed: u64) -> Self { Self(seed) }
+    fn new(seed: u64) -> Self {
+        Self(seed)
+    }
     fn next(&mut self) -> u64 {
         self.0 ^= self.0 << 13;
         self.0 ^= self.0 >> 7;
@@ -146,7 +148,9 @@ fn test1_mfr8_full_lat() -> (f64, f64, [f64; 8]) {
         }
 
         for ab in 0u16..256 {
-            if aa == 0 && ab == 0 { continue; }
+            if aa == 0 && ab == 0 {
+                continue;
+            }
 
             // Build output spectrum: spectrum[y] = Σ_{(a,b)} (-1)^(input_parity)
             // where (-1)^(parity(aa&a) ⊕ parity(ab&b)) = sa[a] * sb[b]
@@ -175,11 +179,17 @@ fn test1_mfr8_full_lat() -> (f64, f64, [f64; 8]) {
             }
 
             // Tier
-            if mask_max_lp >= 1.0 - 1e-9 { tier[0] += 1; }
-            else if mask_max_lp >= 0.5 { tier[1] += 1; }
-            else if mask_max_lp >= 0.25 { tier[2] += 1; }
-            else if mask_max_lp >= 0.125 { tier[3] += 1; }
-            else { tier[4] += 1; }
+            if mask_max_lp >= 1.0 - 1e-9 {
+                tier[0] += 1;
+            } else if mask_max_lp >= 0.5 {
+                tier[1] += 1;
+            } else if mask_max_lp >= 0.25 {
+                tier[2] += 1;
+            } else if mask_max_lp >= 0.125 {
+                tier[3] += 1;
+            } else {
+                tier[4] += 1;
+            }
 
             // Global max
             if mask_max_lp > global_max_lp {
@@ -210,16 +220,32 @@ fn test1_mfr8_full_lat() -> (f64, f64, [f64; 8]) {
     println!("  Per-bit MLP profile (α_b=0, single-bit α_a):");
     for bit in 0..8 {
         let lp = per_bit_mlp[bit];
-        let log_lp = if lp > 0.0 { lp.log2() } else { f64::NEG_INFINITY };
+        let log_lp = if lp > 0.0 {
+            lp.log2()
+        } else {
+            f64::NEG_INFINITY
+        };
         let marker = if bit == 7 { " ← MSB" } else { "" };
-        println!("    bit {} (0x{:02X}): LP = 2^{:.2}  (β=0x{:02X}){}",
-            bit, 1u8 << bit, log_lp, per_bit_beta[bit], marker);
+        println!(
+            "    bit {} (0x{:02X}): LP = 2^{:.2}  (β=0x{:02X}){}",
+            bit,
+            1u8 << bit,
+            log_lp,
+            per_bit_beta[bit],
+            marker
+        );
     }
 
     // ── Global ──
-    let global_log = if global_max_lp > 0.0 { global_max_lp.log2() } else { f64::NEG_INFINITY };
-    println!("\n  Global MLP: LP = 2^{:.2} at α_a=0x{:02X}, α_b=0x{:02X}, β=0x{:02X}",
-        global_log, best_aa, best_ab, best_beta);
+    let global_log = if global_max_lp > 0.0 {
+        global_max_lp.log2()
+    } else {
+        f64::NEG_INFINITY
+    };
+    println!(
+        "\n  Global MLP: LP = 2^{:.2} at α_a=0x{:02X}, α_b=0x{:02X}, β=0x{:02X}",
+        global_log, best_aa, best_ab, best_beta
+    );
 
     // ── Tier distribution ──
     println!("\n  Distribution of 65535 input mask pairs by MLP tier:");
@@ -268,11 +294,20 @@ fn test2_ddr8_lat() -> (f64, f64) {
         let mut mx_lp: f64 = 0.0;
         for beta in 1usize..256 {
             let lp = (spectrum[beta] as f64 / n_sq) * (spectrum[beta] as f64 / n_sq);
-            if lp > mx_lp { mx_lp = lp; }
+            if lp > mx_lp {
+                mx_lp = lp;
+            }
         }
-        if mx_lp > db0_max_lp { db0_max_lp = mx_lp; db0_aa = aa as u8; }
+        if mx_lp > db0_max_lp {
+            db0_max_lp = mx_lp;
+            db0_aa = aa as u8;
+        }
     }
-    println!("    MLP(α_b=0) = 2^{:.2}  at α_a=0x{:02X}", db0_max_lp.log2(), db0_aa);
+    println!(
+        "    MLP(α_b=0) = 2^{:.2}  at α_a=0x{:02X}",
+        db0_max_lp.log2(),
+        db0_aa
+    );
 
     // Case B: α_a=0 (mask only on rotation input)
     println!("  Case B: α_a=0 (linear mask on rotation distance 'b' only)");
@@ -292,11 +327,20 @@ fn test2_ddr8_lat() -> (f64, f64) {
         let mut mx_lp: f64 = 0.0;
         for beta in 1usize..256 {
             let lp = (spectrum[beta] as f64 / n_sq) * (spectrum[beta] as f64 / n_sq);
-            if lp > mx_lp { mx_lp = lp; }
+            if lp > mx_lp {
+                mx_lp = lp;
+            }
         }
-        if mx_lp > da0_max_lp { da0_max_lp = mx_lp; da0_ab = ab as u8; }
+        if mx_lp > da0_max_lp {
+            da0_max_lp = mx_lp;
+            da0_ab = ab as u8;
+        }
     }
-    println!("    MLP(α_a=0) = 2^{:.2}  at α_b=0x{:02X}", da0_max_lp.log2(), da0_ab);
+    println!(
+        "    MLP(α_a=0) = 2^{:.2}  at α_b=0x{:02X}",
+        da0_max_lp.log2(),
+        da0_ab
+    );
 
     println!("\n  DDR linear role: data-dependent rotation scrambles linear");
     println!("  relationships, contributing to trail branching.\n");
@@ -371,8 +415,14 @@ fn test3_mfr16_per_bit() -> Vec<f64> {
         per_bit_mlp.push(lp);
 
         let marker = if bit == 15 { " ← MSB" } else { "" };
-        println!("    bit {:>2} (0x{:04X}): LP = 2^{:.2}  ({:.1?}){}",
-            bit, alpha_a, lp.log2(), t.elapsed(), marker);
+        println!(
+            "    bit {:>2} (0x{:04X}): LP = 2^{:.2}  ({:.1?}){}",
+            bit,
+            alpha_a,
+            lp.log2(),
+            t.elapsed(),
+            marker
+        );
     }
 
     // Summarize
@@ -438,15 +488,22 @@ fn test4_ddr16_per_bit() -> Vec<f64> {
         let mut max_abs_corr: i64 = 0;
         for beta in 1usize..65536 {
             let c = spectrum[beta].abs();
-            if c > max_abs_corr { max_abs_corr = c; }
+            if c > max_abs_corr {
+                max_abs_corr = c;
+            }
         }
 
         let corr = max_abs_corr as f64 / (total as f64);
         let lp = corr * corr;
         per_bit_mlp.push(lp);
 
-        println!("    bit {:>2} (0x{:04X}): LP = 2^{:.2}  ({:.1?})",
-            bit, alpha_a, lp.log2(), t.elapsed());
+        println!(
+            "    bit {:>2} (0x{:04X}): LP = 2^{:.2}  ({:.1?})",
+            bit,
+            alpha_a,
+            lp.log2(),
+            t.elapsed()
+        );
     }
 
     println!("\n  DDR linear analysis: rotation with α_b=0 means the mask");
@@ -462,8 +519,10 @@ fn test4_ddr16_per_bit() -> Vec<f64> {
 fn test5_scaling(mfr8: &[f64; 8], mfr16: &[f64], ddr16_bits: &[f64]) -> Vec<f64> {
     println!("  Per-bit-position scaling: log2(MLP) vs word size\n");
 
-    println!("  {:>5} {:>10} {:>10} {:>10} {:>10}",
-        "bit", "MLP@8", "MLP@16", "slope/bit", "pred@64");
+    println!(
+        "  {:>5} {:>10} {:>10} {:>10} {:>10}",
+        "bit", "MLP@8", "MLP@16", "slope/bit", "pred@64"
+    );
 
     let mut predicted = Vec::new();
     let mut near_zero_slopes = 0u32;
@@ -476,10 +535,14 @@ fn test5_scaling(mfr8: &[f64; 8], mfr16: &[f64], ddr16_bits: &[f64]) -> Vec<f64>
         let intercept = log8 - slope * 8.0;
         let pred64 = slope * 64.0 + intercept;
 
-        if slope.abs() < 0.01 { near_zero_slopes += 1; }
+        if slope.abs() < 0.01 {
+            near_zero_slopes += 1;
+        }
 
-        println!("  bit {} {:>10.2} {:>10.2} {:>10.3} {:>10.1}",
-            bit, log8, log16, slope, pred64);
+        println!(
+            "  bit {} {:>10.2} {:>10.2} {:>10.3} {:>10.1}",
+            bit, log8, log16, slope, pred64
+        );
         predicted.push(pred64);
     }
 
@@ -505,13 +568,22 @@ fn test5_scaling(mfr8: &[f64; 8], mfr16: &[f64], ddr16_bits: &[f64]) -> Vec<f64>
     let ddr16_measured = ddr16_bits[0];
     let ddr64_pred: f64 = 1.0 / (64.0 * 64.0); // 1/64² = 2^-12
     println!("    8-bit theory:    2^-6.00  (1/8² = 1/64)");
-    println!("    16-bit measured: 2^{:.2}  (1/16² = 1/256)", ddr16_measured.log2());
-    println!("    64-bit predict:  2^{:.2}  (1/64² = 1/4096)", ddr64_pred.log2());
+    println!(
+        "    16-bit measured: 2^{:.2}  (1/16² = 1/256)",
+        ddr16_measured.log2()
+    );
+    println!(
+        "    64-bit predict:  2^{:.2}  (1/64² = 1/4096)",
+        ddr64_pred.log2()
+    );
     println!("    Formula: LP = 1/n² (rotation spreads single bit across n positions)");
 
     println!("\n  KEY FINDINGS:");
     println!("    MFR LP(bit k) = 2^(-2k), word-size independent");
-    println!("    {}/8 bit positions have slope ≈ 0.000", near_zero_slopes);
+    println!(
+        "    {}/8 bit positions have slope ≈ 0.000",
+        near_zero_slopes
+    );
     println!("    DDR LP = 1/n², decreases with word size");
     println!("    At 64-bit: DDR single-bit LP = 2^-12.00");
 
@@ -534,38 +606,46 @@ fn test6_64bit_sampled() -> bool {
         let alpha: u64 = 1u64 << bit;
 
         // Test correlation for several output masks
-        let test_betas: &[u64] = &[
-            alpha,
-            1u64 << ((bit + 32) % 64),
-            0xFFFFFFFF_FFFFFFFF,
-        ];
+        let test_betas: &[u64] = &[alpha, 1u64 << ((bit + 32) % 64), 0xFFFFFFFF_FFFFFFFF];
 
         let mut max_lp_this_bit: f64 = 0.0;
 
         for &beta in test_betas {
-            if beta == 0 { continue; }
+            if beta == 0 {
+                continue;
+            }
             let mut agree: u64 = 0;
             for _ in 0..n_samples {
                 let a = rng.next();
                 let b = rng.next();
                 let ip = parity64(alpha & a);
                 let op = parity64(beta & mfr64(a, b));
-                if ip == op { agree += 1; }
+                if ip == op {
+                    agree += 1;
+                }
             }
             let bias = agree as f64 / n_samples as f64 - 0.5;
             let lp = 4.0 * bias * bias;
-            if lp > max_lp_this_bit { max_lp_this_bit = lp; }
+            if lp > max_lp_this_bit {
+                max_lp_this_bit = lp;
+            }
         }
 
         let expected_noise_lp = 4.0 / n_samples as f64; // ~2^-22
         let label = if bit >= 48 { " [near MSB]" } else { "" };
         let biased = max_lp_this_bit > expected_noise_lp * 16.0; // 4σ threshold
 
-        println!("    bit {:>2}: max LP ≈ 2^{:.1}  {}{}",
-            bit, max_lp_this_bit.log2(),
-            if biased { "BIASED" } else { "noise floor" }, label);
+        println!(
+            "    bit {:>2}: max LP ≈ 2^{:.1}  {}{}",
+            bit,
+            max_lp_this_bit.log2(),
+            if biased { "BIASED" } else { "noise floor" },
+            label
+        );
 
-        if bit < 48 && biased { all_noise = false; }
+        if bit < 48 && biased {
+            all_noise = false;
+        }
     }
 
     // Note: bit 0 LP=1 requires the SPECIFIC β = bit_0 | bit_32,
@@ -574,8 +654,14 @@ fn test6_64bit_sampled() -> bool {
     // The noise-floor result for random β confirms that the LP=1
     // is confined to a single specific mask pair per bit.
 
-    println!("\n  Low bits (0-47): {}",
-        if all_noise { "all at noise floor ✅" } else { "BIAS DETECTED ❌" });
+    println!(
+        "\n  Low bits (0-47): {}",
+        if all_noise {
+            "all at noise floor ✅"
+        } else {
+            "BIAS DETECTED ❌"
+        }
+    );
     println!("  Note: LP=1 occurs only at β = bit_k | bit_{{k+32}},");
     println!("  not at generic β, confirming narrow vulnerability.");
 
@@ -598,8 +684,14 @@ fn test7_formal_bound(pred64: &[f64], ddr16_bits: &[f64]) -> bool {
     // DDR analysis
     let ddr_lp_64_log: f64 = -12.0; // 1/64² = 2^-12
     println!("\n  DDR operational MLP at 64-bit:");
-    println!("    Single-bit mask: 2^{:.1}  (1/n² = 1/4096)", ddr_lp_64_log);
-    println!("    Verified: 16-bit DDR LP = 2^{:.2} = 1/16² ✓", ddr16_bits[0].log2());
+    println!(
+        "    Single-bit mask: 2^{:.1}  (1/n² = 1/4096)",
+        ddr_lp_64_log
+    );
+    println!(
+        "    Verified: 16-bit DDR LP = 2^{:.2} = 1/16² ✓",
+        ddr16_bits[0].log2()
+    );
 
     println!("\n  KK permutation structure:");
     println!("    State:                  25 × 64-bit = 1600 bits");
@@ -616,7 +708,10 @@ fn test7_formal_bound(pred64: &[f64], ddr16_bits: &[f64]) -> bool {
     let active_mfr = active_quintets * 2.0;
 
     println!("\n  Active component analysis:");
-    println!("    Active quintets (DDT diffusion): ≥{:.0}", active_quintets);
+    println!(
+        "    Active quintets (DDT diffusion): ≥{:.0}",
+        active_quintets
+    );
     println!("    Active MFR operations:           ≥{:.0}", active_mfr);
     println!("    Active DDR operations:           ≥{:.0}", active_ddr);
 
@@ -644,25 +739,49 @@ fn test7_formal_bound(pred64: &[f64], ddr16_bits: &[f64]) -> bool {
     println!("  │  FORMAL LINEAR TRAIL PROBABILITY BOUNDS                      │");
     println!("  │                                                              │");
     println!("  │  Bound A, DDR-only (assume all MFR LP=1):                  │");
-    println!("  │    Per DDR: 2^{:.1}, Active: ≥{:.0}                         │",
-        ddr_lp_64_log, active_ddr);
-    println!("  │    Trail ≤ (2^{:.1})^{:.0} = 2^{:.0}                       │",
-        ddr_lp_64_log, active_ddr, ddr_trail);
-    println!("  │    Margin: {:.0} bits above 2^-800                           │", ddr_margin);
+    println!(
+        "  │    Per DDR: 2^{:.1}, Active: ≥{:.0}                         │",
+        ddr_lp_64_log, active_ddr
+    );
+    println!(
+        "  │    Trail ≤ (2^{:.1})^{:.0} = 2^{:.0}                       │",
+        ddr_lp_64_log, active_ddr, ddr_trail
+    );
+    println!(
+        "  │    Margin: {:.0} bits above 2^-800                           │",
+        ddr_margin
+    );
     println!("  │                                                              │");
     println!("  │  Bound B, MFR bit-1 only (exclude LSB, ignore DDR):        │");
-    println!("  │    Per MFR: 2^-2, Active: ≥{:.0}                            │", active_mfr);
-    println!("  │    Trail ≤ 2^{:.0}                                           │", mfr_bit1_trail);
-    println!("  │    Margin: {:.0} bits                                        │", mfr_bit1_margin);
+    println!(
+        "  │    Per MFR: 2^-2, Active: ≥{:.0}                            │",
+        active_mfr
+    );
+    println!(
+        "  │    Trail ≤ 2^{:.0}                                           │",
+        mfr_bit1_trail
+    );
+    println!(
+        "  │    Margin: {:.0} bits                                        │",
+        mfr_bit1_margin
+    );
     println!("  │                                                              │");
     println!("  │  Bound C, Combined (MFR bit-1 + DDR per quintet):          │");
     println!("  │    Per quintet: 2^(-4) × 2^(-12) = 2^-16                    │");
-    println!("  │    Trail ≤ (2^-16)^{:.0} = 2^{:.0}                         │",
-        active_quintets, combined_trail);
-    println!("  │    Margin: {:.0} bits                                        │", combined_margin);
+    println!(
+        "  │    Trail ≤ (2^-16)^{:.0} = 2^{:.0}                         │",
+        active_quintets, combined_trail
+    );
+    println!(
+        "  │    Margin: {:.0} bits                                        │",
+        combined_margin
+    );
     println!("  │                                                              │");
     if ddr_trail < -800.0 {
-        println!("  │  ✅ SECURE, DDR alone provides {:.0}-bit margin             │", ddr_margin);
+        println!(
+            "  │  ✅ SECURE, DDR alone provides {:.0}-bit margin             │",
+            ddr_margin
+        );
     } else {
         println!("  │  ❌ INSUFFICIENT margin                                      │");
     }
@@ -699,15 +818,30 @@ fn main() {
     let mut scaling_match = 0u32;
     for k in 1..8usize {
         let expected = -2.0 * k as f64;
-        if (mfr8_bits[k].log2() - expected).abs() < 0.1 { scaling_match += 1; }
+        if (mfr8_bits[k].log2() - expected).abs() < 0.1 {
+            scaling_match += 1;
+        }
     }
     let t1 = scaling_match >= 6 && lsb_confirmed;
     println!("\n  LSB PHENOMENON: bit-0 LP = 1.0 (universal, like MSB MDP=1 in DDT)");
-    println!("  Per-bit scaling: {}/7 bits match LP(k) = 2^(-2k)", scaling_match);
-    println!("\n  RESULT: {}, LP(k)=2^(-2k) verified, LSB LP=1 {}\n",
+    println!(
+        "  Per-bit scaling: {}/7 bits match LP(k) = 2^(-2k)",
+        scaling_match
+    );
+    println!(
+        "\n  RESULT: {}, LP(k)=2^(-2k) verified, LSB LP=1 {}\n",
         if t1 { "PASS ✅" } else { "FAIL ❌" },
-        if lsb_confirmed { "confirmed" } else { "UNEXPECTED" });
-    if t1 { pass += 1; } else { fail += 1; }
+        if lsb_confirmed {
+            "confirmed"
+        } else {
+            "UNEXPECTED"
+        }
+    );
+    if t1 {
+        pass += 1;
+    } else {
+        fail += 1;
+    }
 
     // ── Test 2 ──────────────────────────────────────────────────
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -715,9 +849,16 @@ fn main() {
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     let (_db0_lp, da0_lp) = test2_ddr8_lat();
     let t2 = da0_lp < 1.0;
-    println!("\n  RESULT: {}, DDR α_a=0 MLP=2^{:.2} (rotation-only has zero bias)\n",
-        if t2 { "PASS ✅" } else { "FAIL ❌" }, da0_lp.log2());
-    if t2 { pass += 1; } else { fail += 1; }
+    println!(
+        "\n  RESULT: {}, DDR α_a=0 MLP=2^{:.2} (rotation-only has zero bias)\n",
+        if t2 { "PASS ✅" } else { "FAIL ❌" },
+        da0_lp.log2()
+    );
+    if t2 {
+        pass += 1;
+    } else {
+        fail += 1;
+    }
 
     // ── Test 3 ──────────────────────────────────────────────────
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -728,13 +869,24 @@ fn main() {
     let mut match16 = 0u32;
     for k in 0..8usize {
         let expected = -2.0 * k as f64;
-        if (mfr16_bits[k].log2() - expected).abs() < 0.1 { match16 += 1; }
+        if (mfr16_bits[k].log2() - expected).abs() < 0.1 {
+            match16 += 1;
+        }
     }
     let t3 = match16 >= 7;
-    println!("\n  16-bit confirms: {}/8 bits match LP(k) = 2^(-2k) (word-size independent)", match16);
-    println!("  RESULT: {}, scaling law verified at 16-bit\n",
-        if t3 { "PASS ✅" } else { "FAIL ❌" });
-    if t3 { pass += 1; } else { fail += 1; }
+    println!(
+        "\n  16-bit confirms: {}/8 bits match LP(k) = 2^(-2k) (word-size independent)",
+        match16
+    );
+    println!(
+        "  RESULT: {}, scaling law verified at 16-bit\n",
+        if t3 { "PASS ✅" } else { "FAIL ❌" }
+    );
+    if t3 {
+        pass += 1;
+    } else {
+        fail += 1;
+    }
 
     // ── Test 4 ──────────────────────────────────────────────────
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -743,9 +895,16 @@ fn main() {
     let ddr16_bits = test4_ddr16_per_bit();
     // DDR 16-bit LP should be 1/16² = 2^-8 uniformly
     let t4 = ddr16_bits[0] < 1.0;
-    println!("\n  RESULT: {}, DDR 16-bit LP=2^{:.2} (expected 2^-8.00 = 1/n²)\n",
-        if t4 { "PASS ✅" } else { "FAIL ❌" }, ddr16_bits[0].log2());
-    if t4 { pass += 1; } else { fail += 1; }
+    println!(
+        "\n  RESULT: {}, DDR 16-bit LP=2^{:.2} (expected 2^-8.00 = 1/n²)\n",
+        if t4 { "PASS ✅" } else { "FAIL ❌" },
+        ddr16_bits[0].log2()
+    );
+    if t4 {
+        pass += 1;
+    } else {
+        fail += 1;
+    }
 
     // ── Test 5 ──────────────────────────────────────────────────
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -758,27 +917,39 @@ fn main() {
         (p - expected).abs() < 0.5
     });
     let t5 = slopes_ok;
-    println!("\n  RESULT: {}, MFR LP word-size independent, DDR LP = 1/n²\n",
-        if t5 { "PASS ✅" } else { "FAIL ❌" });
-    if t5 { pass += 1; } else { fail += 1; }
+    println!(
+        "\n  RESULT: {}, MFR LP word-size independent, DDR LP = 1/n²\n",
+        if t5 { "PASS ✅" } else { "FAIL ❌" }
+    );
+    if t5 {
+        pass += 1;
+    } else {
+        fail += 1;
+    }
 
     // ── Test 6 ──────────────────────────────────────────────────
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!("TEST 6: 64-bit Sampled Correlation Spot-Check");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     let t6 = test6_64bit_sampled();
-    println!("\n  RESULT: {}\n",
-        if t6 { "PASS ✅" } else { "FAIL ❌" });
-    if t6 { pass += 1; } else { fail += 1; }
+    println!("\n  RESULT: {}\n", if t6 { "PASS ✅" } else { "FAIL ❌" });
+    if t6 {
+        pass += 1;
+    } else {
+        fail += 1;
+    }
 
     // ── Test 7 ──────────────────────────────────────────────────
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!("TEST 7: Formal Linear Trail Bound (DDR-inclusive)");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     let t7 = test7_formal_bound(&pred64, &ddr16_bits);
-    println!("\n  RESULT: {}\n",
-        if t7 { "PASS ✅" } else { "FAIL ❌" });
-    if t7 { pass += 1; } else { fail += 1; }
+    println!("\n  RESULT: {}\n", if t7 { "PASS ✅" } else { "FAIL ❌" });
+    if t7 {
+        pass += 1;
+    } else {
+        fail += 1;
+    }
 
     // ── Summary ─────────────────────────────────────────────────
     let total = pass + fail;
@@ -790,21 +961,36 @@ fn main() {
     println!("╔════════════════════════════════════════════════════════════════╗");
     println!("║  FORMAL LAT ANALYSIS SUMMARY                                  ║");
     println!("╠════════════════════════════════════════════════════════════════╣");
-    println!("║  Tests passed: {}/{}                                            ║", pass, total);
+    println!(
+        "║  Tests passed: {}/{}                                            ║",
+        pass, total
+    );
     println!("║                                                                ║");
     println!("║  MFR LP(bit 0):   1.0  (universal LSB phenomenon)             ║");
     println!("║  MFR LP(bit k):   2^(-2k)  (word-size independent)            ║");
     println!("║  DDR LP(64-bit):  2^-12.0  (1/n² = 1/4096)                   ║");
     println!("║                                                                ║");
-    println!("║  DDR trail bound:  ≤ 2^{:<8.0}                                ║", ddr_trail);
-    println!("║  Security margin:  {:<.0} bits above 2^-800                     ║", ddr_margin);
-    println!("║  Wall time:        {:.1?}{}", wall,
-        " ".repeat(40 - format!("{:.1?}", wall).len().min(39)));
+    println!(
+        "║  DDR trail bound:  ≤ 2^{:<8.0}                                ║",
+        ddr_trail
+    );
+    println!(
+        "║  Security margin:  {:<.0} bits above 2^-800                     ║",
+        ddr_margin
+    );
+    println!(
+        "║  Wall time:        {:.1?}{}",
+        wall,
+        " ".repeat(40 - format!("{:.1?}", wall).len().min(39))
+    );
     println!("║                                                                ║");
     if fail == 0 {
         println!("║  OVERALL: PASS ✅                                             ║");
     } else {
-        println!("║  OVERALL: FAIL ❌ ({} test(s) failed)                          ║", fail);
+        println!(
+            "║  OVERALL: FAIL ❌ ({} test(s) failed)                          ║",
+            fail
+        );
     }
     println!("╚════════════════════════════════════════════════════════════════╝");
 }

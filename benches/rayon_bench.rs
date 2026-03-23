@@ -14,8 +14,7 @@ use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criteri
 use std::time::Duration;
 
 use kk_crypto::{
-    decode, encode, encode_aead_batch, decode_aead_batch,
-    EntropyPool, encode_parallel,
+    decode, decode_aead_batch, encode, encode_aead_batch, encode_parallel, EntropyPool,
 };
 
 const SECRET: &[u8] = b"rayon-scaling-bench-secret-2026";
@@ -28,32 +27,38 @@ fn bench_encode_scaling(c: &mut Criterion) {
         .map(|n| n.get())
         .unwrap_or(16);
 
-    let pool1 = rayon::ThreadPoolBuilder::new().num_threads(1).build().unwrap();
-    let pool_all = rayon::ThreadPoolBuilder::new().num_threads(num_cpus).build().unwrap();
+    let pool1 = rayon::ThreadPoolBuilder::new()
+        .num_threads(1)
+        .build()
+        .unwrap();
+    let pool_all = rayon::ThreadPoolBuilder::new()
+        .num_threads(num_cpus)
+        .build()
+        .unwrap();
 
     let mut group = c.benchmark_group("encode_scaling");
     group.measurement_time(Duration::from_secs(15));
     group.sample_size(10);
 
-    for size in [1_048_576u64, 10_485_760, 33_554_432, 67_108_864, 134_217_728] {
+    for size in [
+        1_048_576u64,
+        10_485_760,
+        33_554_432,
+        67_108_864,
+        134_217_728,
+    ] {
         let plaintext: Vec<u8> = (0..size as usize).map(|i| (i % 256) as u8).collect();
         group.throughput(Throughput::Bytes(size));
 
-        group.bench_with_input(
-            BenchmarkId::new("1_thread", size),
-            &plaintext,
-            |b, pt| {
-                b.iter(|| pool1.install(|| encode(black_box(SECRET), black_box(pt)).unwrap()));
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("1_thread", size), &plaintext, |b, pt| {
+            b.iter(|| pool1.install(|| encode(black_box(SECRET), black_box(pt)).unwrap()));
+        });
 
         group.bench_with_input(
             BenchmarkId::new(format!("{num_cpus}_threads"), size),
             &plaintext,
             |b, pt| {
-                b.iter(|| {
-                    pool_all.install(|| encode(black_box(SECRET), black_box(pt)).unwrap())
-                });
+                b.iter(|| pool_all.install(|| encode(black_box(SECRET), black_box(pt)).unwrap()));
             },
         );
     }
@@ -68,33 +73,39 @@ fn bench_decode_scaling(c: &mut Criterion) {
         .map(|n| n.get())
         .unwrap_or(16);
 
-    let pool1 = rayon::ThreadPoolBuilder::new().num_threads(1).build().unwrap();
-    let pool_all = rayon::ThreadPoolBuilder::new().num_threads(num_cpus).build().unwrap();
+    let pool1 = rayon::ThreadPoolBuilder::new()
+        .num_threads(1)
+        .build()
+        .unwrap();
+    let pool_all = rayon::ThreadPoolBuilder::new()
+        .num_threads(num_cpus)
+        .build()
+        .unwrap();
 
     let mut group = c.benchmark_group("decode_scaling");
     group.measurement_time(Duration::from_secs(15));
     group.sample_size(10);
 
-    for size in [1_048_576u64, 10_485_760, 33_554_432, 67_108_864, 134_217_728] {
+    for size in [
+        1_048_576u64,
+        10_485_760,
+        33_554_432,
+        67_108_864,
+        134_217_728,
+    ] {
         let plaintext: Vec<u8> = (0..size as usize).map(|i| (i % 256) as u8).collect();
         let packet = encode(SECRET, &plaintext).unwrap();
         group.throughput(Throughput::Bytes(size));
 
-        group.bench_with_input(
-            BenchmarkId::new("1_thread", size),
-            &packet,
-            |b, pkt| {
-                b.iter(|| pool1.install(|| decode(black_box(SECRET), black_box(pkt)).unwrap()));
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("1_thread", size), &packet, |b, pkt| {
+            b.iter(|| pool1.install(|| decode(black_box(SECRET), black_box(pkt)).unwrap()));
+        });
 
         group.bench_with_input(
             BenchmarkId::new(format!("{num_cpus}_threads"), size),
             &packet,
             |b, pkt| {
-                b.iter(|| {
-                    pool_all.install(|| decode(black_box(SECRET), black_box(pkt)).unwrap())
-                });
+                b.iter(|| pool_all.install(|| decode(black_box(SECRET), black_box(pkt)).unwrap()));
             },
         );
     }
@@ -110,8 +121,14 @@ fn bench_batch_aead_scaling(c: &mut Criterion) {
         .unwrap_or(16);
     let epool = EntropyPool::new(256).unwrap();
 
-    let pool1 = rayon::ThreadPoolBuilder::new().num_threads(1).build().unwrap();
-    let pool_all = rayon::ThreadPoolBuilder::new().num_threads(num_cpus).build().unwrap();
+    let pool1 = rayon::ThreadPoolBuilder::new()
+        .num_threads(1)
+        .build()
+        .unwrap();
+    let pool_all = rayon::ThreadPoolBuilder::new()
+        .num_threads(num_cpus)
+        .build()
+        .unwrap();
 
     let configs: &[(usize, usize, &str)] = &[
         (1000, 1024, "1Kx1KB"),
@@ -137,7 +154,8 @@ fn bench_batch_aead_scaling(c: &mut Criterion) {
         group.bench_function("1_thread", |b| {
             b.iter(|| {
                 pool1.install(|| {
-                    encode_aead_batch(black_box(SECRET), black_box(&messages), Some(&epool)).unwrap()
+                    encode_aead_batch(black_box(SECRET), black_box(&messages), Some(&epool))
+                        .unwrap()
                 })
             });
         });
@@ -145,7 +163,8 @@ fn bench_batch_aead_scaling(c: &mut Criterion) {
         group.bench_function(format!("{num_cpus}_threads"), |b| {
             b.iter(|| {
                 pool_all.install(|| {
-                    encode_aead_batch(black_box(SECRET), black_box(&messages), Some(&epool)).unwrap()
+                    encode_aead_batch(black_box(SECRET), black_box(&messages), Some(&epool))
+                        .unwrap()
                 })
             });
         });
@@ -163,8 +182,14 @@ fn bench_batch_aead_decode_scaling(c: &mut Criterion) {
         .unwrap_or(16);
     let epool = EntropyPool::new(256).unwrap();
 
-    let pool1 = rayon::ThreadPoolBuilder::new().num_threads(1).build().unwrap();
-    let pool_all = rayon::ThreadPoolBuilder::new().num_threads(num_cpus).build().unwrap();
+    let pool1 = rayon::ThreadPoolBuilder::new()
+        .num_threads(1)
+        .build()
+        .unwrap();
+    let pool_all = rayon::ThreadPoolBuilder::new()
+        .num_threads(num_cpus)
+        .build()
+        .unwrap();
 
     let configs: &[(usize, usize, &str)] = &[
         (1000, 4096, "1Kx4KB"),
@@ -188,17 +213,14 @@ fn bench_batch_aead_decode_scaling(c: &mut Criterion) {
 
         group.bench_function("1_thread", |b| {
             b.iter(|| {
-                pool1.install(|| {
-                    decode_aead_batch(black_box(SECRET), black_box(&packets)).unwrap()
-                })
+                pool1.install(|| decode_aead_batch(black_box(SECRET), black_box(&packets)).unwrap())
             });
         });
 
         group.bench_function(format!("{num_cpus}_threads"), |b| {
             b.iter(|| {
-                pool_all.install(|| {
-                    decode_aead_batch(black_box(SECRET), black_box(&packets)).unwrap()
-                })
+                pool_all
+                    .install(|| decode_aead_batch(black_box(SECRET), black_box(&packets)).unwrap())
             });
         });
 
@@ -215,8 +237,14 @@ fn bench_parallel_encode_scaling(c: &mut Criterion) {
         .unwrap_or(16);
     let epool = EntropyPool::new(256).unwrap();
 
-    let pool1 = rayon::ThreadPoolBuilder::new().num_threads(1).build().unwrap();
-    let pool_all = rayon::ThreadPoolBuilder::new().num_threads(num_cpus).build().unwrap();
+    let pool1 = rayon::ThreadPoolBuilder::new()
+        .num_threads(1)
+        .build()
+        .unwrap();
+    let pool_all = rayon::ThreadPoolBuilder::new()
+        .num_threads(num_cpus)
+        .build()
+        .unwrap();
 
     let mut group = c.benchmark_group("parallel_encode_scaling");
     group.measurement_time(Duration::from_secs(20));
@@ -228,24 +256,20 @@ fn bench_parallel_encode_scaling(c: &mut Criterion) {
         let chunk = 1_048_576; // 1 MiB chunks
         group.throughput(Throughput::Bytes(size));
 
-        group.bench_with_input(
-            BenchmarkId::new("1_thread", size),
-            &plaintext,
-            |b, pt| {
-                b.iter(|| {
-                    pool1.install(|| {
-                        encode_parallel(
-                            black_box(SECRET),
-                            black_box(pt),
-                            black_box(aad),
-                            chunk,
-                            Some(&epool),
-                        )
-                        .unwrap()
-                    })
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("1_thread", size), &plaintext, |b, pt| {
+            b.iter(|| {
+                pool1.install(|| {
+                    encode_parallel(
+                        black_box(SECRET),
+                        black_box(pt),
+                        black_box(aad),
+                        chunk,
+                        Some(&epool),
+                    )
+                    .unwrap()
+                })
+            });
+        });
 
         group.bench_with_input(
             BenchmarkId::new(format!("{num_cpus}_threads"), size),

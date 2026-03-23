@@ -79,7 +79,8 @@ impl KkPacket {
         let snap_bytes = self.entropy_snapshot.to_bytes();
         let commit_bytes = self.commitment.to_bytes();
 
-        let mut out = Vec::with_capacity(4 + self.ciphertext.len() + snap_bytes.len() + commit_bytes.len());
+        let mut out =
+            Vec::with_capacity(4 + self.ciphertext.len() + snap_bytes.len() + commit_bytes.len());
         out.extend_from_slice(&ct_len.to_le_bytes());
         out.extend_from_slice(&self.ciphertext);
         out.extend_from_slice(&snap_bytes);
@@ -94,7 +95,9 @@ impl KkPacket {
         }
 
         let ct_len = u32::from_le_bytes(
-            data[..4].try_into().map_err(|_| KkError::InvalidPacket("bad length".into()))?
+            data[..4]
+                .try_into()
+                .map_err(|_| KkError::InvalidPacket("bad length".into()))?,
         ) as usize;
 
         let expected_min = 4 + ct_len + 48 + 32; // 48 = snapshot, 32 = commitment
@@ -162,7 +165,9 @@ impl KkSealedMessage {
         }
 
         let ct_len = u32::from_le_bytes(
-            data[..4].try_into().map_err(|_| KkError::InvalidPacket("bad length".into()))?
+            data[..4]
+                .try_into()
+                .map_err(|_| KkError::InvalidPacket("bad length".into()))?,
         ) as usize;
 
         let expected_min = 4 + ct_len + 32;
@@ -253,7 +258,10 @@ pub fn decode(shared_secret: &[u8], packet: &KkPacket) -> Result<Vec<u8>> {
 /// The ε is physically non-reconstructible (proved in examples/proof.rs).
 /// If it never reaches the attacker, the ciphertext is information-
 /// theoretically unbreakable regardless of compute power.
-pub fn encode_split(shared_secret: &[u8], plaintext: &[u8]) -> Result<(KkSealedMessage, EntropySnapshot)> {
+pub fn encode_split(
+    shared_secret: &[u8],
+    plaintext: &[u8],
+) -> Result<(KkSealedMessage, EntropySnapshot)> {
     if plaintext.is_empty() {
         return Err(KkError::EmptyInput);
     }
@@ -336,7 +344,8 @@ impl KkBoundPacket {
         let snap_bytes = self.entropy_snapshot.to_bytes();
         let proof_bytes = self.proof.to_bytes();
 
-        let mut out = Vec::with_capacity(4 + self.ciphertext.len() + snap_bytes.len() + proof_bytes.len());
+        let mut out =
+            Vec::with_capacity(4 + self.ciphertext.len() + snap_bytes.len() + proof_bytes.len());
         out.extend_from_slice(&ct_len.to_le_bytes());
         out.extend_from_slice(&self.ciphertext);
         out.extend_from_slice(&snap_bytes);
@@ -351,7 +360,9 @@ impl KkBoundPacket {
         }
 
         let ct_len = u32::from_le_bytes(
-            data[..4].try_into().map_err(|_| KkError::InvalidPacket("bad length".into()))?
+            data[..4]
+                .try_into()
+                .map_err(|_| KkError::InvalidPacket("bad length".into()))?,
         ) as usize;
 
         let expected_min = 4 + ct_len + 48 + TemporalProof::BYTES;
@@ -506,11 +517,15 @@ impl KkAeadPacket {
         }
 
         let aad_len = u32::from_le_bytes(
-            data[..4].try_into().map_err(|_| KkError::InvalidPacket("bad aad length".into()))?
+            data[..4]
+                .try_into()
+                .map_err(|_| KkError::InvalidPacket("bad aad length".into()))?,
         ) as usize;
 
         if data.len() < 4 + aad_len + 4 {
-            return Err(KkError::InvalidPacket("AEAD packet truncated at ct_len".into()));
+            return Err(KkError::InvalidPacket(
+                "AEAD packet truncated at ct_len".into(),
+            ));
         }
 
         let aad = data[4..4 + aad_len].to_vec();
@@ -519,7 +534,7 @@ impl KkAeadPacket {
         let ct_len = u32::from_le_bytes(
             data[ct_offset..ct_offset + 4]
                 .try_into()
-                .map_err(|_| KkError::InvalidPacket("bad ct length".into()))?
+                .map_err(|_| KkError::InvalidPacket("bad ct length".into()))?,
         ) as usize;
 
         let expected_min = ct_offset + 4 + ct_len + 48 + 32;
@@ -534,7 +549,8 @@ impl KkAeadPacket {
         let ciphertext = data[ct_start..ct_start + ct_len].to_vec();
         let snap_start = ct_start + ct_len;
         let snapshot = EntropySnapshot::from_bytes(&data[snap_start..snap_start + 48])?;
-        let commitment = TemporalCommitment::from_bytes(&data[snap_start + 48..snap_start + 48 + 32])?;
+        let commitment =
+            TemporalCommitment::from_bytes(&data[snap_start + 48..snap_start + 48 + 32])?;
 
         Ok(Self {
             aad,
@@ -555,11 +571,7 @@ impl KkAeadPacket {
 /// - `shared_secret` - the pre-shared key
 /// - `plaintext` - data to encrypt
 /// - `aad` - associated data to authenticate (not encrypted)
-pub fn encode_aead(
-    shared_secret: &[u8],
-    plaintext: &[u8],
-    aad: &[u8],
-) -> Result<KkAeadPacket> {
+pub fn encode_aead(shared_secret: &[u8], plaintext: &[u8], aad: &[u8]) -> Result<KkAeadPacket> {
     if plaintext.is_empty() {
         return Err(KkError::EmptyInput);
     }
@@ -580,10 +592,7 @@ pub fn encode_aead(
 ///
 /// # Errors
 /// - `KkError::CommitmentMismatch` if the ciphertext or AAD was tampered with
-pub fn decode_aead(
-    shared_secret: &[u8],
-    packet: &KkAeadPacket,
-) -> Result<Vec<u8>> {
+pub fn decode_aead(shared_secret: &[u8], packet: &KkAeadPacket) -> Result<Vec<u8>> {
     temporal::verify_aead(
         shared_secret,
         &packet.entropy_snapshot,
@@ -721,8 +730,7 @@ pub fn encode_aead_batch(
         .flat_map_iter(|chunk| {
             if chunk.len() == 8 {
                 // Full batch of 8 - use vectorized MAC
-                encode_aead_batch_8_inner(shared_secret, chunk, pool)
-                    .expect("batch encode failed")
+                encode_aead_batch_8_inner(shared_secret, chunk, pool).expect("batch encode failed")
             } else {
                 // Tail < 8 - scalar fallback
                 chunk
@@ -769,12 +777,7 @@ fn encode_aead_batch_8_inner(
     let ct_refs: [&[u8]; 8] = core::array::from_fn(|i| ciphertexts[i].as_slice());
     let aad_refs: [&[u8]; 8] = core::array::from_fn(|i| chunk[i].1);
 
-    let commitments = temporal::commit_aead_batch_8(
-        shared_secret,
-        snap_refs,
-        ct_refs,
-        aad_refs,
-    )?;
+    let commitments = temporal::commit_aead_batch_8(shared_secret, snap_refs, ct_refs, aad_refs)?;
 
     // Assemble packets
     let mut ct_arr = ciphertexts;
@@ -794,10 +797,7 @@ fn encode_aead_batch_8_inner(
 ///
 /// Each packet is verified and decrypted independently. Results are
 /// returned in the same order as the input slice.
-pub fn decode_aead_batch(
-    shared_secret: &[u8],
-    packets: &[KkAeadPacket],
-) -> Result<Vec<Vec<u8>>> {
+pub fn decode_aead_batch(shared_secret: &[u8], packets: &[KkAeadPacket]) -> Result<Vec<Vec<u8>>> {
     packets
         .par_iter()
         .map(|pkt| {
@@ -877,10 +877,7 @@ pub fn encode_parallel(
     }
 
     // Build (index, chunk_data) pairs so par_iter preserves ordering
-    let chunk_pairs: Vec<(usize, &[u8])> = plaintext
-        .chunks(chunk_size)
-        .enumerate()
-        .collect();
+    let chunk_pairs: Vec<(usize, &[u8])> = plaintext.chunks(chunk_size).enumerate().collect();
 
     let chunks: Vec<KkAeadPacket> = chunk_pairs
         .par_iter()
@@ -909,12 +906,11 @@ pub fn encode_parallel(
 /// 2. Verify it matches the packet's stored root (detects reorder/tamper)
 /// 3. Decrypt all chunks in parallel
 /// 4. Concatenate plaintext in order
-pub fn decode_parallel(
-    shared_secret: &[u8],
-    packet: &KkParallelPacket,
-) -> Result<Vec<u8>> {
+pub fn decode_parallel(shared_secret: &[u8], packet: &KkParallelPacket) -> Result<Vec<u8>> {
     if packet.chunks.is_empty() {
-        return Err(KkError::InvalidPacket("parallel packet has no chunks".into()));
+        return Err(KkError::InvalidPacket(
+            "parallel packet has no chunks".into(),
+        ));
     }
 
     // Verify Merkle root
@@ -924,7 +920,8 @@ pub fn decode_parallel(
     }
 
     // Decrypt all chunks in parallel (sequential XOR per chunk avoids nested Rayon)
-    let plaintexts: Vec<Vec<u8>> = packet.chunks
+    let plaintexts: Vec<Vec<u8>> = packet
+        .chunks
         .par_iter()
         .map(|chunk| decode_aead_seq(shared_secret, chunk))
         .collect::<Result<Vec<_>>>()?;
@@ -974,10 +971,14 @@ impl KkParallelPacket {
         }
 
         let num_chunks = u32::from_le_bytes(
-            data[..4].try_into().map_err(|_| KkError::InvalidPacket("bad chunk count".into()))?
+            data[..4]
+                .try_into()
+                .map_err(|_| KkError::InvalidPacket("bad chunk count".into()))?,
         ) as usize;
         let chunk_size = u32::from_le_bytes(
-            data[4..8].try_into().map_err(|_| KkError::InvalidPacket("bad chunk size".into()))?
+            data[4..8]
+                .try_into()
+                .map_err(|_| KkError::InvalidPacket("bad chunk size".into()))?,
         ) as usize;
 
         let mut merkle_root = [0u8; 32];
@@ -987,17 +988,21 @@ impl KkParallelPacket {
         let mut chunks = Vec::with_capacity(num_chunks);
         for _ in 0..num_chunks {
             if data.len() < offset + 4 {
-                return Err(KkError::InvalidPacket("parallel packet truncated at chunk length".into()));
+                return Err(KkError::InvalidPacket(
+                    "parallel packet truncated at chunk length".into(),
+                ));
             }
             let cb_len = u32::from_le_bytes(
                 data[offset..offset + 4]
                     .try_into()
-                    .map_err(|_| KkError::InvalidPacket("bad chunk byte length".into()))?
+                    .map_err(|_| KkError::InvalidPacket("bad chunk byte length".into()))?,
             ) as usize;
             offset += 4;
 
             if data.len() < offset + cb_len {
-                return Err(KkError::InvalidPacket("parallel packet truncated at chunk data".into()));
+                return Err(KkError::InvalidPacket(
+                    "parallel packet truncated at chunk data".into(),
+                ));
             }
             let chunk = KkAeadPacket::from_bytes(&data[offset..offset + cb_len])?;
             chunks.push(chunk);
@@ -1025,10 +1030,8 @@ fn xor_with_keystream(
     let mut output = vec![0u8; input.len()];
     let batch_bytes = CHUNK_SIZE * 8;
 
-    let result = output
-        .par_chunks_mut(batch_bytes)
-        .enumerate()
-        .try_for_each(|(batch_idx, out_batch)| -> Result<()> {
+    let result = output.par_chunks_mut(batch_bytes).enumerate().try_for_each(
+        |(batch_idx, out_batch)| -> Result<()> {
             let base_chunk = batch_idx * 8;
             let in_base = base_chunk * CHUNK_SIZE;
 
@@ -1051,8 +1054,7 @@ fn xor_with_keystream(
                 }
             } else {
                 // Partial tail batch, scalar per-chunk
-                let chunks_in_batch =
-                    out_batch.len().div_ceil(CHUNK_SIZE);
+                let chunks_in_batch = out_batch.len().div_ceil(CHUNK_SIZE);
 
                 for c in 0..chunks_in_batch {
                     let chunk_idx = base_chunk + c;
@@ -1075,7 +1077,8 @@ fn xor_with_keystream(
             }
 
             Ok(())
-        });
+        },
+    );
 
     match result {
         Ok(()) => Ok(output),
@@ -1126,12 +1129,8 @@ fn xor_with_keystream_seq(
                 let chunk_len = (out_batch.len() - out_off).min(CHUNK_SIZE);
                 let in_off = in_base + c * CHUNK_SIZE;
 
-                let mut key_bytes = kdf::derive_symbol_key(
-                    shared_secret,
-                    snapshot,
-                    chunk_idx as u64,
-                    chunk_len,
-                )?;
+                let mut key_bytes =
+                    kdf::derive_symbol_key(shared_secret, snapshot, chunk_idx as u64, chunk_len)?;
 
                 for i in 0..chunk_len {
                     out_batch[out_off + i] = input[in_off + i] ^ key_bytes[i];
@@ -1164,10 +1163,7 @@ fn encode_aead_par_inner(
 
 /// Decode a single AEAD chunk using sequential keystream XOR.
 /// Used inside `decode_parallel` to avoid nested Rayon parallelism.
-fn decode_aead_seq(
-    shared_secret: &[u8],
-    packet: &KkAeadPacket,
-) -> Result<Vec<u8>> {
+fn decode_aead_seq(shared_secret: &[u8], packet: &KkAeadPacket) -> Result<Vec<u8>> {
     temporal::verify_aead(
         shared_secret,
         &packet.entropy_snapshot,
@@ -1465,7 +1461,10 @@ mod tests {
         let fake_epsilon = entropy::gather().unwrap();
 
         let result = decode_split(secret, &sealed, &fake_epsilon);
-        assert!(result.is_err(), "Wrong epsilon must fail commitment verification");
+        assert!(
+            result.is_err(),
+            "Wrong epsilon must fail commitment verification"
+        );
     }
 
     #[test]
@@ -1546,7 +1545,8 @@ mod tests {
     fn bound_tampered_ciphertext_detected() {
         let secret = b"tamper-bound";
         let nonce = temporal::generate_challenge().unwrap();
-        let mut packet = encode_bound(secret, b"important", &nonce, &temporal::GENESIS_MAC).unwrap();
+        let mut packet =
+            encode_bound(secret, b"important", &nonce, &temporal::GENESIS_MAC).unwrap();
         packet.ciphertext[0] ^= 0xFF;
 
         let result = decode_bound(secret, &packet, &nonce, Duration::from_secs(30));
@@ -1767,5 +1767,4 @@ mod tests {
         let result = encode_parallel(secret, b"data", b"aad", 0, None);
         assert!(result.is_err());
     }
-
 }

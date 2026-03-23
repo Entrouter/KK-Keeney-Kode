@@ -52,10 +52,7 @@ pub fn derive_symbol_key(
 }
 
 /// Derives the temporal commitment key used for MAC verification.
-pub fn derive_commitment_key(
-    shared_secret: &[u8],
-    snapshot: &EntropySnapshot,
-) -> Result<Vec<u8>> {
+pub fn derive_commitment_key(shared_secret: &[u8], snapshot: &EntropySnapshot) -> Result<Vec<u8>> {
     let key = kk_mix::kk_kdf(shared_secret, &snapshot.bytes, b"KK-commit-v1", 32);
     Ok(key)
 }
@@ -96,7 +93,10 @@ mod tests {
 
         let k1 = derive_symbol_key(secret, &snap1, 0, 32).unwrap();
         let k2 = derive_symbol_key(secret, &snap2, 0, 32).unwrap();
-        assert_ne!(k1, k2, "Different entropic moments must yield different keys");
+        assert_ne!(
+            k1, k2,
+            "Different entropic moments must yield different keys"
+        );
     }
 
     #[test]
@@ -106,7 +106,10 @@ mod tests {
 
         let k0 = derive_symbol_key(secret, &snap, 0, 32).unwrap();
         let k1 = derive_symbol_key(secret, &snap, 1, 32).unwrap();
-        assert_ne!(k0, k1, "Different symbol positions must yield different keys");
+        assert_ne!(
+            k0, k1,
+            "Different symbol positions must yield different keys"
+        );
     }
 
     #[test]
@@ -116,7 +119,10 @@ mod tests {
 
         let k1 = derive_symbol_key(secret, &snap, 42, 16).unwrap();
         let k2 = derive_symbol_key(secret, &snap, 42, 16).unwrap();
-        assert_eq!(k1, k2, "Same inputs must produce same key (deterministic derivation)");
+        assert_eq!(
+            k1, k2,
+            "Same inputs must produce same key (deterministic derivation)"
+        );
     }
 
     #[test]

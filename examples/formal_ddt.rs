@@ -69,7 +69,9 @@ fn mfr64(a: u64, b: u64) -> u64 {
 
 struct Xorshift64(u64);
 impl Xorshift64 {
-    fn new(seed: u64) -> Self { Self(seed) }
+    fn new(seed: u64) -> Self {
+        Self(seed)
+    }
     fn next(&mut self) -> u64 {
         self.0 ^= self.0 << 13;
         self.0 ^= self.0 >> 7;
@@ -108,7 +110,9 @@ fn test1_mfr8_full_ddt() -> (f64, f64, [f64; 8]) {
 
     for da in 0u16..256 {
         for db in 0u16..256 {
-            if da == 0 && db == 0 { continue; }
+            if da == 0 && db == 0 {
+                continue;
+            }
             let da8 = da as u8;
             let db8 = db as u8;
             let mut counts = [0u32; 256];
@@ -128,11 +132,17 @@ fn test1_mfr8_full_ddt() -> (f64, f64, [f64; 8]) {
                 .unwrap_or((0, 0));
 
             let p = max_c as f64 / n_sq as f64;
-            if p >= 1.0 - 1e-9 { tier[0] += 1; }
-            else if p >= 0.5 { tier[1] += 1; }
-            else if p >= 0.25 { tier[2] += 1; }
-            else if p >= 0.125 { tier[3] += 1; }
-            else { tier[4] += 1; }
+            if p >= 1.0 - 1e-9 {
+                tier[0] += 1;
+            } else if p >= 0.5 {
+                tier[1] += 1;
+            } else if p >= 0.25 {
+                tier[2] += 1;
+            } else if p >= 0.125 {
+                tier[3] += 1;
+            } else {
+                tier[4] += 1;
+            }
 
             if max_c > global_max {
                 global_max = max_c;
@@ -173,20 +183,48 @@ fn test1_mfr8_full_ddt() -> (f64, f64, [f64; 8]) {
     for bit in 0..8 {
         let p = per_bit_max[bit] as f64 / n_sq as f64;
         per_bit_mdp[bit] = p;
-        let marker = if bit == 7 { " ← MSB (deterministic, expected)" } else { "" };
-        println!("    bit {} (0x{:02X}): {}/{} = 2^{:.2}  Δy=0x{:02X}{}",
-            bit, 1u8 << bit, per_bit_max[bit], n_sq, p.log2(), per_bit_dy[bit], marker);
+        let marker = if bit == 7 {
+            " ← MSB (deterministic, expected)"
+        } else {
+            ""
+        };
+        println!(
+            "    bit {} (0x{:02X}): {}/{} = 2^{:.2}  Δy=0x{:02X}{}",
+            bit,
+            1u8 << bit,
+            per_bit_max[bit],
+            n_sq,
+            p.log2(),
+            per_bit_dy[bit],
+            marker
+        );
     }
 
     // ── Global vs operational ──
-    println!("\n  Global MDP:      {}/{} = 2^{:.2} at Δa=0x{:02X}, Δb=0x{:02X} → Δy=0x{:02X}",
-        global_max, n_sq, global_mdp.log2(), best_da, best_db, best_dy);
-    println!("  Operational MDP: {}/{} = 2^{:.2} at Δa=0x{:02X}, Δb=0x{:02X} [bit7 excluded]",
-        op_max, n_sq, op_mdp.log2(), op_da, op_db);
+    println!(
+        "\n  Global MDP:      {}/{} = 2^{:.2} at Δa=0x{:02X}, Δb=0x{:02X} → Δy=0x{:02X}",
+        global_max,
+        n_sq,
+        global_mdp.log2(),
+        best_da,
+        best_db,
+        best_dy
+    );
+    println!(
+        "  Operational MDP: {}/{} = 2^{:.2} at Δa=0x{:02X}, Δb=0x{:02X} [bit7 excluded]",
+        op_max,
+        n_sq,
+        op_mdp.log2(),
+        op_da,
+        op_db
+    );
 
     // ── Tier distribution ──
     println!("\n  Distribution of 65535 diff pairs by MDP tier:");
-    println!("    MDP = 1:          {:>5} pairs  (MSB phenomenon)", tier[0]);
+    println!(
+        "    MDP = 1:          {:>5} pairs  (MSB phenomenon)",
+        tier[0]
+    );
     println!("    MDP ∈ [0.50, 1):  {:>5} pairs", tier[1]);
     println!("    MDP ∈ [0.25,0.50):{:>5} pairs", tier[2]);
     println!("    MDP ∈ [.125,0.25):{:>5} pairs", tier[3]);
@@ -236,10 +274,19 @@ fn test2_ddr8_analysis() -> (f64, f64) {
             }
         }
         let mx = *counts.iter().skip(1).max().unwrap_or(&0);
-        if mx > db0_max { db0_max = mx; db0_da = da8; }
+        if mx > db0_max {
+            db0_max = mx;
+            db0_da = da8;
+        }
     }
     let db0_mdp = db0_max as f64 / n_sq as f64;
-    println!("    MDP(Δb=0) = {}/{} = 2^{:.2}  at Δa=0x{:02X}", db0_max, n_sq, db0_mdp.log2(), db0_da);
+    println!(
+        "    MDP(Δb=0) = {}/{} = 2^{:.2}  at Δa=0x{:02X}",
+        db0_max,
+        n_sq,
+        db0_mdp.log2(),
+        db0_da
+    );
     println!("    Explanation: Δy = Δa<<<(b&7). With 8 rotation values × 32 b-values");
     println!("    each, symmetric Δa (0xFF) gets MDP=1; non-symmetric ≤ 1/8.");
 
@@ -257,10 +304,19 @@ fn test2_ddr8_analysis() -> (f64, f64) {
             }
         }
         let mx = *counts.iter().skip(1).max().unwrap_or(&0);
-        if mx > da0_max { da0_max = mx; da0_db = db8; }
+        if mx > da0_max {
+            da0_max = mx;
+            da0_db = db8;
+        }
     }
     let da0_mdp = da0_max as f64 / n_sq as f64;
-    println!("    MDP(Δa=0) = {}/{} = 2^{:.2}  at Δb=0x{:02X}", da0_max, n_sq, da0_mdp.log2(), da0_db);
+    println!(
+        "    MDP(Δa=0) = {}/{} = 2^{:.2}  at Δb=0x{:02X}",
+        da0_max,
+        n_sq,
+        da0_mdp.log2(),
+        da0_db
+    );
     println!("    DDR Δa=0 is a<<<r1 ⊕ a<<<r2, depends on hamming weight of 'a'.");
 
     println!("\n  DDR security role: data-dependent rotation forces 2^6=64 branch");
@@ -299,8 +355,16 @@ fn test3_mfr16_per_bit() -> Vec<f64> {
         let p = max_nz as f64 / total as f64;
         per_bit_mdp.push(p);
         let marker = if bit == 15 { " ← MSB" } else { "" };
-        println!("    bit {:>2} (0x{:04X}): {}/{} = 2^{:.2}  ({:.1?}){}",
-            bit, da, max_nz, total, p.log2(), t.elapsed(), marker);
+        println!(
+            "    bit {:>2} (0x{:04X}): {}/{} = 2^{:.2}  ({:.1?}){}",
+            bit,
+            da,
+            max_nz,
+            total,
+            p.log2(),
+            t.elapsed(),
+            marker
+        );
     }
 
     // Summarize
@@ -308,8 +372,13 @@ fn test3_mfr16_per_bit() -> Vec<f64> {
     for (bit, &mdp) in per_bit_mdp.iter().enumerate().take(8) {
         let theory = -((15 - bit) as f64);
         let actual = mdp.log2();
-        println!("    bit {}: actual=2^{:.2}  theory(2^-(n-1-k))=2^{:.0}  delta={:+.2} bits",
-            bit, actual, theory, actual - theory);
+        println!(
+            "    bit {}: actual=2^{:.2}  theory(2^-(n-1-k))=2^{:.0}  delta={:+.2} bits",
+            bit,
+            actual,
+            theory,
+            actual - theory
+        );
     }
     println!("  Upper half (bits 8-15), short carry chain, fold region:");
     for (bit, &mdp) in per_bit_mdp.iter().enumerate().take(16).skip(8) {
@@ -345,12 +414,21 @@ fn test4_ddr16_per_bit() -> Vec<f64> {
         let max_nz = *counts.iter().skip(1).max().unwrap_or(&0);
         let p = max_nz as f64 / total as f64;
         per_bit_mdp.push(p);
-        println!("    bit {:>2}: {}/{} = 2^{:.2}  ({:.1?})",
-            bit, max_nz, total, p.log2(), t.elapsed());
+        println!(
+            "    bit {:>2}: {}/{} = 2^{:.2}  ({:.1?})",
+            bit,
+            max_nz,
+            total,
+            p.log2(),
+            t.elapsed()
+        );
     }
 
-    println!("  All bits: MDP = 1/{} = 2^{:.2} (= 1/n_rotations)",
-        16, per_bit_mdp[0].log2());
+    println!(
+        "  All bits: MDP = 1/{} = 2^{:.2} (= 1/n_rotations)",
+        16,
+        per_bit_mdp[0].log2()
+    );
     println!("  DDR with Δb=0 simply rotates the diff, MDP = 1/word_bits.");
 
     per_bit_mdp
@@ -363,8 +441,10 @@ fn test4_ddr16_per_bit() -> Vec<f64> {
 fn test5_scaling(mfr8: &[f64; 8], mfr16: &[f64]) -> Vec<f64> {
     println!("  Per-bit-position scaling: log2(MDP) vs word size\n");
 
-    println!("  {:>5} {:>10} {:>10} {:>10} {:>10}",
-        "bit", "MDP@8", "MDP@16", "slope/bit", "pred@64");
+    println!(
+        "  {:>5} {:>10} {:>10} {:>10} {:>10}",
+        "bit", "MDP@8", "MDP@16", "slope/bit", "pred@64"
+    );
 
     let mut predicted = Vec::new();
 
@@ -377,8 +457,10 @@ fn test5_scaling(mfr8: &[f64; 8], mfr16: &[f64]) -> Vec<f64> {
         let intercept = log8 - slope * 8.0;
         let pred64 = slope * 64.0 + intercept;
 
-        println!("  bit {} {:>10.2} {:>10.2} {:>10.3} {:>10.1}",
-            bit, log8, log16, slope, pred64);
+        println!(
+            "  bit {} {:>10.2} {:>10.2} {:>10.3} {:>10.1}",
+            bit, log8, log16, slope, pred64
+        );
         predicted.push(pred64);
     }
 
@@ -391,8 +473,14 @@ fn test5_scaling(mfr8: &[f64; 8], mfr16: &[f64]) -> Vec<f64> {
     }
 
     println!("\n  KEY FINDING:");
-    println!("    64-bit MFR, bit 0 (best operational case): MDP ≈ 2^{:.1}", predicted[0]);
-    println!("    64-bit MFR, bit 3 (worst lower-quarter):   MDP ≈ 2^{:.1}", predicted[3]);
+    println!(
+        "    64-bit MFR, bit 0 (best operational case): MDP ≈ 2^{:.1}",
+        predicted[0]
+    );
+    println!(
+        "    64-bit MFR, bit 3 (worst lower-quarter):   MDP ≈ 2^{:.1}",
+        predicted[3]
+    );
     println!("    (MSB at bit 63 is always MDP=1, universal, not a weakness)");
 
     predicted
@@ -424,22 +512,39 @@ fn test6_64bit_sampled() -> bool {
         let expected = n_samples as f64 / 65536.0;
         let max_bucket = *buckets.iter().max().unwrap();
         let min_bucket = *buckets.iter().min().unwrap();
-        let max_dev = ((max_bucket as f64 - expected).abs())
-            .max((min_bucket as f64 - expected).abs());
+        let max_dev =
+            ((max_bucket as f64 - expected).abs()).max((min_bucket as f64 - expected).abs());
         let sigma = (expected * (1.0 - 1.0 / 65536.0)).sqrt();
         let z = max_dev / sigma;
 
         let uniform = z < 6.0;
-        let label = if bit >= 48 { " [near MSB, bias expected]" } else { "" };
+        let label = if bit >= 48 {
+            " [near MSB, bias expected]"
+        } else {
+            ""
+        };
 
-        println!("    bit {:>2}: max_z={:.1}σ  {}{}",
-            bit, z, if uniform { "uniform" } else { "BIASED" }, label);
+        println!(
+            "    bit {:>2}: max_z={:.1}σ  {}{}",
+            bit,
+            z,
+            if uniform { "uniform" } else { "BIASED" },
+            label
+        );
 
-        if bit < 48 && !uniform { low_bits_ok = false; }
+        if bit < 48 && !uniform {
+            low_bits_ok = false;
+        }
     }
 
-    println!("\n  Low bits (0-47): {}",
-        if low_bits_ok { "all uniform ✅" } else { "BIAS DETECTED ❌" });
+    println!(
+        "\n  Low bits (0-47): {}",
+        if low_bits_ok {
+            "all uniform ✅"
+        } else {
+            "BIAS DETECTED ❌"
+        }
+    );
     println!("  High bits (48-63): expected bias from MSB phenomenon (not a weakness)");
 
     low_bits_ok
@@ -453,7 +558,11 @@ fn test7_formal_bound(pred64: &[f64]) -> bool {
     println!("  Computing formal differential trail probability bound\n");
 
     let best_log = pred64[0];
-    let worst_q_log = pred64.iter().take(4).cloned().fold(f64::NEG_INFINITY, f64::max);
+    let worst_q_log = pred64
+        .iter()
+        .take(4)
+        .cloned()
+        .fold(f64::NEG_INFINITY, f64::max);
 
     println!("  MFR operational MDP at 64-bit (extrapolated):");
     println!("    Best (bit 0):  2^{:.1}", best_log);
@@ -481,15 +590,25 @@ fn test7_formal_bound(pred64: &[f64]) -> bool {
     println!("\n  ┌──────────────────────────────────────────────────────────────┐");
     println!("  │  FORMAL TRAIL PROBABILITY BOUND                              │");
     println!("  │                                                              │");
-    println!("  │  MFR operational MDP (64-bit, bit 0): 2^{:<6.1}             │", best_log);
-    println!("  │  Active MFR operations:               ≥{:<4.0}               │", active);
+    println!(
+        "  │  MFR operational MDP (64-bit, bit 0): 2^{:<6.1}             │",
+        best_log
+    );
+    println!(
+        "  │  Active MFR operations:               ≥{:<4.0}               │",
+        active
+    );
     println!("  │                                                              │");
-    println!("  │  Trail prob ≤ (2^{:<6.1})^{:<4.0} = 2^{:<8.0}              │",
-        best_log, active, trail_best);
+    println!(
+        "  │  Trail prob ≤ (2^{:<6.1})^{:<4.0} = 2^{:<8.0}              │",
+        best_log, active, trail_best
+    );
     println!("  │                                                              │");
     println!("  │  Required: < 2^-800 (half state size)                        │");
-    println!("  │  Margin:   {:<.0} bits                                       │",
-        trail_best.abs() - 800.0);
+    println!(
+        "  │  Margin:   {:<.0} bits                                       │",
+        trail_best.abs() - 800.0
+    );
     println!("  │                                                              │");
     if trail_best < -800.0 {
         println!("  │  ✅ SECURE against single-trail differential cryptanalysis   │");
@@ -498,9 +617,15 @@ fn test7_formal_bound(pred64: &[f64]) -> bool {
     }
     println!("  └──────────────────────────────────────────────────────────────┘");
 
-    println!("\n  Conservative (worst operational bit, 2^{:.1}):", worst_q_log);
-    println!("    Trail prob ≤ 2^{:.0},  margin = {:.0} bits",
-        trail_worst, trail_worst.abs() - 800.0);
+    println!(
+        "\n  Conservative (worst operational bit, 2^{:.1}):",
+        worst_q_log
+    );
+    println!(
+        "    Trail prob ≤ 2^{:.0},  margin = {:.0} bits",
+        trail_worst,
+        trail_worst.abs() - 800.0
+    );
 
     println!("\n  Note: DDR trail explosion NOT included in bound (additive security).");
     println!("  Each DDR creates 2^6=64 branch points at 64-bit; 480 DDR operations");
@@ -532,9 +657,18 @@ fn main() {
     let (op8, global8, mfr8_bits) = test1_mfr8_full_ddt();
     // At 8-bit, bit 0 MDP should be ≈ 2^-(n-1) = 2^-7. Pass if bit-0 < 2^-5.
     let t1 = mfr8_bits[0] < (1.0_f64 / 32.0);
-    println!("\n  RESULT: {}, bit-0 MDP=2^{:.2} (op=2^{:.2}, global=2^{:.2} incl. MSB)\n",
-        if t1 { "PASS ✅" } else { "FAIL ❌" }, mfr8_bits[0].log2(), op8.log2(), global8.log2());
-    if t1 { pass += 1; } else { fail += 1; }
+    println!(
+        "\n  RESULT: {}, bit-0 MDP=2^{:.2} (op=2^{:.2}, global=2^{:.2} incl. MSB)\n",
+        if t1 { "PASS ✅" } else { "FAIL ❌" },
+        mfr8_bits[0].log2(),
+        op8.log2(),
+        global8.log2()
+    );
+    if t1 {
+        pass += 1;
+    } else {
+        fail += 1;
+    }
 
     // ── Test 2 ──────────────────────────────────────────────────
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -542,9 +676,17 @@ fn main() {
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     let (db0, da0) = test2_ddr8_analysis();
     let t2 = da0 < 0.5;
-    println!("\n  RESULT: {}, DDR Δa=0 MDP=2^{:.2}, Δb=0 MDP=2^{:.2}\n",
-        if t2 { "PASS ✅" } else { "FAIL ❌" }, da0.log2(), db0.log2());
-    if t2 { pass += 1; } else { fail += 1; }
+    println!(
+        "\n  RESULT: {}, DDR Δa=0 MDP=2^{:.2}, Δb=0 MDP=2^{:.2}\n",
+        if t2 { "PASS ✅" } else { "FAIL ❌" },
+        da0.log2(),
+        db0.log2()
+    );
+    if t2 {
+        pass += 1;
+    } else {
+        fail += 1;
+    }
 
     // ── Test 3 ──────────────────────────────────────────────────
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -552,9 +694,17 @@ fn main() {
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     let mfr16_bits = test3_mfr16_per_bit();
     let t3 = mfr16_bits[0] < mfr8_bits[0];
-    println!("\n  RESULT: {}, bit-0 improves: 8-bit 2^{:.2} → 16-bit 2^{:.2}\n",
-        if t3 { "PASS ✅" } else { "FAIL ❌" }, mfr8_bits[0].log2(), mfr16_bits[0].log2());
-    if t3 { pass += 1; } else { fail += 1; }
+    println!(
+        "\n  RESULT: {}, bit-0 improves: 8-bit 2^{:.2} → 16-bit 2^{:.2}\n",
+        if t3 { "PASS ✅" } else { "FAIL ❌" },
+        mfr8_bits[0].log2(),
+        mfr16_bits[0].log2()
+    );
+    if t3 {
+        pass += 1;
+    } else {
+        fail += 1;
+    }
 
     // ── Test 4 ──────────────────────────────────────────────────
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -562,9 +712,16 @@ fn main() {
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     let ddr16_bits = test4_ddr16_per_bit();
     let t4 = (ddr16_bits[0].log2() + 4.0).abs() < 0.1;
-    println!("\n  RESULT: {}, DDR MDP=2^{:.2} (expected 2^-4.00 = 1/16)\n",
-        if t4 { "PASS ✅" } else { "FAIL ❌" }, ddr16_bits[0].log2());
-    if t4 { pass += 1; } else { fail += 1; }
+    println!(
+        "\n  RESULT: {}, DDR MDP=2^{:.2} (expected 2^-4.00 = 1/16)\n",
+        if t4 { "PASS ✅" } else { "FAIL ❌" },
+        ddr16_bits[0].log2()
+    );
+    if t4 {
+        pass += 1;
+    } else {
+        fail += 1;
+    }
 
     // ── Test 5 ──────────────────────────────────────────────────
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -572,9 +729,16 @@ fn main() {
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     let pred64 = test5_scaling(&mfr8_bits, &mfr16_bits);
     let t5 = pred64[0] < -20.0;
-    println!("\n  RESULT: {}, predicted 64-bit bit-0 MDP = 2^{:.1}\n",
-        if t5 { "PASS ✅" } else { "FAIL ❌" }, pred64[0]);
-    if t5 { pass += 1; } else { fail += 1; }
+    println!(
+        "\n  RESULT: {}, predicted 64-bit bit-0 MDP = 2^{:.1}\n",
+        if t5 { "PASS ✅" } else { "FAIL ❌" },
+        pred64[0]
+    );
+    if t5 {
+        pass += 1;
+    } else {
+        fail += 1;
+    }
 
     // ── Test 6 ──────────────────────────────────────────────────
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -582,7 +746,11 @@ fn main() {
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     let t6 = test6_64bit_sampled();
     println!("\n  RESULT: {}\n", if t6 { "PASS ✅" } else { "FAIL ❌" });
-    if t6 { pass += 1; } else { fail += 1; }
+    if t6 {
+        pass += 1;
+    } else {
+        fail += 1;
+    }
 
     // ── Test 7 ──────────────────────────────────────────────────
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -590,7 +758,11 @@ fn main() {
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     let t7 = test7_formal_bound(&pred64);
     println!("\n  RESULT: {}\n", if t7 { "PASS ✅" } else { "FAIL ❌" });
-    if t7 { pass += 1; } else { fail += 1; }
+    if t7 {
+        pass += 1;
+    } else {
+        fail += 1;
+    }
 
     // ═══════════════════════════════════════════════════════════
     //  Summary
@@ -601,27 +773,59 @@ fn main() {
     println!("╠════════════════════════════════════════════════════════════════╣");
     println!("║                                                                ║");
     println!("║  PROVEN (8-bit exhaustive, every diff enumerated):             ║");
-    println!("║    MFR operational MDP = 2^{:.2}  (excl. MSB)                 ║", op8.log2());
-    println!("║    MFR global MDP      = 2^{:.2}  (incl. MSB = universal)    ║", global8.log2());
-    println!("║    DDR Δa=0 MDP        = 2^{:.2}                              ║", da0.log2());
+    println!(
+        "║    MFR operational MDP = 2^{:.2}  (excl. MSB)                 ║",
+        op8.log2()
+    );
+    println!(
+        "║    MFR global MDP      = 2^{:.2}  (incl. MSB = universal)    ║",
+        global8.log2()
+    );
+    println!(
+        "║    DDR Δa=0 MDP        = 2^{:.2}                              ║",
+        da0.log2()
+    );
     println!("║                                                                ║");
     println!("║  PROVEN (16-bit, exhaustive per single-bit diff):              ║");
-    println!("║    MFR bit-0 MDP  = 2^{:.2}  (best operational)              ║", mfr16_bits[0].log2());
-    println!("║    MFR bit-7 MDP  = 2^{:.2}  (mid)                           ║", mfr16_bits[7].log2());
-    println!("║    DDR all bits   = 2^{:.2}  (structural: 1/16)               ║", ddr16_bits[0].log2());
+    println!(
+        "║    MFR bit-0 MDP  = 2^{:.2}  (best operational)              ║",
+        mfr16_bits[0].log2()
+    );
+    println!(
+        "║    MFR bit-7 MDP  = 2^{:.2}  (mid)                           ║",
+        mfr16_bits[7].log2()
+    );
+    println!(
+        "║    DDR all bits   = 2^{:.2}  (structural: 1/16)               ║",
+        ddr16_bits[0].log2()
+    );
     println!("║                                                                ║");
     println!("║  EXTRAPOLATED (64-bit, per-bit-position scaling):              ║");
-    println!("║    MFR bit-0 MDP ≈ 2^{:.1}                                    ║", pred64[0]);
+    println!(
+        "║    MFR bit-0 MDP ≈ 2^{:.1}                                    ║",
+        pred64[0]
+    );
     println!("║                                                                ║");
     println!("║  FORMAL BOUND:                                                 ║");
     let bound = pred64[0] * 424.0;
     let margin = bound.abs() - 800.0;
-    println!("║    Trail prob ≤ 2^{:.0}  (required < 2^-800)                  ║", bound);
-    println!("║    Security margin: {:.0} bits                                 ║", margin);
+    println!(
+        "║    Trail prob ≤ 2^{:.0}  (required < 2^-800)                  ║",
+        bound
+    );
+    println!(
+        "║    Security margin: {:.0} bits                                 ║",
+        margin
+    );
     println!("║                                                                ║");
     println!("╚════════════════════════════════════════════════════════════════╝");
 
-    println!("\n  {}/{} tests passed  (wall time: {:.1?})", pass, pass + fail, wall);
+    println!(
+        "\n  {}/{} tests passed  (wall time: {:.1?})",
+        pass,
+        pass + fail,
+        wall
+    );
     if fail == 0 {
         println!("\n  OVERALL: PASS ✅");
     } else {

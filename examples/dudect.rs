@@ -170,9 +170,13 @@ fn test_mac_verify_ct() -> (f64, &'static str) {
     let mut timings: Vec<(u8, f64)> = Vec::with_capacity(classes.len());
     for &class in &classes {
         let t = if class == 0 {
-            measure_ns(|| { let _ = kk_mac_verify(key, message, &correct_tag); })
+            measure_ns(|| {
+                let _ = kk_mac_verify(key, message, &correct_tag);
+            })
         } else {
-            measure_ns(|| { let _ = kk_mac_verify(key, message, &wrong_tag); })
+            measure_ns(|| {
+                let _ = kk_mac_verify(key, message, &wrong_tag);
+            })
         };
         timings.push((class, t));
     }
@@ -229,11 +233,15 @@ fn test_mac_key_independence() -> (f64, &'static str) {
 
     for &class in &classes {
         let t = if class == 0 {
-            measure_ns(|| { let _ = kk_mac(&fixed_key, message); })
+            measure_ns(|| {
+                let _ = kk_mac(&fixed_key, message);
+            })
         } else {
             let k = &random_keys[rand_idx % random_keys.len()];
             rand_idx += 1;
-            measure_ns(|| { let _ = kk_mac(k, message); })
+            measure_ns(|| {
+                let _ = kk_mac(k, message);
+            })
         };
         timings.push((class, t));
     }
@@ -280,9 +288,13 @@ fn test_mac_message_independence() -> (f64, &'static str) {
 
     for &class in &classes {
         let t = if class == 0 {
-            measure_ns(|| { let _ = kk_mac(key, &msg_zero); })
+            measure_ns(|| {
+                let _ = kk_mac(key, &msg_zero);
+            })
         } else {
-            measure_ns(|| { let _ = kk_mac(key, &msg_ones); })
+            measure_ns(|| {
+                let _ = kk_mac(key, &msg_ones);
+            })
         };
         timings.push((class, t));
     }
@@ -337,9 +349,13 @@ fn test_mac_verify_position() -> (f64, &'static str) {
 
     for &class in &classes {
         let t = if class == 0 {
-            measure_ns(|| { let _ = kk_mac_verify(key, message, &wrong_first); })
+            measure_ns(|| {
+                let _ = kk_mac_verify(key, message, &wrong_first);
+            })
         } else {
-            measure_ns(|| { let _ = kk_mac_verify(key, message, &wrong_last); })
+            measure_ns(|| {
+                let _ = kk_mac_verify(key, message, &wrong_last);
+            })
         };
         timings.push((class, t));
     }
@@ -388,9 +404,13 @@ fn test_permute_data_independence() -> (f64, &'static str) {
 
     for &class in &classes {
         let t = if class == 0 {
-            measure_ns(|| { let _ = kk_hash(&input_zero); })
+            measure_ns(|| {
+                let _ = kk_hash(&input_zero);
+            })
         } else {
-            measure_ns(|| { let _ = kk_hash(&input_ones); })
+            measure_ns(|| {
+                let _ = kk_hash(&input_ones);
+            })
         };
         timings.push((class, t));
     }
@@ -411,8 +431,14 @@ fn test_permute_data_independence() -> (f64, &'static str) {
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════════╗");
     println!("║  KK-Crypto Constant-Time Verification (dudect methodology)     ║");
-    println!("║  Samples per class: {:>7}                                     ║", SAMPLES);
-    println!("║  Threshold: |t| < {:.1} → no timing leak detected              ║", THRESHOLD);
+    println!(
+        "║  Samples per class: {:>7}                                     ║",
+        SAMPLES
+    );
+    println!(
+        "║  Threshold: |t| < {:.1} → no timing leak detected              ║",
+        THRESHOLD
+    );
     println!("╚══════════════════════════════════════════════════════════════════╝");
     println!();
 
@@ -449,7 +475,10 @@ fn main() {
     println!();
     if all_pass {
         println!("  Result: ALL TESTS PASSED, no timing leaks detected.");
-        println!("  (with {} samples per class, threshold |t| < {:.1})", SAMPLES, THRESHOLD);
+        println!(
+            "  (with {} samples per class, threshold |t| < {:.1})",
+            SAMPLES, THRESHOLD
+        );
     } else {
         println!("  Result: TIMING LEAK DETECTED in one or more tests.");
         println!("  Functions marked !! may have data-dependent timing.");

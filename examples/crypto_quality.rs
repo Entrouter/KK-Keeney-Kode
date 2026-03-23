@@ -53,7 +53,10 @@ impl Xorshift64 {
 
 /// Count different bits between two byte slices.
 fn hamming_distance(a: &[u8], b: &[u8]) -> u32 {
-    a.iter().zip(b.iter()).map(|(x, y)| (x ^ y).count_ones()).sum()
+    a.iter()
+        .zip(b.iter())
+        .map(|(x, y)| (x ^ y).count_ones())
+        .sum()
 }
 
 /// Get bit `i` from a byte slice (bit 0 = MSB of byte 0).
@@ -124,16 +127,32 @@ fn test_sac() -> (bool, String) {
     let expected_hd = OUTPUT_BITS as f64 / 2.0; // 128
 
     // Per-input-bit: average hamming distance
-    let mean_hd: f64 = flip_counts.iter().map(|&c| c as f64 / NUM_INPUTS as f64).sum::<f64>() / total_tests;
+    let mean_hd: f64 = flip_counts
+        .iter()
+        .map(|&c| c as f64 / NUM_INPUTS as f64)
+        .sum::<f64>()
+        / total_tests;
 
     // Min/max per-input-bit average
-    let min_hd = flip_counts.iter().map(|&c| c as f64 / NUM_INPUTS as f64).fold(f64::MAX, f64::min);
-    let max_hd = flip_counts.iter().map(|&c| c as f64 / NUM_INPUTS as f64).fold(f64::MIN, f64::max);
+    let min_hd = flip_counts
+        .iter()
+        .map(|&c| c as f64 / NUM_INPUTS as f64)
+        .fold(f64::MAX, f64::min);
+    let max_hd = flip_counts
+        .iter()
+        .map(|&c| c as f64 / NUM_INPUTS as f64)
+        .fold(f64::MIN, f64::max);
 
     // Per-output-bit: flip probability (should each be ~50%)
     let total_output_trials = (NUM_INPUTS * input_bits) as f64;
-    let min_ob_pct = output_bit_flips.iter().map(|&c| c as f64 / total_output_trials * 100.0).fold(f64::MAX, f64::min);
-    let max_ob_pct = output_bit_flips.iter().map(|&c| c as f64 / total_output_trials * 100.0).fold(f64::MIN, f64::max);
+    let min_ob_pct = output_bit_flips
+        .iter()
+        .map(|&c| c as f64 / total_output_trials * 100.0)
+        .fold(f64::MAX, f64::min);
+    let max_ob_pct = output_bit_flips
+        .iter()
+        .map(|&c| c as f64 / total_output_trials * 100.0)
+        .fold(f64::MIN, f64::max);
 
     // SAC passes if mean is within 128 ± 3 and all bits participate symmetrically
     let pass = (mean_hd - expected_hd).abs() < 3.0
@@ -180,7 +199,11 @@ fn test_bic() -> (bool, String) {
         let modified = kk_hash(&input);
 
         for (ob, flip_val) in trial_flips.iter_mut().enumerate() {
-            *flip_val = if get_bit(&base, ob) != get_bit(&modified, ob) { 1 } else { 0 };
+            *flip_val = if get_bit(&base, ob) != get_bit(&modified, ob) {
+                1
+            } else {
+                0
+            };
         }
     }
 
@@ -194,7 +217,9 @@ fn test_bic() -> (bool, String) {
     for _ in 0..PAIRS_TO_TEST {
         let i = (pair_rng.next() as usize) % OUTPUT_BITS;
         let j = (pair_rng.next() as usize) % OUTPUT_BITS;
-        if i == j { continue; }
+        if i == j {
+            continue;
+        }
 
         // Pearson correlation
         let n = NUM_INPUTS as f64;
@@ -215,7 +240,11 @@ fn test_bic() -> (bool, String) {
         }
     }
 
-    let avg_corr = if pair_count > 0 { sum_corr / pair_count as f64 } else { 0.0 };
+    let avg_corr = if pair_count > 0 {
+        sum_corr / pair_count as f64
+    } else {
+        0.0
+    };
 
     // BIC passes if max correlation is below 0.1 and average is near 0
     let pass = max_corr < 0.1 && avg_corr < 0.05;
@@ -339,7 +368,8 @@ fn test_chi_squared() -> (bool, String) {
     let total_bytes = (NUM_HASHES * HASH_LEN) as f64;
     let expected = total_bytes / 256.0;
 
-    let chi_sq: f64 = counts.iter()
+    let chi_sq: f64 = counts
+        .iter()
         .map(|&c| {
             let diff = c as f64 - expected;
             diff * diff / expected
@@ -388,7 +418,10 @@ fn test_kats() -> (bool, String) {
         let hash1 = kk_hash(input);
         let hash2 = kk_hash(input);
 
-        let hex1 = hash1.iter().map(|b| format!("{:02x}", b)).collect::<String>();
+        let hex1 = hash1
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>();
 
         if hash1 != hash2 {
             println!("    {} = NON-DETERMINISTIC!", label);
@@ -401,7 +434,10 @@ fn test_kats() -> (bool, String) {
     // Also test MAC determinism
     let mac1 = kk_mac(b"test-key", b"test-message");
     let mac2 = kk_mac(b"test-key", b"test-message");
-    let mac_hex = mac1.iter().map(|b| format!("{:02x}", b)).collect::<String>();
+    let mac_hex = mac1
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect::<String>();
 
     if mac1 != mac2 {
         println!("    KAT_MAC  = NON-DETERMINISTIC!");
@@ -412,18 +448,36 @@ fn test_kats() -> (bool, String) {
 
     // Verify against frozen values
     let frozen_hashes: Vec<(&[u8], &str)> = vec![
-        (b"" as &[u8], "04a533c98a06efc6ce3ce4273c99b676c55c50f3161594449ef19247a252bbc0"),
-        (&[0u8] as &[u8], "631ece490b57f21b8f9f953cb936f007c3d647081b07dccb1cb4af82bd98c902"),
-        (b"KK" as &[u8], "f170642eb583aa001b5ca3bf95c27248dd5e2e5ae3a53d5b998c94fee8266125"),
-        (&[0u8; 152] as &[u8], "eea5acf7aa08f857b8227a4ae25a1f6f77f570842a6d4f65fe1b1b14f2ef86a0"),
-        (&[0u8; 153] as &[u8], "abaa9747a6ac93a3966c9cbbe10a1f4cafeb341e3b6fd44119f9d1089d03b2da"),
+        (
+            b"" as &[u8],
+            "04a533c98a06efc6ce3ce4273c99b676c55c50f3161594449ef19247a252bbc0",
+        ),
+        (
+            &[0u8] as &[u8],
+            "631ece490b57f21b8f9f953cb936f007c3d647081b07dccb1cb4af82bd98c902",
+        ),
+        (
+            b"KK" as &[u8],
+            "f170642eb583aa001b5ca3bf95c27248dd5e2e5ae3a53d5b998c94fee8266125",
+        ),
+        (
+            &[0u8; 152] as &[u8],
+            "eea5acf7aa08f857b8227a4ae25a1f6f77f570842a6d4f65fe1b1b14f2ef86a0",
+        ),
+        (
+            &[0u8; 153] as &[u8],
+            "abaa9747a6ac93a3966c9cbbe10a1f4cafeb341e3b6fd44119f9d1089d03b2da",
+        ),
     ];
     let frozen_mac = "adc026e40eafbb2e69b4efb6561dee911d34d844188865c01a7a52c0506766a2";
 
     let mut all_match = true;
     for (input, expected_hex) in &frozen_hashes {
         let hash = kk_hash(input);
-        let hex = hash.iter().map(|b| format!("{:02x}", b)).collect::<String>();
+        let hex = hash
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>();
         if hex != *expected_hex {
             println!("    MISMATCH for input len {}: got {}", input.len(), hex);
             all_match = false;

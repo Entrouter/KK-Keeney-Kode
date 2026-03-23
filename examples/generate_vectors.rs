@@ -14,11 +14,11 @@
 
 use kk_crypto::entropy::EntropySnapshot;
 use kk_crypto::kk_mix::{
-    kk_hash, kk_kdf, kk_mac, kk_mac_with_entropy, kk_permute,
-    kk_permute_with_schedule, rotations_from_entropy, KkState,
+    kk_hash, kk_kdf, kk_mac, kk_mac_with_entropy, kk_permute, kk_permute_with_schedule,
+    rotations_from_entropy, KkState,
 };
-use kk_crypto::{encode_with_snapshot, encode_aead_with_snapshot, decode, decode_aead};
 use kk_crypto::session::RopeRatchet;
+use kk_crypto::{decode, decode_aead, encode_aead_with_snapshot, encode_with_snapshot};
 
 /// Build a canonical test snapshot from an index (0–4).
 fn make_snapshot(index: u8) -> EntropySnapshot {
@@ -55,7 +55,12 @@ fn main() {
     println!("## Canonical Snapshots\n");
     for i in 0..5u8 {
         let s = make_snapshot(i);
-        println!("SNAPSHOT_{}: bytes={} timestamp_nanos={}", i, hex(&s.bytes), s.timestamp_nanos);
+        println!(
+            "SNAPSHOT_{}: bytes={} timestamp_nanos={}",
+            i,
+            hex(&s.bytes),
+            s.timestamp_nanos
+        );
     }
     println!();
 
@@ -177,7 +182,12 @@ fn main() {
     let enc_cases: Vec<(&str, &[u8], &[u8], u8)> = vec![
         ("hello", b"shared-secret", b"Hello, KK!", 0),
         ("binary", b"key-two", &[0x00, 0xFF, 0x80, 0x7F], 1),
-        ("long", b"key-three", b"The quick brown fox jumps over the lazy dog", 2),
+        (
+            "long",
+            b"key-three",
+            b"The quick brown fox jumps over the lazy dog",
+            2,
+        ),
         ("single", b"k", b"X", 3),
     ];
     for (label, secret, plaintext, snap_idx) in &enc_cases {
@@ -197,7 +207,13 @@ fn main() {
     println!("## encode_aead_with_snapshot\n");
     #[allow(clippy::type_complexity)]
     let aead_cases: Vec<(&str, &[u8], &[u8], &[u8], u8)> = vec![
-        ("basic_aead", b"shared-secret", b"Hello AEAD!", b"header-v1", 0),
+        (
+            "basic_aead",
+            b"shared-secret",
+            b"Hello AEAD!",
+            b"header-v1",
+            0,
+        ),
         ("empty_aad", b"key-two", b"payload", b"", 1),
         ("long_aad", b"key-three", b"msg", &[0xAA; 64], 2),
     ];
@@ -220,7 +236,12 @@ fn main() {
     for i in 0..3u8 {
         let snap = make_snapshot(i);
         let (key, step) = ratchet.advance_with_snapshot(snap).unwrap();
-        println!("ratchet_step_{}: key={} counter={}", i, hex(&key), step.counter);
+        println!(
+            "ratchet_step_{}: key={} counter={}",
+            i,
+            hex(&key),
+            step.counter
+        );
     }
     println!();
 

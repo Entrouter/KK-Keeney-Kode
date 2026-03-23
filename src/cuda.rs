@@ -37,9 +37,7 @@
 //! ```
 
 use crate::error::KkError;
-use crate::kk_mix::{
-    KkSponge, KkState, KDF_SQUEEZE_ROUNDS, RATE_BYTES, RATE_WORDS, STATE_WORDS,
-};
+use crate::kk_mix::{KkSponge, KkState, KDF_SQUEEZE_ROUNDS, RATE_BYTES, RATE_WORDS, STATE_WORDS};
 use zeroize::Zeroize;
 
 // ── FFI declarations ───────────────────────────────────────────
@@ -122,12 +120,7 @@ impl CudaAccelerator {
         }
 
         let rc = unsafe {
-            kk_cuda_permute_batch(
-                flat.as_mut_ptr(),
-                rot_flat.as_ptr(),
-                rounds,
-                n as u32,
-            )
+            kk_cuda_permute_batch(flat.as_mut_ptr(), rot_flat.as_ptr(), rounds, n as u32)
         };
 
         if rc != 0 {
@@ -172,12 +165,7 @@ impl CudaAccelerator {
         }
 
         let rc = unsafe {
-            kk_cuda_permute_batch_persistent(
-                flat.as_mut_ptr(),
-                rot_flat.as_ptr(),
-                rounds,
-                n as u32,
-            )
+            kk_cuda_permute_batch_persistent(flat.as_mut_ptr(), rot_flat.as_ptr(), rounds, n as u32)
         };
 
         if rc != 0 {

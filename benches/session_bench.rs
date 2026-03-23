@@ -147,13 +147,9 @@ fn bench_forward_secrecy_overhead(c: &mut Criterion) {
         let plaintext: Vec<u8> = (0..size).map(|i| (i % 256) as u8).collect();
 
         // Raw encode (no forward secrecy)
-        group.bench_with_input(
-            BenchmarkId::new("raw_encode", size),
-            &plaintext,
-            |b, pt| {
-                b.iter(|| kk_crypto::encode(black_box(SECRET), black_box(pt)).unwrap());
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("raw_encode", size), &plaintext, |b, pt| {
+            b.iter(|| kk_crypto::encode(black_box(SECRET), black_box(pt)).unwrap());
+        });
 
         // Session encode (with forward secrecy)
         let mut ratchet = RopeRatchet::new(SECRET, CONTEXT).unwrap();
@@ -161,9 +157,7 @@ fn bench_forward_secrecy_overhead(c: &mut Criterion) {
             BenchmarkId::new("session_encode", size),
             &plaintext,
             |b, pt| {
-                b.iter(|| {
-                    encode_session(black_box(&mut ratchet), black_box(pt)).unwrap()
-                });
+                b.iter(|| encode_session(black_box(&mut ratchet), black_box(pt)).unwrap());
             },
         );
     }

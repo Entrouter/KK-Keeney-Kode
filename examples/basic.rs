@@ -27,7 +27,10 @@ fn main() {
     println!("[ENCODE] Capturing entropic moment...");
     let packet = kk_crypto::encode(shared_secret, message).unwrap();
 
-    println!("[ENCODE] Message:    {:?}", std::str::from_utf8(message).unwrap());
+    println!(
+        "[ENCODE] Message:    {:?}",
+        std::str::from_utf8(message).unwrap()
+    );
     println!("[ENCODE] Ciphertext: {} bytes", packet.ciphertext.len());
     println!(
         "[ENCODE] Entropy ε:  {}...",

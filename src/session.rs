@@ -55,7 +55,7 @@
 //!
 //! Messages must be processed in order (strict counter synchronization).
 
-use crate::codec::{self, KkPacket, KkAeadPacket};
+use crate::codec::{self, KkAeadPacket, KkPacket};
 use crate::entropy::{self, EntropySnapshot};
 use crate::error::{KkError, Result};
 use crate::kk_mix;
@@ -288,24 +288,14 @@ impl RopeRatchet {
     fn step(&mut self, snapshot: &EntropySnapshot) -> Result<[u8; 32]> {
         // ── Evolve entropy strand ──
         // New entropy strand = KK-KDF(old_entropy, snapshot.bytes, domain)
-        let mut e_new = kk_mix::kk_kdf(
-            &self.entropy_strand,
-            &snapshot.bytes,
-            STRAND_ENT_INFO,
-            32,
-        );
+        let mut e_new = kk_mix::kk_kdf(&self.entropy_strand, &snapshot.bytes, STRAND_ENT_INFO, 32);
         self.entropy_strand.copy_from_slice(&e_new);
         e_new.zeroize();
 
         // ── Evolve temporal strand ──
         // New temporal strand = KK-KDF(old_temporal, timestamp_bytes, domain)
         let ts_bytes = snapshot.timestamp_nanos.to_le_bytes();
-        let mut t_new = kk_mix::kk_kdf(
-            &self.temporal_strand,
-            &ts_bytes,
-            STRAND_TMP_INFO,
-            32,
-        );
+        let mut t_new = kk_mix::kk_kdf(&self.temporal_strand, &ts_bytes, STRAND_TMP_INFO, 32);
         self.temporal_strand.copy_from_slice(&t_new);
         t_new.zeroize();
 
@@ -313,12 +303,7 @@ impl RopeRatchet {
         // Increment counter first (counter 0 = no messages, first message = 1)
         self.counter += 1;
         let ctr_bytes = self.counter.to_le_bytes();
-        let mut c_new = kk_mix::kk_kdf(
-            &self.chain_strand,
-            &ctr_bytes,
-            STRAND_CHN_INFO,
-            32,
-        );
+        let mut c_new = kk_mix::kk_kdf(&self.chain_strand, &ctr_bytes, STRAND_CHN_INFO, 32);
         self.chain_strand.copy_from_slice(&c_new);
         c_new.zeroize();
 
@@ -340,12 +325,7 @@ impl RopeRatchet {
         // → sponge with entropy-derived rotations absorbs everything
         // → 32-round permutation mixes all strand material
         // → squeeze 64 bytes: 32 for new chain + 32 for message key
-        let mut output = kk_mix::kk_kdf(
-            &combined,
-            &snapshot.bytes,
-            DOMAIN_SESSION,
-            64,
-        );
+        let mut output = kk_mix::kk_kdf(&combined, &snapshot.bytes, DOMAIN_SESSION, 64);
         combined.zeroize();
 
         // First 32 bytes: new chain key (replaces current, forward secrecy).
@@ -441,10 +421,7 @@ impl RopePacket {
 /// let plaintext = decode_session(&mut receiver, &packet).unwrap();
 /// assert_eq!(plaintext, b"hello forward secrecy");
 /// ```
-pub fn encode_session(
-    ratchet: &mut RopeRatchet,
-    plaintext: &[u8],
-) -> Result<RopePacket> {
+pub fn encode_session(ratchet: &mut RopeRatchet, plaintext: &[u8]) -> Result<RopePacket> {
     let (mut message_key, step) = ratchet.advance()?;
 
     // Use the ratchet's message key as the shared secret for the
@@ -466,10 +443,7 @@ pub fn encode_session(
 ///
 /// - `KkError::InvalidPacket` if the counter is out of sequence
 /// - `KkError::CommitmentMismatch` if the inner packet fails integrity
-pub fn decode_session(
-    ratchet: &mut RopeRatchet,
-    packet: &RopePacket,
-) -> Result<Vec<u8>> {
+pub fn decode_session(ratchet: &mut RopeRatchet, packet: &RopePacket) -> Result<Vec<u8>> {
     let mut message_key = ratchet.receive(&packet.step)?;
 
     let plaintext = codec::decode(&message_key, &packet.inner)?;
@@ -534,10 +508,7 @@ pub fn encode_session_aead(
 ///
 /// Advances the receiver's ratchet, derives the same per-message key,
 /// and decrypts the inner AEAD packet (verifying both ciphertext and AAD).
-pub fn decode_session_aead(
-    ratchet: &mut RopeRatchet,
-    packet: &RopeAeadPacket,
-) -> Result<Vec<u8>> {
+pub fn decode_session_aead(ratchet: &mut RopeRatchet, packet: &RopeAeadPacket) -> Result<Vec<u8>> {
     let mut message_key = ratchet.receive(&packet.step)?;
     let plaintext = codec::decode_aead(&message_key, &packet.inner)?;
     message_key.zeroize();

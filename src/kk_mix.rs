@@ -111,11 +111,23 @@ pub const CAPACITY_WORDS: usize = STATE_WORDS - RATE_WORDS;
 /// No two values repeat across all 30 entries.
 pub(crate) const DEFAULT_ROTATIONS: [[u32; 2]; 15] = [
     // Row phase
-    [7, 41],  [13, 29], [19, 37], [23, 43], [3, 53],
+    [7, 41],
+    [13, 29],
+    [19, 37],
+    [23, 43],
+    [3, 53],
     // Column phase
-    [11, 47], [17, 39], [5, 59],  [31, 49], [9, 51],
+    [11, 47],
+    [17, 39],
+    [5, 59],
+    [31, 49],
+    [9, 51],
     // Diagonal phase
-    [15, 33], [21, 45], [27, 35], [1, 57],  [25, 55],
+    [15, 33],
+    [21, 45],
+    [27, 35],
+    [1, 57],
+    [25, 55],
 ];
 
 /// Domain separation byte for hashing mode.
@@ -254,14 +266,7 @@ fn ddr(a: u64, b: u64) -> u64 {
 /// After one quintet-round, all five words have influenced each other.
 /// No published cipher uses 5-word mixing rounds.
 #[inline(always)]
-fn quintet_round(
-    a: &mut u64,
-    b: &mut u64,
-    c: &mut u64,
-    d: &mut u64,
-    e: &mut u64,
-    rot: [u32; 2],
-) {
+fn quintet_round(a: &mut u64, b: &mut u64, c: &mut u64, d: &mut u64, e: &mut u64, rot: [u32; 2]) {
     *a = mfr(*a, *b, rot[0]);
     *c ^= *a;
     *d = ddr(*d, *c);
@@ -285,8 +290,11 @@ pub(crate) fn kk_permute_n(state: &mut KkState, rotations: &[[u32; 2]; 15], roun
         for (row, rot) in rotations.iter().enumerate().take(5) {
             let base = row * 5;
             let (mut s0, mut s1, mut s2, mut s3, mut s4) = (
-                state[base], state[base + 1], state[base + 2],
-                state[base + 3], state[base + 4],
+                state[base],
+                state[base + 1],
+                state[base + 2],
+                state[base + 3],
+                state[base + 4],
             );
             quintet_round(&mut s0, &mut s1, &mut s2, &mut s3, &mut s4, *rot);
             state[base] = s0;
@@ -299,10 +307,20 @@ pub(crate) fn kk_permute_n(state: &mut KkState, rotations: &[[u32; 2]; 15], roun
         // ── Column phase: 5 quintet-rounds ──
         for col in 0..5usize {
             let (mut s0, mut s1, mut s2, mut s3, mut s4) = (
-                state[col], state[col + 5], state[col + 10],
-                state[col + 15], state[col + 20],
+                state[col],
+                state[col + 5],
+                state[col + 10],
+                state[col + 15],
+                state[col + 20],
             );
-            quintet_round(&mut s0, &mut s1, &mut s2, &mut s3, &mut s4, rotations[5 + col]);
+            quintet_round(
+                &mut s0,
+                &mut s1,
+                &mut s2,
+                &mut s3,
+                &mut s4,
+                rotations[5 + col],
+            );
             state[col] = s0;
             state[col + 5] = s1;
             state[col + 10] = s2;
@@ -313,10 +331,16 @@ pub(crate) fn kk_permute_n(state: &mut KkState, rotations: &[[u32; 2]; 15], roun
         // ── Diagonal phase: 5 quintet-rounds ──
         for d in 0..5usize {
             let [i0, i1, i2, i3, i4] = DIAGS[d];
-            let (mut s0, mut s1, mut s2, mut s3, mut s4) = (
-                state[i0], state[i1], state[i2], state[i3], state[i4],
+            let (mut s0, mut s1, mut s2, mut s3, mut s4) =
+                (state[i0], state[i1], state[i2], state[i3], state[i4]);
+            quintet_round(
+                &mut s0,
+                &mut s1,
+                &mut s2,
+                &mut s3,
+                &mut s4,
+                rotations[10 + d],
             );
-            quintet_round(&mut s0, &mut s1, &mut s2, &mut s3, &mut s4, rotations[10 + d]);
             state[i0] = s0;
             state[i1] = s1;
             state[i2] = s2;
@@ -336,8 +360,7 @@ pub(crate) fn kk_permute_n(state: &mut KkState, rotations: &[[u32; 2]; 15], roun
         // Breaks fixed-structure analysis within a single permutation call.
         if round % 8 == 7 {
             for i in 0..RATE_WORDS {
-                state[i] ^= state[RATE_WORDS + (i % CAPACITY_WORDS)]
-                    .rotate_left(round as u32);
+                state[i] ^= state[RATE_WORDS + (i % CAPACITY_WORDS)].rotate_left(round as u32);
             }
         }
     }
@@ -504,9 +527,7 @@ impl KkSponge {
 
             for i in 0..words {
                 let start = offset + i * 8;
-                let w = u64::from_le_bytes(
-                    data[start..start + 8].try_into().unwrap(),
-                );
+                let w = u64::from_le_bytes(data[start..start + 8].try_into().unwrap());
                 self.state[word_idx + i] ^= w;
             }
             offset += words * 8;
@@ -678,8 +699,7 @@ pub fn kk_kdf_batch_8(
                 sponge.buf_pos = 0;
             }
 
-            let mut raw_states: [KkState; 8] =
-                core::array::from_fn(|i| sponges[i].state);
+            let mut raw_states: [KkState; 8] = core::array::from_fn(|i| sponges[i].state);
             let rotations = sponges[0].rotations;
             drop(sponges);
 
@@ -739,10 +759,9 @@ unsafe fn vectorized_squeeze_8_packed(
     rotations: &[[u32; 2]; 15],
     output_len: usize,
 ) -> [Vec<u8>; 8] {
-    use crate::kk_mix_avx512::{store_8_states, kk_permute_n_x8};
+    use crate::kk_mix_avx512::{kk_permute_n_x8, store_8_states};
 
-    let mut outputs: [Vec<u8>; 8] =
-        core::array::from_fn(|_| Vec::with_capacity(output_len));
+    let mut outputs: [Vec<u8>; 8] = core::array::from_fn(|_| Vec::with_capacity(output_len));
 
     loop {
         let unpacked = store_8_states(&packed);
@@ -866,7 +885,7 @@ pub(crate) fn kk_mac_batch_8(keys: [&[u8]; 8], messages: [&[u8]; 8]) -> [[u8; 32
     }
 
     let _ = (keys_uniform, msgs_uniform); // suppress unused warnings on non-x86
-    // Scalar fallback
+                                          // Scalar fallback
     core::array::from_fn(|i| kk_mac(keys[i], messages[i]))
 }
 
@@ -888,8 +907,8 @@ pub(crate) fn kk_mac_batch_8(keys: [&[u8]; 8], messages: [&[u8]; 8]) -> [[u8; 32
 #[target_feature(enable = "avx512f,avx512dq")]
 #[allow(dead_code)]
 unsafe fn kk_mac_batch_8_avx512(keys: [&[u8]; 8], messages: [&[u8]; 8]) -> [[u8; 32]; 8] {
+    use crate::kk_mix_avx512::{kk_permute_n_x8, load_8_states, store_8_states};
     use core::arch::x86_64::*;
-    use crate::kk_mix_avx512::{load_8_states, store_8_states, kk_permute_n_x8};
 
     let rotations = DEFAULT_ROTATIONS;
 
@@ -1033,8 +1052,8 @@ unsafe fn kk_mac_batch_8_multipart_avx512(
     prefixes: [&[u8]; 8],
     bodies: [&[u8]; 8],
 ) -> [[u8; 32]; 8] {
+    use crate::kk_mix_avx512::{kk_permute_n_x8, load_8_states, store_8_states};
     use core::arch::x86_64::*;
-    use crate::kk_mix_avx512::{load_8_states, store_8_states, kk_permute_n_x8};
 
     let rotations = DEFAULT_ROTATIONS;
 
@@ -1222,9 +1241,21 @@ mod tests {
         let mut s2 = s1;
         kk_permute(&mut s1);
         let alt_rots: [[u32; 2]; 15] = [
-            [5, 50], [11, 33], [17, 39], [21, 47], [9, 53],
-            [7, 41], [13, 29], [19, 37], [23, 43], [3, 55],
-            [15, 35], [21, 45], [27, 33], [1, 57], [25, 51],
+            [5, 50],
+            [11, 33],
+            [17, 39],
+            [21, 47],
+            [9, 53],
+            [7, 41],
+            [13, 29],
+            [19, 37],
+            [23, 43],
+            [3, 55],
+            [15, 35],
+            [21, 45],
+            [27, 33],
+            [1, 57],
+            [25, 51],
         ];
         kk_permute_with_schedule(&mut s2, &alt_rots);
         assert_ne!(
@@ -1239,7 +1270,10 @@ mod tests {
         let a = 0xDEADBEEF_CAFEBABE_u64;
         let r1 = ddr(a, 7);
         let r2 = ddr(a, 8);
-        assert_ne!(r1, r2, "Different rotation sources must give different results");
+        assert_ne!(
+            r1, r2,
+            "Different rotation sources must give different results"
+        );
     }
 
     #[test]
@@ -1260,8 +1294,7 @@ mod tests {
     #[test]
     fn quintet_round_diffusion() {
         // After one quintet-round, all 5 words should change
-        let (mut a, mut b, mut c, mut d, mut e) =
-            (0x1111u64, 0x2222, 0x3333, 0x4444, 0x5555);
+        let (mut a, mut b, mut c, mut d, mut e) = (0x1111u64, 0x2222, 0x3333, 0x4444, 0x5555);
         let (a0, b0, c0, d0, e0) = (a, b, c, d, e);
         quintet_round(&mut a, &mut b, &mut c, &mut d, &mut e, [7, 41]);
         assert_ne!(a, a0, "word a unchanged");
@@ -1390,7 +1423,9 @@ mod tests {
         });
         // 8 distinct 4096-byte messages
         let msgs: [Vec<u8>; 8] = core::array::from_fn(|i| {
-            (0..4096u16).map(|j| (j as u8).wrapping_add(i as u8)).collect()
+            (0..4096u16)
+                .map(|j| (j as u8).wrapping_add(i as u8))
+                .collect()
         });
 
         let key_refs: [&[u8]; 8] = core::array::from_fn(|i| keys[i].as_slice());
@@ -1400,8 +1435,10 @@ mod tests {
 
         for i in 0..8 {
             let scalar_tag = kk_mac(&keys[i], &msgs[i]);
-            assert_eq!(batch_tags[i], scalar_tag,
-                "batch lane {i} must match scalar kk_mac");
+            assert_eq!(
+                batch_tags[i], scalar_tag,
+                "batch lane {i} must match scalar kk_mac"
+            );
         }
     }
 
@@ -1424,8 +1461,10 @@ mod tests {
 
         for i in 0..8 {
             let scalar_tag = kk_mac(&keys[i], &msgs[i]);
-            assert_eq!(batch_tags[i], scalar_tag,
-                "batch lane {i} (short msg) must match scalar kk_mac");
+            assert_eq!(
+                batch_tags[i], scalar_tag,
+                "batch lane {i} (short msg) must match scalar kk_mac"
+            );
         }
     }
 
@@ -1521,9 +1560,8 @@ mod tests {
         let output_len = 4096;
 
         // Scalar: 8 individual kk_kdf calls
-        let scalar: [Vec<u8>; 8] = core::array::from_fn(|i| {
-            kk_kdf(key, salt, infos[i], output_len)
-        });
+        let scalar: [Vec<u8>; 8] =
+            core::array::from_fn(|i| kk_kdf(key, salt, infos[i], output_len));
 
         // Batch: single kk_kdf_batch_8 call
         let batch = kk_kdf_batch_8(key, salt, infos, output_len);
@@ -1542,14 +1580,12 @@ mod tests {
         let key = b"multi-block-key";
         let salt = b"multi-block-salt";
         let infos: [&[u8]; 8] = [
-            b"info-0", b"info-1", b"info-2", b"info-3",
-            b"info-4", b"info-5", b"info-6", b"info-7",
+            b"info-0", b"info-1", b"info-2", b"info-3", b"info-4", b"info-5", b"info-6", b"info-7",
         ];
         let output_len = 1024; // ~7 rate blocks
 
-        let scalar: [Vec<u8>; 8] = core::array::from_fn(|i| {
-            kk_kdf(key, salt, infos[i], output_len)
-        });
+        let scalar: [Vec<u8>; 8] =
+            core::array::from_fn(|i| kk_kdf(key, salt, infos[i], output_len));
 
         let batch = kk_kdf_batch_8(key, salt, infos, output_len);
 
@@ -1585,10 +1621,14 @@ mod tests {
 
         // Check that states differ BEFORE finalize
         for i in 0..STATE_WORDS {
-            if s1.state[i] != s2.state[i] { break; } // at least one word must differ
+            if s1.state[i] != s2.state[i] {
+                break;
+            } // at least one word must differ
         }
-        assert_ne!(s1.state, s2.state,
-            "Sponge states MUST differ after absorbing different messages");
+        assert_ne!(
+            s1.state, s2.state,
+            "Sponge states MUST differ after absorbing different messages"
+        );
 
         // Apply finalize padding (same as finalize_absorb but manually)
         let domain = DOMAIN_MAC;
@@ -1599,8 +1639,10 @@ mod tests {
 
         // States should still differ (padding doesn't touch word 12)
 
-        assert_ne!(s1.state, s2.state,
-            "States must differ after padding, before permute");
+        assert_ne!(
+            s1.state, s2.state,
+            "States must differ after padding, before permute"
+        );
 
         // Now permute
         let mut state1 = s1.state;
@@ -1608,8 +1650,9 @@ mod tests {
         kk_permute(&mut state1);
         kk_permute(&mut state2);
 
-
-
-        assert_ne!(state1, state2, "Permutation MUST produce different outputs for different inputs");
+        assert_ne!(
+            state1, state2,
+            "Permutation MUST produce different outputs for different inputs"
+        );
     }
 }

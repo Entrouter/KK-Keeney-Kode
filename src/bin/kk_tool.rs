@@ -36,7 +36,9 @@ fn hex_encode(bytes: &[u8]) -> String {
 
 fn read_stdin() -> Vec<u8> {
     let mut buf = Vec::new();
-    io::stdin().read_to_end(&mut buf).expect("failed to read stdin");
+    io::stdin()
+        .read_to_end(&mut buf)
+        .expect("failed to read stdin");
     buf
 }
 
@@ -105,8 +107,11 @@ fn cmd_enc(args: &[String]) {
         std::process::exit(1);
     });
 
-    eprintln!("Encrypted {} bytes → {} bytes written to {output_path}",
-        plaintext.len(), wire.len());
+    eprintln!(
+        "Encrypted {} bytes → {} bytes written to {output_path}",
+        plaintext.len(),
+        wire.len()
+    );
 }
 
 fn cmd_dec(args: &[String]) {
@@ -138,8 +143,11 @@ fn cmd_dec(args: &[String]) {
         std::process::exit(1);
     });
 
-    eprintln!("Decrypted {} bytes → {} bytes written to {output_path}",
-        wire.len(), plaintext.len());
+    eprintln!(
+        "Decrypted {} bytes → {} bytes written to {output_path}",
+        wire.len(),
+        plaintext.len()
+    );
 }
 
 fn main() {
@@ -155,10 +163,10 @@ fn main() {
 
     match cmd {
         "hash" => cmd_hash(rest),
-        "mac"  => cmd_mac(rest),
+        "mac" => cmd_mac(rest),
         "rand" => cmd_rand(rest),
-        "enc"  => cmd_enc(rest),
-        "dec"  => cmd_dec(rest),
+        "enc" => cmd_enc(rest),
+        "dec" => cmd_dec(rest),
         "-h" | "--help" | "help" => usage(),
         _ => {
             eprintln!("Unknown command: {cmd}");

@@ -121,7 +121,10 @@ impl KkRng {
 // ─────────────────────────────────────────────────────────────────
 
 #[cfg(feature = "std")]
-use std::sync::{atomic::{AtomicUsize, Ordering}, Mutex};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Mutex,
+};
 
 /// A pool of independent [`KkRng`] instances for parallel random byte generation.
 ///
@@ -159,7 +162,10 @@ impl KkRngPool {
     /// # Panics
     /// Panics if `num_generators` is 0.
     pub fn new(seed: &[u8], num_generators: usize) -> Self {
-        assert!(num_generators > 0, "KkRngPool requires at least 1 generator");
+        assert!(
+            num_generators > 0,
+            "KkRngPool requires at least 1 generator"
+        );
         let generators = (0..num_generators)
             .map(|i| {
                 let mut domain_seed = Vec::with_capacity(seed.len() + 8);
@@ -185,7 +191,9 @@ impl KkRngPool {
     /// Generate `len` random bytes using the next generator in round-robin order.
     pub fn next_bytes(&self, len: usize) -> Vec<u8> {
         let idx = self.next.fetch_add(1, Ordering::Relaxed) % self.generators.len();
-        let mut gen = self.generators[idx].lock().expect("KkRngPool: poisoned mutex");
+        let mut gen = self.generators[idx]
+            .lock()
+            .expect("KkRngPool: poisoned mutex");
         gen.next_bytes(len)
     }
 
@@ -209,7 +217,9 @@ impl KkRngPool {
             .collect::<Vec<_>>()
             .into_par_iter()
             .for_each(|(i, chunk)| {
-                let mut gen = self.generators[i].lock().expect("KkRngPool: poisoned mutex");
+                let mut gen = self.generators[i]
+                    .lock()
+                    .expect("KkRngPool: poisoned mutex");
                 gen.fill_bytes(chunk);
             });
     }
@@ -306,7 +316,7 @@ mod tests {
             let pool_a = KkRngPool::new(b"sep-seed", 2);
             let pool_b = KkRngPool::new(b"sep-seed", 2);
             let from_gen0 = pool_a.next_bytes(32); // hits generator 0
-            let _ = pool_b.next_bytes(32);         // hits generator 0 (discard)
+            let _ = pool_b.next_bytes(32); // hits generator 0 (discard)
             let from_gen1 = pool_b.next_bytes(32); // hits generator 1
             assert_ne!(from_gen0, from_gen1);
         }

@@ -197,7 +197,9 @@ pub fn commit_aead_batch_8(
         k.zeroize();
     }
 
-    Ok(core::array::from_fn(|i| TemporalCommitment { mac: macs[i] }))
+    Ok(core::array::from_fn(|i| TemporalCommitment {
+        mac: macs[i],
+    }))
 }
 
 /// Verify an AEAD commitment (integrity + associated data).
@@ -300,7 +302,11 @@ impl TemporalProof {
         mac.copy_from_slice(&data[..32]);
         nonce.copy_from_slice(&data[32..64]);
         prev_mac.copy_from_slice(&data[64..96]);
-        Ok(Self { mac, nonce, prev_mac })
+        Ok(Self {
+            mac,
+            nonce,
+            prev_mac,
+        })
     }
 }
 
@@ -414,12 +420,8 @@ pub fn verify_bound(
     message.extend_from_slice(&snapshot.timestamp_nanos.to_le_bytes());
     message.extend_from_slice(ciphertext);
 
-    let verified = kk_mix::kk_mac_verify_with_entropy(
-        &commit_key,
-        &message,
-        &proof.mac,
-        &snapshot.bytes,
-    );
+    let verified =
+        kk_mix::kk_mac_verify_with_entropy(&commit_key, &message, &proof.mac, &snapshot.bytes);
     commit_key.zeroize();
 
     if verified {
@@ -456,7 +458,10 @@ mod tests {
 
         let tampered = b"tampered ciphertext";
         let result = verify(secret, &snap, tampered, &commitment);
-        assert!(result.is_err(), "Tampered ciphertext must fail verification");
+        assert!(
+            result.is_err(),
+            "Tampered ciphertext must fail verification"
+        );
     }
 
     #[test]
@@ -466,7 +471,10 @@ mod tests {
 
         let commitment = commit(b"correct-key", &snap, ciphertext).unwrap();
         let result = verify(b"wrong-key", &snap, ciphertext, &commitment);
-        assert!(result.is_err(), "Wrong shared secret must fail verification");
+        assert!(
+            result.is_err(),
+            "Wrong shared secret must fail verification"
+        );
     }
 
     // ── Temporal proof tests ──
@@ -480,9 +488,14 @@ mod tests {
 
         let proof = commit_bound(secret, &snap, ciphertext, &nonce, &GENESIS_MAC).unwrap();
         verify_bound(
-            secret, &snap, ciphertext, &proof, &nonce,
+            secret,
+            &snap,
+            ciphertext,
+            &proof,
+            &nonce,
             Duration::from_secs(5),
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     #[test]
@@ -495,11 +508,17 @@ mod tests {
 
         let proof = commit_bound(secret, &snap, ciphertext, &real_nonce, &GENESIS_MAC).unwrap();
         let result = verify_bound(
-            secret, &snap, ciphertext, &proof, &fake_nonce,
+            secret,
+            &snap,
+            ciphertext,
+            &proof,
+            &fake_nonce,
             Duration::from_secs(5),
         );
-        assert!(matches!(result, Err(KkError::StaleNonce)),
-            "Wrong nonce must be rejected as StaleNonce");
+        assert!(
+            matches!(result, Err(KkError::StaleNonce)),
+            "Wrong nonce must be rejected as StaleNonce"
+        );
     }
 
     #[test]
@@ -510,10 +529,17 @@ mod tests {
 
         let proof = commit_bound(secret, &snap, b"original", &nonce, &GENESIS_MAC).unwrap();
         let result = verify_bound(
-            secret, &snap, b"tampered", &proof, &nonce,
+            secret,
+            &snap,
+            b"tampered",
+            &proof,
+            &nonce,
             Duration::from_secs(5),
         );
-        assert!(result.is_err(), "Tampered ciphertext must fail bound verification");
+        assert!(
+            result.is_err(),
+            "Tampered ciphertext must fail bound verification"
+        );
     }
 
     #[test]
@@ -531,11 +557,17 @@ mod tests {
 
         let proof = commit_bound(secret, &old_snap, ciphertext, &nonce, &GENESIS_MAC).unwrap();
         let result = verify_bound(
-            secret, &old_snap, ciphertext, &proof, &nonce,
+            secret,
+            &old_snap,
+            ciphertext,
+            &proof,
+            &nonce,
             Duration::from_secs(5),
         );
-        assert!(matches!(result, Err(KkError::EpochDrift { .. })),
-            "Ancient timestamp must be rejected as EpochDrift");
+        assert!(
+            matches!(result, Err(KkError::EpochDrift { .. })),
+            "Ancient timestamp must be rejected as EpochDrift"
+        );
     }
 
     #[test]
@@ -548,19 +580,39 @@ mod tests {
         let snap1 = entropy::gather().unwrap();
         let ct1 = b"message one";
         let proof1 = commit_bound(secret, &snap1, ct1, &nonce1, &GENESIS_MAC).unwrap();
-        verify_bound(secret, &snap1, ct1, &proof1, &nonce1, Duration::from_secs(5)).unwrap();
+        verify_bound(
+            secret,
+            &snap1,
+            ct1,
+            &proof1,
+            &nonce1,
+            Duration::from_secs(5),
+        )
+        .unwrap();
 
         // Proof 2 (chained to proof 1)
         let snap2 = entropy::gather().unwrap();
         let ct2 = b"message two";
         let proof2 = commit_bound(secret, &snap2, ct2, &nonce2, &proof1.mac).unwrap();
-        verify_bound(secret, &snap2, ct2, &proof2, &nonce2, Duration::from_secs(5)).unwrap();
+        verify_bound(
+            secret,
+            &snap2,
+            ct2,
+            &proof2,
+            &nonce2,
+            Duration::from_secs(5),
+        )
+        .unwrap();
 
         // Verify the chain link
-        assert_eq!(proof2.prev_mac, proof1.mac,
-            "Proof 2 must reference Proof 1's MAC");
-        assert_eq!(proof1.prev_mac, GENESIS_MAC,
-            "Proof 1 must reference genesis");
+        assert_eq!(
+            proof2.prev_mac, proof1.mac,
+            "Proof 2 must reference Proof 1's MAC"
+        );
+        assert_eq!(
+            proof1.prev_mac, GENESIS_MAC,
+            "Proof 1 must reference genesis"
+        );
     }
 
     #[test]
@@ -595,9 +647,16 @@ mod tests {
 
         // MAC check will fail because the message includes prev_mac
         let result = verify_bound(
-            secret, &snap, ciphertext, &forged, &nonce,
+            secret,
+            &snap,
+            ciphertext,
+            &forged,
+            &nonce,
             Duration::from_secs(5),
         );
-        assert!(result.is_err(), "Forged prev_mac must fail MAC verification");
+        assert!(
+            result.is_err(),
+            "Forged prev_mac must fail MAC verification"
+        );
     }
 }

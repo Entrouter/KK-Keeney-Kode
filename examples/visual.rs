@@ -203,9 +203,9 @@ fn ui(f: &mut Frame, app: &App, editing_secret: bool) {
     let outer = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),  // title
-            Constraint::Length(3),  // secret
-            Constraint::Length(3),  // input
+            Constraint::Length(3), // title
+            Constraint::Length(3), // secret
+            Constraint::Length(3), // input
             Constraint::Min(10),   // results
             Constraint::Length(2), // status bar
         ])
@@ -213,17 +213,17 @@ fn ui(f: &mut Frame, app: &App, editing_secret: bool) {
 
     // ─── TITLE ───────────────────────────────────────────
     let title = Paragraph::new(Line::from(vec![
-        Span::styled("  KK ", Style::default().fg(Color::Black).bg(Color::Cyan).bold()),
+        Span::styled(
+            "  KK ",
+            Style::default().fg(Color::Black).bg(Color::Cyan).bold(),
+        ),
         Span::raw("  "),
         Span::styled(
             "Keeney Kode Visual Demo",
             Style::default().fg(Color::Cyan).bold(),
         ),
         Span::raw(" - "),
-        Span::styled(
-            "KK(S) = S ⊕ ε",
-            Style::default().fg(Color::Yellow).italic(),
-        ),
+        Span::styled("KK(S) = S ⊕ ε", Style::default().fg(Color::Yellow).italic()),
     ]))
     .block(
         Block::default()
@@ -234,15 +234,14 @@ fn ui(f: &mut Frame, app: &App, editing_secret: bool) {
 
     // ─── SHARED SECRET ───────────────────────────────────
     let secret_style = if editing_secret {
-        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(Color::DarkGray)
     };
     let secret_block = Block::default()
-        .title(Span::styled(
-            " Shared Secret (Tab to edit) ",
-            secret_style,
-        ))
+        .title(Span::styled(" Shared Secret (Tab to edit) ", secret_style))
         .borders(Borders::ALL)
         .border_style(if editing_secret {
             Style::default().fg(Color::Yellow)
@@ -299,11 +298,10 @@ fn ui(f: &mut Frame, app: &App, editing_secret: bool) {
 
     let encode_content = if let Some(r) = &app.encode_result {
         let ct_display = wrap_hex(&r.ciphertext_hex, 48);
-        let mut lines = vec![
-            Line::from(vec![
-                Span::styled("  Ciphertext: ", Style::default().fg(Color::DarkGray)),
-            ]),
-        ];
+        let mut lines = vec![Line::from(vec![Span::styled(
+            "  Ciphertext: ",
+            Style::default().fg(Color::DarkGray),
+        )])];
         for chunk in ct_display {
             lines.push(Line::from(vec![
                 Span::raw("    "),
@@ -353,7 +351,9 @@ fn ui(f: &mut Frame, app: &App, editing_secret: bool) {
         ])
     };
     f.render_widget(
-        Paragraph::new(encode_content).block(encode_block).wrap(Wrap { trim: false }),
+        Paragraph::new(encode_content)
+            .block(encode_block)
+            .wrap(Wrap { trim: false }),
         results_layout[0],
     );
 
@@ -375,9 +375,10 @@ fn ui(f: &mut Frame, app: &App, editing_secret: bool) {
 
         Text::from(vec![
             Line::raw(""),
-            Line::from(vec![
-                Span::styled("  Plaintext: ", Style::default().fg(Color::DarkGray)),
-            ]),
+            Line::from(vec![Span::styled(
+                "  Plaintext: ",
+                Style::default().fg(Color::DarkGray),
+            )]),
             Line::from(vec![
                 Span::raw("    "),
                 Span::styled(&r.decoded_text, Style::default().fg(Color::White).bold()),
@@ -414,7 +415,9 @@ fn ui(f: &mut Frame, app: &App, editing_secret: bool) {
         ])
     };
     f.render_widget(
-        Paragraph::new(decode_content).block(decode_block).wrap(Wrap { trim: false }),
+        Paragraph::new(decode_content)
+            .block(decode_block)
+            .wrap(Wrap { trim: false }),
         results_layout[1],
     );
 

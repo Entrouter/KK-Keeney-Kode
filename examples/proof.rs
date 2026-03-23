@@ -70,16 +70,8 @@ fn main() {
 
     // Demonstrate: compute the required keystream for many candidate plaintexts
     let candidates: &[&[u8]] = &[
-        b"HELLO",   // the real one
-        b"WORLD",
-        b"ZZZZZ",
-        b"AAAAA",
-        b"12345",
-        b"DEATH",
-        b"LEMON",
-        b"SUSHI",
-        b"WHALE",
-        b"XOXOX",
+        b"HELLO", // the real one
+        b"WORLD", b"ZZZZZ", b"AAAAA", b"12345", b"DEATH", b"LEMON", b"SUSHI", b"WHALE", b"XOXOX",
     ];
 
     println!("  ┌──────────────┬─────────────────────────┬──────────┐");
@@ -88,7 +80,8 @@ fn main() {
 
     for &candidate in candidates {
         // K′ = C ⊕ P′, the keystream that WOULD produce this ciphertext
-        let required_ks: Vec<u8> = ct.iter()
+        let required_ks: Vec<u8> = ct
+            .iter()
             .zip(candidate.iter())
             .map(|(c, p)| c ^ p)
             .collect();
@@ -125,10 +118,10 @@ fn main() {
 
     let test_msgs: &[(&str, &[u8])] = &[
         ("HELLO (real)", b"HELLO"),
-        ("WORLD",        b"WORLD"),
-        ("ZZZZZ",        b"ZZZZZ"),
-        ("AAAAA",        b"AAAAA"),
-        ("12345",        b"12345"),
+        ("WORLD", b"WORLD"),
+        ("ZZZZZ", b"ZZZZZ"),
+        ("AAAAA", b"AAAAA"),
+        ("12345", b"12345"),
     ];
 
     for &(label, msg) in test_msgs {
@@ -136,8 +129,13 @@ fn main() {
         let entropy_bits = shannon_entropy(&ks);
         let byte_variance = byte_distribution_chi2(&ks);
 
-        println!("  {:<15}  K′ = {}  Shannon = {:.3} bits/byte  χ² = {:.2}",
-            label, hex(&ks), entropy_bits, byte_variance);
+        println!(
+            "  {:<15}  K′ = {}  Shannon = {:.3} bits/byte  χ² = {:.2}",
+            label,
+            hex(&ks),
+            entropy_bits,
+            byte_variance
+        );
     }
 
     println!();
@@ -170,8 +168,12 @@ fn main() {
     println!("       That nanosecond has passed. Time is irreversible.");
     println!("       ε₁.time = {} ns", snap_a.timestamp_nanos);
     println!("       ε₂.time = {} ns", snap_b.timestamp_nanos);
-    println!("       Δ        = {} ns, even a nanosecond apart, completely different.", 
-        snap_b.timestamp_nanos.saturating_sub(snap_a.timestamp_nanos));
+    println!(
+        "       Δ        = {} ns, even a nanosecond apart, completely different.",
+        snap_b
+            .timestamp_nanos
+            .saturating_sub(snap_a.timestamp_nanos)
+    );
     println!();
     println!("  Source 3: CPU performance counter");
     println!("    └─ Captures the instantaneous hardware cycle count.");
@@ -191,7 +193,9 @@ fn main() {
     println!("       ε₂ = {}", hex(&snap_b.bytes));
     println!();
 
-    let hamming: u32 = snap_a.bytes.iter()
+    let hamming: u32 = snap_a
+        .bytes
+        .iter()
         .zip(snap_b.bytes.iter())
         .map(|(a, b)| (a ^ b).count_ones())
         .sum();
@@ -269,11 +273,13 @@ fn main() {
         // Re-derive a commitment so it doesn't fail verification
         // Actually, without the right ε, even decode will fail on commitment.
         // So we XOR manually to show what the attacker would get:
-        let fake_ks: Vec<u8> = ct.iter()
+        let fake_ks: Vec<u8> = ct
+            .iter()
             .zip(forged_packet.entropy_snapshot.bytes.iter().cycle())
             .map(|(c, e)| c ^ e)
             .collect();
-        println!("    ε′#{}: keystream={} → P′=\"{}\"  ← looks plausible, is WRONG",
+        println!(
+            "    ε′#{}: keystream={} → P′=\"{}\"  ← looks plausible, is WRONG",
             i + 1,
             hex(&fake_ks),
             String::from_utf8_lossy(&fake_ks),
@@ -298,7 +304,8 @@ fn main() {
 
     for i in 0..10 {
         let p = kk_crypto::encode(secret, b"HELLO").unwrap();
-        println!("    #{:>2}: ct={} ε={}...",
+        println!(
+            "    #{:>2}: ct={} ε={}...",
             i + 1,
             hex(&p.ciphertext),
             &hex(&p.entropy_snapshot.bytes)[..16],
@@ -321,7 +328,8 @@ fn main() {
     let mut pairs = 0u64;
     for i in 0..ciphertexts.len() {
         for j in (i + 1)..ciphertexts.len() {
-            let h: u32 = ciphertexts[i].iter()
+            let h: u32 = ciphertexts[i]
+                .iter()
                 .zip(ciphertexts[j].iter())
                 .map(|(a, b)| (a ^ b).count_ones())
                 .sum();
@@ -332,10 +340,17 @@ fn main() {
     let avg_hamming = total_hamming as f64 / pairs as f64;
     let total_bits = ciphertexts[0].len() as f64 * 8.0;
 
-    println!("  Average pairwise Hamming distance: {:.1}/{:.0} bits ({:.1}%)",
-        avg_hamming, total_bits, avg_hamming / total_bits * 100.0);
-    println!("  Expected for independent random:   {:.1}/{:.0} bits (50.0%)",
-        total_bits / 2.0, total_bits);
+    println!(
+        "  Average pairwise Hamming distance: {:.1}/{:.0} bits ({:.1}%)",
+        avg_hamming,
+        total_bits,
+        avg_hamming / total_bits * 100.0
+    );
+    println!(
+        "  Expected for independent random:   {:.1}/{:.0} bits (50.0%)",
+        total_bits / 2.0,
+        total_bits
+    );
     println!();
     println!("  Each encoding is cryptographically independent.");
     println!("  Knowledge of one ciphertext tells you NOTHING about the next.");

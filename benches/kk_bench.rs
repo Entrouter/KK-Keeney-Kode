@@ -6,16 +6,18 @@
 // NOTICE: Removal of this header is a violation of the license.
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use std::time::Duration;
 use kk_crypto::{decode, encode, encode_pooled, EntropyPool, KkPacket};
-use kk_crypto::{encode_aead_batch, decode_aead_batch};
+use kk_crypto::{decode_aead_batch, encode_aead_batch};
+use std::time::Duration;
 
 const SECRET: &[u8] = b"bench-shared-secret-2026";
 
 fn bench_encode(c: &mut Criterion) {
     let mut group = c.benchmark_group("encode");
 
-    for size in [1, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 10485760] {
+    for size in [
+        1, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 10485760,
+    ] {
         let plaintext: Vec<u8> = (0..size).map(|i| (i % 256) as u8).collect();
         group.throughput(Throughput::Bytes(size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), &plaintext, |b, pt| {
@@ -28,7 +30,9 @@ fn bench_encode(c: &mut Criterion) {
 fn bench_decode(c: &mut Criterion) {
     let mut group = c.benchmark_group("decode");
 
-    for size in [1, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 10485760] {
+    for size in [
+        1, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 10485760,
+    ] {
         let plaintext: Vec<u8> = (0..size).map(|i| (i % 256) as u8).collect();
         let packet = encode(SECRET, &plaintext).unwrap();
         group.throughput(Throughput::Bytes(size as u64));
@@ -72,7 +76,15 @@ fn bench_packet_serialization(c: &mut Criterion) {
 
 fn bench_entropy(c: &mut Criterion) {
     c.bench_function("entropy_gather", |b| {
-        b.iter(|| kk_crypto::EntropySnapshot::from_bytes(&kk_crypto::encode(SECRET, b"x").unwrap().entropy_snapshot.to_bytes()).unwrap());
+        b.iter(|| {
+            kk_crypto::EntropySnapshot::from_bytes(
+                &kk_crypto::encode(SECRET, b"x")
+                    .unwrap()
+                    .entropy_snapshot
+                    .to_bytes(),
+            )
+            .unwrap()
+        });
     });
 }
 
@@ -129,7 +141,9 @@ fn bench_encode_pooled(c: &mut Criterion) {
     let pool = EntropyPool::new(64).unwrap();
     let mut group = c.benchmark_group("encode_pooled");
 
-    for size in [1, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 10485760] {
+    for size in [
+        1, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 10485760,
+    ] {
         let plaintext: Vec<u8> = (0..size).map(|i| (i % 256) as u8).collect();
         group.throughput(Throughput::Bytes(size as u64));
         group.bench_with_input(BenchmarkId::from_parameter(size), &plaintext, |b, pt| {
@@ -153,8 +167,7 @@ fn bench_avx512_vs_scalar(c: &mut Criterion) {
     let key = b"benchmark-key-for-kdf-comparison";
     let salt = b"benchmark-salt";
     let infos: [&[u8]; 8] = [
-        b"info-0", b"info-1", b"info-2", b"info-3",
-        b"info-4", b"info-5", b"info-6", b"info-7",
+        b"info-0", b"info-1", b"info-2", b"info-3", b"info-4", b"info-5", b"info-6", b"info-7",
     ];
 
     for output_len in [32, 64, 256] {
@@ -217,21 +230,18 @@ fn bench_batch_aead_encode(c: &mut Criterion) {
 
         group.bench_function("pooled", |b| {
             b.iter(|| {
-                black_box(encode_aead_batch(
-                    black_box(secret),
-                    black_box(&messages),
-                    Some(&pool),
-                ).unwrap());
+                black_box(
+                    encode_aead_batch(black_box(secret), black_box(&messages), Some(&pool))
+                        .unwrap(),
+                );
             });
         });
 
         group.bench_function("no_pool", |b| {
             b.iter(|| {
-                black_box(encode_aead_batch(
-                    black_box(secret),
-                    black_box(&messages),
-                    None,
-                ).unwrap());
+                black_box(
+                    encode_aead_batch(black_box(secret), black_box(&messages), None).unwrap(),
+                );
             });
         });
 

@@ -414,6 +414,9 @@ mod tests {
         let (msg3_b, key_b) = alice2.process_msg2(&msg2_b).unwrap();
         let _ = bob2.process_msg3(&msg3_b).unwrap();
 
-        assert_ne!(key_a, key_b, "different sessions must derive different keys");
+        assert_ne!(
+            key_a, key_b,
+            "different sessions must derive different keys"
+        );
     }
 }
