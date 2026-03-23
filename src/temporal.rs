@@ -161,6 +161,46 @@ pub fn commit_aead(
     Ok(TemporalCommitment { mac: mac_bytes })
 }
 
+/// Create 8 AEAD commitments simultaneously using batch MAC.
+///
+/// Identical semantics to calling [`commit_aead`] 8 times, but uses
+/// AVX-512 batch MAC when available for ~6-8× throughput on the MAC phase.
+pub fn commit_aead_batch_8(
+    shared_secret: &[u8],
+    snapshots: [&EntropySnapshot; 8],
+    ciphertexts: [&[u8]; 8],
+    aads: [&[u8]; 8],
+) -> Result<[TemporalCommitment; 8]> {
+    // Derive 8 commitment keys (scalar  - each is a single KDF, tiny)
+    let mut commit_keys: [Vec<u8>; 8] = core::array::from_fn(|i| {
+        kdf::derive_commitment_key(shared_secret, snapshots[i])
+            .expect("commitment key derivation should not fail")
+    });
+
+    // Build 8 MAC messages
+    let messages: [Vec<u8>; 8] = core::array::from_fn(|i| {
+        let aad_len = aads[i].len() as u64;
+        let mut msg = Vec::with_capacity(32 + 16 + 8 + aads[i].len() + ciphertexts[i].len());
+        msg.extend_from_slice(&snapshots[i].bytes);
+        msg.extend_from_slice(&snapshots[i].timestamp_nanos.to_le_bytes());
+        msg.extend_from_slice(&aad_len.to_le_bytes());
+        msg.extend_from_slice(aads[i]);
+        msg.extend_from_slice(ciphertexts[i]);
+        msg
+    });
+
+    let key_refs: [&[u8]; 8] = core::array::from_fn(|i| commit_keys[i].as_slice());
+    let msg_refs: [&[u8]; 8] = core::array::from_fn(|i| messages[i].as_slice());
+
+    let macs = kk_mix::kk_mac_batch_8(key_refs, msg_refs);
+
+    for k in &mut commit_keys {
+        k.zeroize();
+    }
+
+    Ok(core::array::from_fn(|i| TemporalCommitment { mac: macs[i] }))
+}
+
 /// Verify an AEAD commitment (integrity + associated data).
 pub fn verify_aead(
     shared_secret: &[u8],

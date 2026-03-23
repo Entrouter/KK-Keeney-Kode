@@ -715,13 +715,78 @@ pub fn encode_aead_batch(
     messages: &[(&[u8], &[u8])], // (plaintext, aad) pairs
     pool: Option<&crate::entropy_pool::EntropyPool>,
 ) -> Result<Vec<KkAeadPacket>> {
-    messages
-        .par_iter()
-        .map(|(plaintext, aad)| match pool {
-            Some(p) => encode_aead_pooled(shared_secret, plaintext, aad, p),
-            None => encode_aead(shared_secret, plaintext, aad),
+    // Process in chunks of 8 for batch MAC, scalar fallback for tail
+    let results: Vec<KkAeadPacket> = messages
+        .par_chunks(8)
+        .flat_map_iter(|chunk| {
+            if chunk.len() == 8 {
+                // Full batch of 8  - use vectorized MAC
+                encode_aead_batch_8_inner(shared_secret, chunk, pool)
+                    .expect("batch encode failed")
+            } else {
+                // Tail < 8  - scalar fallback
+                chunk
+                    .iter()
+                    .map(|(pt, aad)| match pool {
+                        Some(p) => encode_aead_pooled(shared_secret, pt, aad, p),
+                        None => encode_aead(shared_secret, pt, aad),
+                    })
+                    .collect::<Result<Vec<_>>>()
+                    .expect("scalar encode failed")
+            }
         })
-        .collect()
+        .collect();
+
+    Ok(results)
+}
+
+/// Inner function: encrypt 8 messages and commit with batch MAC.
+fn encode_aead_batch_8_inner(
+    shared_secret: &[u8],
+    chunk: &[(&[u8], &[u8])],
+    pool: Option<&crate::entropy_pool::EntropyPool>,
+) -> Result<Vec<KkAeadPacket>> {
+    debug_assert_eq!(chunk.len(), 8);
+
+    // Draw 8 snapshots
+    let snapshots: [EntropySnapshot; 8] = core::array::from_fn(|i| {
+        let _ = i;
+        match pool {
+            Some(p) => p.draw().expect("pool draw failed"),
+            None => entropy::gather().expect("entropy gather failed"),
+        }
+    });
+
+    // XOR-encrypt 8 ciphertexts
+    let ciphertexts: [Vec<u8>; 8] = core::array::from_fn(|i| {
+        xor_with_keystream(shared_secret, &snapshots[i], chunk[i].0)
+            .expect("xor_with_keystream failed")
+    });
+
+    // Batch MAC  - the hot path
+    let snap_refs: [&EntropySnapshot; 8] = core::array::from_fn(|i| &snapshots[i]);
+    let ct_refs: [&[u8]; 8] = core::array::from_fn(|i| ciphertexts[i].as_slice());
+    let aad_refs: [&[u8]; 8] = core::array::from_fn(|i| chunk[i].1);
+
+    let commitments = temporal::commit_aead_batch_8(
+        shared_secret,
+        snap_refs,
+        ct_refs,
+        aad_refs,
+    )?;
+
+    // Assemble packets
+    let mut ct_arr = ciphertexts;
+    let packets: Vec<KkAeadPacket> = (0..8)
+        .map(|i| KkAeadPacket {
+            aad: chunk[i].1.to_vec(),
+            ciphertext: std::mem::take(&mut ct_arr[i]),
+            entropy_snapshot: snapshots[i].clone(),
+            commitment: commitments[i].clone(),
+        })
+        .collect();
+
+    Ok(packets)
 }
 
 /// Decrypt N independent AEAD packets in parallel using Rayon.
