@@ -757,9 +757,10 @@ fn encode_aead_batch_8_inner(
         }
     });
 
-    // XOR-encrypt 8 ciphertexts
+    // XOR-encrypt 8 ciphertexts (sequential to avoid nested Rayon contention  -
+    // outer par_chunks(8) already provides parallelism)
     let ciphertexts: [Vec<u8>; 8] = core::array::from_fn(|i| {
-        xor_with_keystream(shared_secret, &snapshots[i], chunk[i].0)
+        xor_with_keystream_seq(shared_secret, &snapshots[i], chunk[i].0)
             .expect("xor_with_keystream failed")
     });
 
@@ -799,7 +800,17 @@ pub fn decode_aead_batch(
 ) -> Result<Vec<Vec<u8>>> {
     packets
         .par_iter()
-        .map(|pkt| decode_aead(shared_secret, pkt))
+        .map(|pkt| {
+            temporal::verify_aead(
+                shared_secret,
+                &pkt.entropy_snapshot,
+                &pkt.ciphertext,
+                &pkt.aad,
+                &pkt.commitment,
+            )?;
+            // Sequential XOR to avoid nested Rayon contention
+            xor_with_keystream_seq(shared_secret, &pkt.entropy_snapshot, &pkt.ciphertext)
+        })
         .collect()
 }
 
