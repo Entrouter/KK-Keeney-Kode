@@ -208,6 +208,19 @@ pub(crate) unsafe fn kk_permute_n_x8(
     rotations: &[[u32; 2]; 15],
     rounds: usize,
 ) {
+    // Running accumulators replace round × constant MUL with repeated ADD.
+    // Produces identical values: 0, C, 2C, 3C, …  (wrapping u64).
+    let vc0 = _mm512_set1_epi64(1i64);
+    let vc4 = _mm512_set1_epi64(0x9E3779B97F4A7C15u64 as i64);
+    let vc12 = _mm512_set1_epi64(0xB7E151628AED2A6Au64 as i64);
+    let vc20 = _mm512_set1_epi64(0x243F6A8885A2F7A4u64 as i64);
+    let vc24 = _mm512_set1_epi64(0x298B075B4B6A5240u64 as i64);
+    let mut acc0 = _mm512_setzero_si512();
+    let mut acc4 = _mm512_setzero_si512();
+    let mut acc12 = _mm512_setzero_si512();
+    let mut acc20 = _mm512_setzero_si512();
+    let mut acc24 = _mm512_setzero_si512();
+
     for round in 0..rounds as u64 {
         // ── Row phase: 5 quintet-rounds ──
         for (row, rot) in rotations.iter().enumerate().take(5) {
@@ -260,24 +273,17 @@ pub(crate) unsafe fn kk_permute_n_x8(
         }
 
         // ── Round constant injection (corners + center of 5×5 grid) ──
-        let vround = _mm512_set1_epi64(round as i64);
-        state[0] = _mm512_add_epi64(state[0], vround);
-        state[4] = _mm512_add_epi64(
-            state[4],
-            _mm512_mullo_epi64(vround, _mm512_set1_epi64(0x9E3779B97F4A7C15u64 as i64)),
-        );
-        state[12] = _mm512_add_epi64(
-            state[12],
-            _mm512_mullo_epi64(vround, _mm512_set1_epi64(0xB7E151628AED2A6Au64 as i64)),
-        );
-        state[20] = _mm512_add_epi64(
-            state[20],
-            _mm512_mullo_epi64(vround, _mm512_set1_epi64(0x243F6A8885A2F7A4u64 as i64)),
-        );
-        state[24] = _mm512_add_epi64(
-            state[24],
-            _mm512_mullo_epi64(vround, _mm512_set1_epi64(0x298B075B4B6A5240u64 as i64)),
-        );
+        // Running accumulators: acc += C each round, identical to round × C.
+        state[0] = _mm512_add_epi64(state[0], acc0);
+        state[4] = _mm512_add_epi64(state[4], acc4);
+        state[12] = _mm512_add_epi64(state[12], acc12);
+        state[20] = _mm512_add_epi64(state[20], acc20);
+        state[24] = _mm512_add_epi64(state[24], acc24);
+        acc0 = _mm512_add_epi64(acc0, vc0);
+        acc4 = _mm512_add_epi64(acc4, vc4);
+        acc12 = _mm512_add_epi64(acc12, vc12);
+        acc20 = _mm512_add_epi64(acc20, vc20);
+        acc24 = _mm512_add_epi64(acc24, vc24);
 
         // ── Intra-round re-keying every 8 rounds ──
         if round % 8 == 7 {

@@ -977,6 +977,157 @@ unsafe fn kk_mac_batch_8_avx512(keys: [&[u8]; 8], messages: [&[u8]; 8]) -> [[u8;
     out
 }
 
+/// Multi-part batch MAC: absorb key + prefix in scalar, then bodies in SIMD.
+///
+/// Produces **identical MAC tags** to calling `kk_mac_batch_8` with
+/// `prefix || body` as the message, but avoids copying large body data
+/// (e.g. 64 KB ciphertexts) into intermediate `Vec`s.
+pub(crate) fn kk_mac_batch_8_multipart(
+    keys: [&[u8]; 8],
+    prefixes: [&[u8]; 8],
+    bodies: [&[u8]; 8],
+) -> [[u8; 32]; 8] {
+    let keys_uniform = keys.windows(2).all(|w| w[0].len() == w[1].len());
+    let prefixes_uniform = prefixes.windows(2).all(|w| w[0].len() == w[1].len());
+    let bodies_uniform = bodies.windows(2).all(|w| w[0].len() == w[1].len());
+
+    #[cfg(all(target_arch = "x86_64", feature = "std"))]
+    {
+        if keys_uniform
+            && prefixes_uniform
+            && bodies_uniform
+            && is_x86_feature_detected!("avx512f")
+            && is_x86_feature_detected!("avx512dq")
+            && keys[0].len() % 8 == 0
+        {
+            return unsafe { kk_mac_batch_8_multipart_avx512(keys, prefixes, bodies) };
+        }
+    }
+
+    let _ = (keys_uniform, prefixes_uniform, bodies_uniform);
+    // Scalar fallback: concatenate prefix + body
+    core::array::from_fn(|i| {
+        let mut msg = Vec::with_capacity(prefixes[i].len() + bodies[i].len());
+        msg.extend_from_slice(prefixes[i]);
+        msg.extend_from_slice(bodies[i]);
+        kk_mac(keys[i], &msg)
+    })
+}
+
+/// AVX-512 implementation of multi-part batch MAC.
+///
+/// Same strategy as [`kk_mac_batch_8_avx512`] but absorbs the small
+/// message prefix in scalar Phase A (alongside the key), then only the
+/// large body data goes through SIMD Phase C  - eliminating the need
+/// to build a contiguous `prefix || body` buffer.
+///
+/// # Safety
+/// Requires AVX-512F + AVX-512DQ. Key length must be a multiple of 8.
+#[cfg(all(target_arch = "x86_64", feature = "std"))]
+#[target_feature(enable = "avx512f,avx512dq")]
+unsafe fn kk_mac_batch_8_multipart_avx512(
+    keys: [&[u8]; 8],
+    prefixes: [&[u8]; 8],
+    bodies: [&[u8]; 8],
+) -> [[u8; 32]; 8] {
+    use core::arch::x86_64::*;
+    use crate::kk_mix_avx512::{load_8_states, store_8_states, kk_permute_n_x8};
+
+    let rotations = DEFAULT_ROTATIONS;
+
+    // ── Phase A: Scalar absorb of key prefix + message prefix ──
+    let mut sponges: [KkSponge; 8] = core::array::from_fn(|_| KkSponge::new());
+    for i in 0..8 {
+        sponges[i].absorb(&(keys[i].len() as u64).to_le_bytes());
+        sponges[i].absorb(keys[i]);
+        sponges[i].absorb(prefixes[i]);
+    }
+
+    // Ensure word-alignment for SIMD Phase C by absorbing body bytes
+    // in scalar if the prefix left buf_pos at a non-8-byte boundary.
+    let mut body_off = 0usize;
+    let unaligned = sponges[0].buf_pos % 8;
+    if unaligned != 0 {
+        let align = (8 - unaligned).min(bodies[0].len());
+        for i in 0..8 {
+            sponges[i].absorb(&bodies[i][..align]);
+        }
+        body_off = align;
+    }
+    let buf_pos = sponges[0].buf_pos;
+
+    // ── Phase B: Pack into KkState8 ──
+    let mut raw_states: [KkState; 8] = core::array::from_fn(|i| sponges[i].state);
+    drop(sponges);
+    let mut packed = load_8_states(&raw_states);
+    raw_states.zeroize();
+
+    // ── Phase C: SIMD absorb of body data ──
+    let body_len = bodies[0].len();
+    let mut rate_pos = buf_pos;
+
+    while body_off < body_len {
+        let fill = RATE_BYTES - rate_pos;
+        if body_len - body_off < fill {
+            break;
+        }
+
+        let start_word = rate_pos / 8;
+        let n_words = fill / 8;
+        for w in 0..n_words {
+            let d = body_off + w * 8;
+            let v = _mm512_set_epi64(
+                i64::from_le_bytes(bodies[7][d..d + 8].try_into().unwrap()),
+                i64::from_le_bytes(bodies[6][d..d + 8].try_into().unwrap()),
+                i64::from_le_bytes(bodies[5][d..d + 8].try_into().unwrap()),
+                i64::from_le_bytes(bodies[4][d..d + 8].try_into().unwrap()),
+                i64::from_le_bytes(bodies[3][d..d + 8].try_into().unwrap()),
+                i64::from_le_bytes(bodies[2][d..d + 8].try_into().unwrap()),
+                i64::from_le_bytes(bodies[1][d..d + 8].try_into().unwrap()),
+                i64::from_le_bytes(bodies[0][d..d + 8].try_into().unwrap()),
+            );
+            packed.0[start_word + w] = _mm512_xor_si512(packed.0[start_word + w], v);
+        }
+
+        body_off += fill;
+        rate_pos = 0;
+        kk_permute_n_x8(&mut packed, &rotations, ROUNDS);
+    }
+
+    // ── Phase D: Tail bytes + finalize padding ──
+    let remaining = body_len - body_off;
+    let mut states = store_8_states(&packed);
+
+    for i in 0..8 {
+        for j in 0..remaining {
+            let pos = rate_pos + j;
+            let word_idx = pos / 8;
+            let byte_idx = pos % 8;
+            states[i][word_idx] ^= (bodies[i][body_off + j] as u64) << (byte_idx * 8);
+        }
+
+        let pad_pos = rate_pos + remaining;
+        states[i][pad_pos / 8] ^= (DOMAIN_MAC as u64) << ((pad_pos % 8) * 8);
+        states[i][(RATE_BYTES - 1) / 8] ^= 0x80u64 << (((RATE_BYTES - 1) % 8) * 8);
+    }
+
+    packed = load_8_states(&states);
+    states.zeroize();
+    kk_permute_n_x8(&mut packed, &rotations, ROUNDS);
+
+    // ── Phase E: Squeeze 32 bytes (4 words) per lane ──
+    let mut final_states = store_8_states(&packed);
+    let mut out = [[0u8; 32]; 8];
+    for i in 0..8 {
+        for w in 0..4 {
+            out[i][w * 8..(w + 1) * 8].copy_from_slice(&final_states[i][w].to_le_bytes());
+        }
+    }
+    final_states.zeroize();
+
+    out
+}
+
 /// Constant-time byte comparison. Runs in time proportional to the
 /// shorter slice length, regardless of where differences occur.
 ///

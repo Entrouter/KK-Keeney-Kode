@@ -177,22 +177,21 @@ pub fn commit_aead_batch_8(
             .expect("commitment key derivation should not fail")
     });
 
-    // Build 8 MAC messages
-    let messages: [Vec<u8>; 8] = core::array::from_fn(|i| {
+    // Build 8 small MAC prefixes (header only  - no ciphertext copy)
+    let prefixes: [Vec<u8>; 8] = core::array::from_fn(|i| {
         let aad_len = aads[i].len() as u64;
-        let mut msg = Vec::with_capacity(32 + 16 + 8 + aads[i].len() + ciphertexts[i].len());
-        msg.extend_from_slice(&snapshots[i].bytes);
-        msg.extend_from_slice(&snapshots[i].timestamp_nanos.to_le_bytes());
-        msg.extend_from_slice(&aad_len.to_le_bytes());
-        msg.extend_from_slice(aads[i]);
-        msg.extend_from_slice(ciphertexts[i]);
-        msg
+        let mut prefix = Vec::with_capacity(48 + aads[i].len());
+        prefix.extend_from_slice(&snapshots[i].bytes);
+        prefix.extend_from_slice(&snapshots[i].timestamp_nanos.to_le_bytes());
+        prefix.extend_from_slice(&aad_len.to_le_bytes());
+        prefix.extend_from_slice(aads[i]);
+        prefix
     });
 
     let key_refs: [&[u8]; 8] = core::array::from_fn(|i| commit_keys[i].as_slice());
-    let msg_refs: [&[u8]; 8] = core::array::from_fn(|i| messages[i].as_slice());
+    let prefix_refs: [&[u8]; 8] = core::array::from_fn(|i| prefixes[i].as_slice());
 
-    let macs = kk_mix::kk_mac_batch_8(key_refs, msg_refs);
+    let macs = kk_mix::kk_mac_batch_8_multipart(key_refs, prefix_refs, ciphertexts);
 
     for k in &mut commit_keys {
         k.zeroize();
