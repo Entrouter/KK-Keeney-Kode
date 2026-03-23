@@ -13,8 +13,14 @@ allow = [
     "BSD-2-Clause",
     "BSD-3-Clause",
     "ISC",
+    "Unicode-3.0",
     "Unicode-DFS-2016",
 ]
+
+[[licenses.clarify]]
+name = "kk-crypto"
+expression = "Apache-2.0"
+license-files = [{ path = "LICENSE", hash = 0x0d895130 }]
 
 [bans]
 multiple-versions = "warn"
