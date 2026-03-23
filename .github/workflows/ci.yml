@@ -44,7 +44,7 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --all-targets --features std,gpu
+      - run: cargo test --lib --bins --tests --examples --features std,gpu
       - run: cargo test --doc --features std,gpu
 
   doc:

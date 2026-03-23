@@ -386,7 +386,7 @@ pub fn kk_permute_with_schedule(state: &mut KkState, rotations: &[[u32; 2]; 15])
 /// in range [1, 63] (non-trivial rotations on 64-bit words).
 ///
 /// Uses bias-free extraction: mask to 6 bits (0–63), then OR with 1
-/// to guarantee the result is odd and ≥ 1. The range [0,63] maps
+/// to guarantee the result is odd and ≥ 1. The range \[0,63\] maps
 /// uniformly from 8-bit bytes (256 / 64 = 4 values per bucket, exact),
 /// so there is zero modular bias.
 pub fn rotations_from_entropy(entropy: &[u8]) -> [[u32; 2]; 15] {

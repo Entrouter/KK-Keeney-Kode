@@ -73,7 +73,7 @@ pub struct KkPacket {
 impl KkPacket {
     /// Serialize the full packet for transmission.
     ///
-    /// Format: [4-byte ciphertext length][ciphertext][48-byte snapshot][32-byte commitment]
+    /// Format: `[4-byte ciphertext length][ciphertext][48-byte snapshot][32-byte commitment]`
     pub fn to_bytes(&self) -> Vec<u8> {
         let ct_len = self.ciphertext.len() as u32;
         let snap_bytes = self.entropy_snapshot.to_bytes();
@@ -146,7 +146,7 @@ pub struct KkSealedMessage {
 impl KkSealedMessage {
     /// Serialize for Channel 1 transmission.
     ///
-    /// Format: [4-byte ciphertext length][ciphertext][32-byte commitment]
+    /// Format: `[4-byte ciphertext length][ciphertext][32-byte commitment]`
     pub fn to_bytes(&self) -> Vec<u8> {
         let ct_len = self.ciphertext.len() as u32;
         let commit_bytes = self.commitment.to_bytes();
@@ -661,7 +661,7 @@ pub fn encode_aead_with_snapshot(
 //  Pooled encode - pre-generated entropy for high-throughput paths
 // ─────────────────────────────────────────────────────────────────
 
-/// Encode plaintext using a pre-warmed [`EntropyPool`] instead of
+/// Encode plaintext using a pre-warmed [`EntropyPool`](crate::EntropyPool) instead of
 /// calling `entropy::gather()` on every invocation.
 ///
 /// Identical semantics to [`encode`], but the entropy snapshot is drawn
@@ -684,7 +684,7 @@ pub fn encode_pooled(
     })
 }
 
-/// AEAD encode using a pre-warmed [`EntropyPool`].
+/// AEAD encode using a pre-warmed [`EntropyPool`](crate::EntropyPool).
 ///
 /// Identical semantics to [`encode_aead`], but draws entropy from the pool.
 pub fn encode_aead_pooled(
@@ -861,7 +861,7 @@ fn compute_merkle_root(chunks: &[KkAeadPacket]) -> [u8; 32] {
 /// - `plaintext` - the full payload to encrypt
 /// - `aad` - associated data, authenticated on every chunk
 /// - `chunk_size` - bytes per chunk (use [`PARALLEL_CHUNK_SIZE`] for default 1 MiB)
-/// - `pool` - optional [`EntropyPool`] for high-throughput paths
+/// - `pool` - optional [`EntropyPool`](crate::EntropyPool) for high-throughput paths
 pub fn encode_parallel(
     shared_secret: &[u8],
     plaintext: &[u8],
