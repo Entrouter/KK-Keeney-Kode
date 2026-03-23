@@ -9,7 +9,7 @@ NOTICE: Removal of this header is a violation of the license.
 
 # Keeney Kode: A Temporal Cryptographic Primitive - Design, Analysis & Performance
 
-## By John A Keeney, Entrouter
+## By John A Keeney, Entrouter, Australia
 
 *Generated for kk-crypto v0.1.0, 2026*
 
