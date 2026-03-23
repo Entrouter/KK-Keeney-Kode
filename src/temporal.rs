@@ -137,7 +137,7 @@ pub fn verify(
 /// The MAC message is:
 /// `snapshot.bytes(32B) || timestamp_nanos(16B LE) || aad_len(8B LE) || aad || ciphertext`
 ///
-/// This ensures the AAD is authenticated alongside the ciphertext -any
+/// This ensures the AAD is authenticated alongside the ciphertext-any
 /// modification to either is detected.
 pub fn commit_aead(
     shared_secret: &[u8],
@@ -171,13 +171,13 @@ pub fn commit_aead_batch_8(
     ciphertexts: [&[u8]; 8],
     aads: [&[u8]; 8],
 ) -> Result<[TemporalCommitment; 8]> {
-    // Derive 8 commitment keys (scalar  - each is a single KDF, tiny)
+    // Derive 8 commitment keys (scalar - each is a single KDF, tiny)
     let mut commit_keys: [Vec<u8>; 8] = core::array::from_fn(|i| {
         kdf::derive_commitment_key(shared_secret, snapshots[i])
             .expect("commitment key derivation should not fail")
     });
 
-    // Build 8 small MAC prefixes (header only  - no ciphertext copy)
+    // Build 8 small MAC prefixes (header only - no ciphertext copy)
     let prefixes: [Vec<u8>; 8] = core::array::from_fn(|i| {
         let aad_len = aads[i].len() as u64;
         let mut prefix = Vec::with_capacity(48 + aads[i].len());

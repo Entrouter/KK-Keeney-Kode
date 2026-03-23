@@ -458,7 +458,7 @@ pub fn decode_bound(
 /// A KK-AEAD packet: ciphertext + authenticated associated data.
 ///
 /// Contains:
-///   - Associated data (AAD)  - transmitted in the clear, authenticated
+///   - Associated data (AAD) - transmitted in the clear, authenticated
 ///   - The ciphertext (XOR of plaintext with per-symbol key stream)
 ///   - The entropy snapshot ε (the unrepeatable moment)
 ///   - Temporal commitment (binds ciphertext + AAD to the entropic moment)
@@ -552,9 +552,9 @@ impl KkAeadPacket {
 /// that must be readable in the clear but tamper-proof.
 ///
 /// # Arguments
-/// - `shared_secret`  - the pre-shared key
-/// - `plaintext`  - data to encrypt
-/// - `aad`  - associated data to authenticate (not encrypted)
+/// - `shared_secret` - the pre-shared key
+/// - `plaintext` - data to encrypt
+/// - `aad` - associated data to authenticate (not encrypted)
 pub fn encode_aead(
     shared_secret: &[u8],
     plaintext: &[u8],
@@ -606,7 +606,7 @@ pub fn decode_aead(
 ///
 /// # Visibility
 /// Exposed for integration tests and the `generate_vectors` example.
-/// **Not part of the public API contract**  - may change without notice.
+/// **Not part of the public API contract** - may change without notice.
 #[doc(hidden)]
 pub fn encode_with_snapshot(
     shared_secret: &[u8],
@@ -649,7 +649,7 @@ pub fn encode_aead_with_snapshot(
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  Pooled encode  - pre-generated entropy for high-throughput paths
+//  Pooled encode - pre-generated entropy for high-throughput paths
 // ─────────────────────────────────────────────────────────────────
 
 /// Encode plaintext using a pre-warmed [`EntropyPool`] instead of
@@ -699,7 +699,7 @@ pub fn encode_aead_pooled(
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  Batched AEAD  - parallel encrypt/decrypt of N independent messages
+//  Batched AEAD - parallel encrypt/decrypt of N independent messages
 // ─────────────────────────────────────────────────────────────────
 
 /// Encrypt N independent messages in parallel using Rayon.
@@ -720,11 +720,11 @@ pub fn encode_aead_batch(
         .par_chunks(8)
         .flat_map_iter(|chunk| {
             if chunk.len() == 8 {
-                // Full batch of 8  - use vectorized MAC
+                // Full batch of 8 - use vectorized MAC
                 encode_aead_batch_8_inner(shared_secret, chunk, pool)
                     .expect("batch encode failed")
             } else {
-                // Tail < 8  - scalar fallback
+                // Tail < 8 - scalar fallback
                 chunk
                     .iter()
                     .map(|(pt, aad)| match pool {
@@ -757,14 +757,14 @@ fn encode_aead_batch_8_inner(
         }
     });
 
-    // XOR-encrypt 8 ciphertexts (sequential to avoid nested Rayon contention  -
+    // XOR-encrypt 8 ciphertexts (sequential to avoid nested Rayon contention -
     // outer par_chunks(8) already provides parallelism)
     let ciphertexts: [Vec<u8>; 8] = core::array::from_fn(|i| {
         xor_with_keystream_seq(shared_secret, &snapshots[i], chunk[i].0)
             .expect("xor_with_keystream failed")
     });
 
-    // Batch MAC  - the hot path
+    // Batch MAC - the hot path
     let snap_refs: [&EntropySnapshot; 8] = core::array::from_fn(|i| &snapshots[i]);
     let ct_refs: [&[u8]; 8] = core::array::from_fn(|i| ciphertexts[i].as_slice());
     let aad_refs: [&[u8]; 8] = core::array::from_fn(|i| chunk[i].1);
@@ -815,7 +815,7 @@ pub fn decode_aead_batch(
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  Parallel Encode/Decode  - single large payload, chunked + Merkle
+//  Parallel Encode/Decode - single large payload, chunked + Merkle
 // ─────────────────────────────────────────────────────────────────
 
 /// Default chunk size for parallel encode: 1 MiB.
@@ -857,11 +857,11 @@ fn compute_merkle_root(chunks: &[KkAeadPacket]) -> [u8; 32] {
 /// payload together.
 ///
 /// # Arguments
-/// - `shared_secret`  - the pre-shared key
-/// - `plaintext`  - the full payload to encrypt
-/// - `aad`  - associated data, authenticated on every chunk
-/// - `chunk_size`  - bytes per chunk (use [`PARALLEL_CHUNK_SIZE`] for default 1 MiB)
-/// - `pool`  - optional [`EntropyPool`] for high-throughput paths
+/// - `shared_secret` - the pre-shared key
+/// - `plaintext` - the full payload to encrypt
+/// - `aad` - associated data, authenticated on every chunk
+/// - `chunk_size` - bytes per chunk (use [`PARALLEL_CHUNK_SIZE`] for default 1 MiB)
+/// - `pool` - optional [`EntropyPool`] for high-throughput paths
 pub fn encode_parallel(
     shared_secret: &[u8],
     plaintext: &[u8],
@@ -1179,7 +1179,7 @@ fn decode_aead_seq(
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  Streaming API  - incremental encode / decode
+//  Streaming API - incremental encode / decode
 // ─────────────────────────────────────────────────────────────────
 
 /// Incremental encoder that accumulates plaintext via [`update`](StreamEncoder::update)
@@ -1715,7 +1715,7 @@ mod tests {
         let mut packet = encode_parallel(secret, &plaintext, aad, 512, None).unwrap();
         assert!(packet.chunks.len() >= 2);
 
-        // Swap first two chunks  - Merkle root should no longer match
+        // Swap first two chunks - Merkle root should no longer match
         packet.chunks.swap(0, 1);
         let result = decode_parallel(secret, &packet);
         assert!(result.is_err());
@@ -1730,7 +1730,7 @@ mod tests {
         let mut packet = encode_parallel(secret, &plaintext, aad, 512, None).unwrap();
         assert!(packet.chunks.len() >= 2);
 
-        // Remove a chunk  - Merkle root should no longer match
+        // Remove a chunk - Merkle root should no longer match
         packet.chunks.pop();
         let result = decode_parallel(secret, &packet);
         assert!(result.is_err());

@@ -367,7 +367,7 @@ impl GpuAccelerator {
         shared.absorb(&(salt.len() as u64).to_le_bytes());
         shared.absorb(salt);
 
-        // CPU: diverge  - each clone absorbs its own info, then finalizes
+        // CPU: diverge - each clone absorbs its own info, then finalizes
         let mut sponges: Vec<KkSponge> = (0..n).map(|_| shared.clone()).collect();
         drop(shared);
 

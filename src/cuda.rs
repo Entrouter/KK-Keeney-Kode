@@ -9,7 +9,7 @@
 //!
 //! Unlike the WGSL GPU path that emulates 64-bit arithmetic with
 //! `vec2<u32>` pairs, the CUDA kernel uses native `uint64_t` for
-//! all multiply, shift, and rotate operations  - no emulation overhead.
+//! all multiply, shift, and rotate operations - no emulation overhead.
 //!
 //! # When to use CUDA
 //!
@@ -131,7 +131,7 @@ impl CudaAccelerator {
         };
 
         if rc != 0 {
-            // Fall through silently  - states unchanged.
+            // Fall through silently - states unchanged.
             // In a production system you'd want error propagation,
             // but for benchmarking & testing this is fine.
             return;
@@ -147,7 +147,7 @@ impl CudaAccelerator {
 
     /// Permute N independent states using persistent GPU buffers.
     ///
-    /// Avoids cudaMalloc/cudaFree per call  - significantly faster for
+    /// Avoids cudaMalloc/cudaFree per call - significantly faster for
     /// repeated invocations (e.g., KDF squeeze loops).
     pub fn permute_batch_persistent(
         &self,
@@ -221,7 +221,7 @@ impl CudaAccelerator {
         shared.absorb(&(salt.len() as u64).to_le_bytes());
         shared.absorb(salt);
 
-        // CPU: diverge  - each clone absorbs its own info, then finalizes
+        // CPU: diverge - each clone absorbs its own info, then finalizes
         let mut sponges: Vec<KkSponge> = (0..n).map(|_| shared.clone()).collect();
         drop(shared);
 

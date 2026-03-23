@@ -408,7 +408,7 @@ fn bench_rng_reseed(c: &mut Criterion) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  KkRngPool  - Parallel RNG throughput
+//  KkRngPool - Parallel RNG throughput
 // ─────────────────────────────────────────────────────────────────
 
 fn bench_rng_pool_next_bytes(c: &mut Criterion) {

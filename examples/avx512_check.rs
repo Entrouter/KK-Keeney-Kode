@@ -22,7 +22,7 @@ fn main() {
     }
 
     #[cfg(not(target_arch = "x86_64"))]
-    println!("Not x86_64  - AVX-512 not applicable");
+    println!("Not x86_64 - AVX-512 not applicable");
 }
 
 #[cfg(target_arch = "x86_64")]

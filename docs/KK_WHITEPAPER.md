@@ -7,7 +7,7 @@ See the LICENSE file in the project root for full license information.
 NOTICE: Removal of this header is a violation of the license.
 -->
 
-# Keeney Kode: A Temporal Cryptographic Primitive  - Design, Analysis & Performance
+# Keeney Kode: A Temporal Cryptographic Primitive - Design, Analysis & Performance
 
 ## By John A Keeney, Entrouter
 
@@ -19,7 +19,7 @@ NOTICE: Removal of this header is a violation of the license.
 
 This paper presents the complete design, security analysis, and performance characterisation of Keeney Kode (KK), a novel cryptographic primitive built entirely from first principles. No SHA. No AES. No borrowed S-boxes. Every operation, every constant, every round function was purpose-built.
 
-KK is a 1600-bit sponge permutation with temporal entropy binding, data-dependent internal routing, and a formal proof that without the entropy snapshot, decryption is information-theoretically impossible. The permutation is driven by two novel operations  - **Multiply-Fold-Rotate (MFR)** and **Data-Dependent Rotation (DDR)**  - composed into a 5-word quintet round structure executed 15 times per round over 32 rounds.
+KK is a 1600-bit sponge permutation with temporal entropy binding, data-dependent internal routing, and a formal proof that without the entropy snapshot, decryption is information-theoretically impossible. The permutation is driven by two novel operations - **Multiply-Fold-Rotate (MFR)** and **Data-Dependent Rotation (DDR)** - composed into a 5-word quintet round structure executed 15 times per round over 32 rounds.
 
 The empirical security evaluation spans 10 categories of cryptographic testing: constant-time verification (dudect), strict avalanche criterion (SAC), bit independence criterion (BIC), collision resistance, length-extension resistance, chi-squared uniformity, known answer tests, differential trail analysis (including exhaustive DDT at reduced word sizes), linear cryptanalysis (including exhaustive LAT at reduced word sizes), and algebraic degree analysis. Formal trail bounds are established: **differential 2^−26,712** (margin 25,912 bits above 2^−800) and **linear 2^−2,544** (margin 1,744 bits above 2^−800). Performance benchmarks across 56 Criterion measurement points characterise throughput from core primitives through AEAD, session, and key agreement operations.
 
@@ -27,7 +27,7 @@ The empirical security evaluation spans 10 categories of cryptographic testing: 
 
 ## Table of Contents
 
-### Part I  - Design & Architecture
+### Part I - Design & Architecture
 1. [The Core Idea: Temporal Cryptography](#1-the-core-idea-temporal-cryptography)
 2. [Architecture](#2-architecture)
 3. [The Two Core Operations: MFR and DDR](#3-the-two-core-operations-mfr-and-ddr)
@@ -46,7 +46,7 @@ The empirical security evaluation spans 10 categories of cryptographic testing: 
 16. [Packet Formats](#16-packet-formats)
 17. [Quantum Key Distribution Integration](#17-quantum-key-distribution-integration)
 
-### Part II  - Empirical Security Analysis
+### Part II - Empirical Security Analysis
 18. [Primitive Under Test](#18-primitive-under-test)
 19. [Constant-Time Verification (dudect)](#19-constant-time-verification-dudect)
 20. [Strict Avalanche Criterion (SAC)](#20-strict-avalanche-criterion-sac)
@@ -62,11 +62,11 @@ The empirical security evaluation spans 10 categories of cryptographic testing: 
 30. [Formal LAT Analysis](#30-formal-lat-analysis)
 31. [Bit-Boundary Proof Sketch](#31-bit-boundary-proof-sketch)
 
-### Part III  - Performance
+### Part III - Performance
 32. [Performance Benchmarks](#32-performance-benchmarks)
 33. [AVX-512 SIMD Acceleration](#33-avx-512-simd-acceleration)
 
-### Part IV  - Assessment
+### Part IV - Assessment
 34. [What KK Is Best For](#34-what-kk-is-best-for)
 35. [How Entrouter Uses KK](#35-how-entrouter-uses-kk)
 36. [What KK Is Not](#36-what-kk-is-not)
@@ -78,7 +78,7 @@ The empirical security evaluation spans 10 categories of cryptographic testing: 
 ---
 ---
 
-# Part I  - Design & Architecture
+# Part I - Design & Architecture
 
 ---
 
@@ -88,7 +88,7 @@ Traditional encryption maps plaintext to ciphertext deterministically. The same 
 
 KK operates on a fundamentally different axiom:
 
-**KK(S) = S XOR epsilon  - KK(S) = S ⊕ ε**
+**KK(S) = S XOR epsilon - KK(S) = S ⊕ ε**
 
 Where epsilon is the universal entropy at the precise instant of creation. The symbol "A" has no fixed value. Its value is a temporal function of the universe at that moment. Encode the same plaintext twice, one nanosecond apart, and you get two cryptographically unrelated ciphertexts. This is not achieved by appending a random nonce. The cipher itself, its internal structure, its rotation schedule, its key derivation, all change based on entropy captured at the moment of encoding.
 
@@ -200,7 +200,7 @@ But here is where KK becomes truly novel: **the rotation schedule itself can cha
 
 When KK operates in KDF or MAC mode, the rotation schedule is derived from the entropy snapshot rather than using the default constants. The function `rotations_from_entropy` takes the 32-byte entropy snapshot and produces a complete set of 15 rotation pairs.
 
-This means the algebraic structure of the permutation  - not just the data flowing through it  - changes with every encoding. Two encodings performed one nanosecond apart will use structurally different ciphers. An attacker who somehow characterises one permutation instance has learned nothing about the next one.
+This means the algebraic structure of the permutation - not just the data flowing through it - changes with every encoding. Two encodings performed one nanosecond apart will use structurally different ciphers. An attacker who somehow characterises one permutation instance has learned nothing about the next one.
 
 This is what I mean by temporal cryptography. The cipher itself is a temporal object.
 
@@ -357,7 +357,7 @@ KK includes a BB84 quantum key distribution module. Alice prepares qubits in ran
 ---
 ---
 
-# Part II  - Empirical Security Analysis
+# Part II - Empirical Security Analysis
 
 *This part presents a systematic, reproducible evaluation of the KK permutation across 10 categories of cryptographic testing. All tests are implemented as executable Rust code in the repository.*
 
@@ -738,12 +738,12 @@ Result: $\Delta y = 2^{n-1} | 2^{n/2-1}$, deterministic for all $(a, b)$. ∎
 | Input Bit | MDP | Count at MDP | Tier |
 |:---------:|:---:|:-------------|:----:|
 | 0 (LSB) | 2^−7.00 | 2 / 128 | Best |
-| 1 | 2^−5.42 |  - | Good |
-| 2 | 2^−4.42 |  - | Good |
-| 3 | 2^−3.42 |  - | Medium |
-| 4 | 2^−2.42 |  - | Medium |
-| 5 | 2^−1.42 |  - | Weak |
-| 6 | 2^−0.42 |  - | Weak |
+| 1 | 2^−5.42 | - | Good |
+| 2 | 2^−4.42 | - | Good |
+| 3 | 2^−3.42 | - | Medium |
+| 4 | 2^−2.42 | - | Medium |
+| 5 | 2^−1.42 | - | Weak |
+| 6 | 2^−0.42 | - | Weak |
 | 7 (MSB) | 2^0.00 | all (MDP=1) | Deterministic |
 
 98.6% of all differential pairs have MDP < 1/8.
@@ -804,7 +804,7 @@ Section 27 gave a heuristic bound of $2^{-576}$ via sampling. The formal analysi
 
 - Extrapolated from 8/16-bit exhaustive computation; 64-bit exhaustive DDT is computationally infeasible ($>2^{128}$ evaluations).
 - Assumes independent active operations (standard in trail analysis).
-- MSB phenomenon is universal for modular multiplication  - cannot be designed away.
+- MSB phenomenon is universal for modular multiplication - cannot be designed away.
 - Complete MEDP (maximum expected differential probability) proof over all characteristics is future work.
 
 ---
@@ -847,7 +847,7 @@ $$LP_\text{DDR}(n) = \frac{1}{n^2}$$
 |:-----:|:---------:|:--------:|
 | 8-bit | $2^{-6}$ | $2^{-6.00}$ (all 8 positions) |
 | 16-bit | $2^{-8}$ | $2^{-8.00}$ (all 16 positions) |
-| 64-bit | $2^{-12}$ |  - (extrapolated) |
+| 64-bit | $2^{-12}$ | - (extrapolated) |
 
 ### 30.5 Three Formal Trail Bounds
 
@@ -947,7 +947,7 @@ Verified exhaustively at 8-bit (all 8 bits: $LP = 2^{-6.00}$, uniform). Combined
 | Differential | MSB MDP = 1 | $2^{-26,712}$ | 25,912 bits |
 | Linear | LSB LP = 1 | $2^{-2,544}$ | 1,744 bits |
 
-Both phenomena are **universal algebraic properties** of modular multiplication by odd numbers  - they cannot be eliminated by any design that uses this operation. However:
+Both phenomena are **universal algebraic properties** of modular multiplication by odd numbers - they cannot be eliminated by any design that uses this operation. However:
 
 1. They affect **opposite ends** of the word (MSB vs LSB).
 2. A trail cannot exploit both simultaneously at the same bit.
@@ -959,7 +959,7 @@ Both phenomena are **universal algebraic properties** of modular multiplication 
 ---
 ---
 
-# Part III  - Performance
+# Part III - Performance
 
 ---
 
@@ -992,9 +992,9 @@ All benchmarks were collected using the Criterion statistical framework (100 sam
 | kk_mac_verify | 32 B | 1.19 µs | 25.6 MiB/s |
 | | 256 B | 2.32 µs | 105.3 MiB/s |
 | | 4 KB | 32.09 µs | 121.7 MiB/s |
-| kk_permute | default rotations | 1.14 µs |  - |
-| | custom rotations | 1.14 µs |  - |
-| rotations_from_entropy |  - | 11.4 ns |  - |
+| kk_permute | default rotations | 1.14 µs | - |
+| | custom rotations | 1.14 µs | - |
+| rotations_from_entropy | - | 11.4 ns | - |
 | kk_entropy_mix | 32 B | 2.35 µs | 13.0 MiB/s |
 | | 64 B | 2.33 µs | 26.2 MiB/s |
 | | 128 B | 2.33 µs | 52.3 MiB/s |
@@ -1011,8 +1011,8 @@ All benchmarks were collected using the Criterion statistical framework (100 sam
 | | 1 KB | 16.47 µs | 59.3 MiB/s |
 | | 16 KB | 209.64 µs | 74.5 MiB/s |
 | | 64 KB | 609.85 µs | 102.5 MiB/s |
-| serde to_bytes | 64 B / 4 KB | 59.9 ns / 81.9 ns |  - |
-| serde from_bytes | 64 B / 4 KB | 50.1 ns / 83.5 ns |  - |
+| serde to_bytes | 64 B / 4 KB | 59.9 ns / 81.9 ns | - |
+| serde from_bytes | 64 B / 4 KB | 50.1 ns / 83.5 ns | - |
 
 ### 32.3 Split Codec (Shamir Secret Sharing)
 
@@ -1035,8 +1035,8 @@ All benchmarks were collected using the Criterion statistical framework (100 sam
 | decode_bound | 64 B | 4.85 µs | 12.6 MiB/s |
 | | 1 KB | 16.46 µs | 59.3 MiB/s |
 | | 16 KB | 208.59 µs | 74.9 MiB/s |
-| serde to_bytes | 64 B / 4 KB | 56.7 ns / 81.2 ns |  - |
-| serde from_bytes | 64 B / 4 KB | 44.1 ns / 61.4 ns |  - |
+| serde to_bytes | 64 B / 4 KB | 56.7 ns / 81.2 ns | - |
+| serde from_bytes | 64 B / 4 KB | 44.1 ns / 61.4 ns | - |
 
 ### 32.5 Session & Key Agreement
 
@@ -1045,7 +1045,7 @@ All benchmarks were collected using the Criterion statistical framework (100 sam
 | session_aead_roundtrip | 64 B | 56.52 µs | 1.08 MiB/s |
 | (RopeRatchet + AEAD) | 1 KB | 79.29 µs | 12.3 MiB/s |
 | | 16 KB | 463.88 µs | 33.7 MiB/s |
-| eka_full_handshake | 3-msg exchange | 44.60 µs |  - |
+| eka_full_handshake | 3-msg exchange | 44.60 µs | - |
 
 ### 32.6 Temporal & Entropy
 
@@ -1053,23 +1053,23 @@ All benchmarks were collected using the Criterion statistical framework (100 sam
 |-----------|------|---------|
 | temporal commit | 64 B / 1 KB | 3.53 µs / 10.45 µs |
 | temporal verify | 64 B / 1 KB | 3.54 µs / 10.41 µs |
-| entropy_gather |  - | 17.38 µs |
+| entropy_gather | - | 17.38 µs |
 
 ### 32.7 Key Observations
 
-- **Hash peak throughput: ~127 MiB/s**  - consistent across large inputs; sponge absorb rate is the bottleneck as expected.
+- **Hash peak throughput: ~127 MiB/s** - consistent across large inputs; sponge absorb rate is the bottleneck as expected.
 - **KDF scales efficiently:** 1.2 µs base cost, throughput climbs to 145.5 MiB/s at 512 B output.
 - **KDF batch is ~8× single cost:** near-perfect linear scaling for 8 parallel derivations.
 - **MAC matches hash speed:** identical throughput profile (same sponge base), ~127 MiB/s at 64 KB.
-- **Permute core: 1.14 µs**  - the fundamental 25-word state transform (~22 Keccak-f equivalent rounds).
-- **Rotation derivation: 11.4 ns**  - essentially free; negligible overhead for entropy-driven rotations.
+- **Permute core: 1.14 µs** - the fundamental 25-word state transform (~22 Keccak-f equivalent rounds).
+- **Rotation derivation: 11.4 ns** - essentially free; negligible overhead for entropy-driven rotations.
 - **AEAD encode dominates decode:** encode ~22 µs fixed overhead (KDF + hash + MAC); decode only ~4.8 µs at small sizes.
-- **All 3 codec modes (AEAD/split/bound) have identical performance**  - framing overhead is negligible.
+- **All 3 codec modes (AEAD/split/bound) have identical performance** - framing overhead is negligible.
 - **Packet serde is sub-100 ns:** serialisation/deserialisation adds virtually zero overhead.
 - **EKA handshake: 44.6 µs** for a complete 3-message key agreement (~22,400 handshakes/sec).
 - **Session roundtrip scales well:** 56.5 µs for 64 B up to 463.9 µs for 16 KB (includes fresh RopeRatchet + encode + decode).
 - **Temporal commitments are symmetric:** commit and verify cost the same (~3.5 µs for 64 B).
-- **Entropy gathering: 17.4 µs**  - fast system entropy snapshot.
+- **Entropy gathering: 17.4 µs** - fast system entropy snapshot.
 
 ---
 
@@ -1083,12 +1083,12 @@ DDR's six branchless conditional rotations collapse to a single `VPROLVQ` instru
 
 | Primitive | Scalar | AVX-512 Batch (×8) | Effective per-key |
 |-----------|--------|---------------------|-------------------|
-| kk_permute | 1.14 µs |  - |  - |
+| kk_permute | 1.14 µs | - | - |
 | kk_kdf (32 B) | 1.20 µs | 9.68 µs (batch_8) | 1.21 µs |
 | kk_kdf (128 B) | 1.21 µs | 9.53 µs (batch_8) | 1.19 µs |
-| kk_hash (256 B) | 2.31 µs |  - |  - |
-| encode_aead (1 KB) | 33.60 µs |  - |  - |
-| eka_handshake | 44.60 µs |  - | ~22,400/sec |
+| kk_hash (256 B) | 2.31 µs | - | - |
+| encode_aead (1 KB) | 33.60 µs | - | - |
+| eka_handshake | 44.60 µs | - | ~22,400/sec |
 
 KDF batch achieves near-perfect linear scaling: 8 parallel derivations in the time of ~8 sequential calls, with the AVX-512 vectorised squeeze path providing ~1.5× speedup when output size grows (e.g., 256 B: scalar sequential 15.34 µs vs batch 10.12 µs). Peak hash throughput reaches ~127 MiB/s at 64 KB. Packet serde overhead is sub-100 ns.
 
@@ -1097,7 +1097,7 @@ Runtime CPU detection ensures transparent fallback to scalar when AVX-512F/DQ ar
 ---
 ---
 
-# Part IV  - Assessment
+# Part IV - Assessment
 
 ---
 
@@ -1206,15 +1206,15 @@ However, both trail bounds rely on scaling extrapolation from reduced word sizes
 
 Every claim in this paper can be independently verified. The repository contains:
 
-- `examples/proof.rs`  - Formal non-reconstructibility proof
-- `examples/formal_ddt.rs`  - Exhaustive differential distribution table analysis
-- `examples/formal_lat.rs`  - Exhaustive linear approximation table analysis
-- `examples/linear_algebraic.rs`  - Algebraic degree and structural analysis
-- `examples/crypto_quality.rs`  - SAC, BIC, collision, chi-squared, and length-extension tests
-- `examples/dudect.rs`  - Constant-time verification via Welch t-test
-- `examples/differential.rs`  - Multi-round differential propagation analysis
-- `examples/bit0_proof.rs`  - Bit-boundary theorem verification
-- `benches/kk_bench.rs`  - Performance benchmarks
+- `examples/proof.rs` - Formal non-reconstructibility proof
+- `examples/formal_ddt.rs` - Exhaustive differential distribution table analysis
+- `examples/formal_lat.rs` - Exhaustive linear approximation table analysis
+- `examples/linear_algebraic.rs` - Algebraic degree and structural analysis
+- `examples/crypto_quality.rs` - SAC, BIC, collision, chi-squared, and length-extension tests
+- `examples/dudect.rs` - Constant-time verification via Welch t-test
+- `examples/differential.rs` - Multi-round differential propagation analysis
+- `examples/bit0_proof.rs` - Bit-boundary theorem verification
+- `benches/kk_bench.rs` - Performance benchmarks
 
 Run `cargo run --example proof` or any other example to reproduce the results. The code is the proof.
 
@@ -1222,17 +1222,17 @@ Run `cargo run --example proof` or any other example to reproduce the results. T
 
 ## 40. References
 
-1. **Reparaz, O., Balasch, J., Verbauwhede, I.** "Dude, is my code constant time?" *Design, Automation & Test in Europe Conference (DATE)*, 2017.  - The dudect methodology implemented in Test 1.
+1. **Reparaz, O., Balasch, J., Verbauwhede, I.** "Dude, is my code constant time?" *Design, Automation & Test in Europe Conference (DATE)*, 2017. - The dudect methodology implemented in Test 1.
 
-2. **Webster, A.F., Tavares, S.E.** "On the design of S-boxes." *Advances in Cryptology, CRYPTO '85*, LNCS 218, pp. 523–534, 1986.  - Original definitions of the Strict Avalanche Criterion and Bit Independence Criterion (Tests 2–3).
+2. **Webster, A.F., Tavares, S.E.** "On the design of S-boxes." *Advances in Cryptology, CRYPTO '85*, LNCS 218, pp. 523–534, 1986. - Original definitions of the Strict Avalanche Criterion and Bit Independence Criterion (Tests 2–3).
 
-3. **Pearson, K.** "On the criterion that a given system of deviations from the probable in the case of a correlated system of variables is such that it can be reasonably supposed to have arisen from random sampling." *Philosophical Magazine*, Series 5, 50(302), pp. 157–175, 1900.  - The chi-squared goodness-of-fit test (Test 6).
+3. **Pearson, K.** "On the criterion that a given system of deviations from the probable in the case of a correlated system of variables is such that it can be reasonably supposed to have arisen from random sampling." *Philosophical Magazine*, Series 5, 50(302), pp. 157–175, 1900. - The chi-squared goodness-of-fit test (Test 6).
 
-4. **Bertoni, G., Daemen, J., Peeters, M., Van Assche, G.** "Sponge functions." *ECRYPT Hash Workshop*, 2007.  - The sponge construction underlying the KK hash and MAC, and the basis for length-extension resistance (Test 5).
+4. **Bertoni, G., Daemen, J., Peeters, M., Van Assche, G.** "Sponge functions." *ECRYPT Hash Workshop*, 2007. - The sponge construction underlying the KK hash and MAC, and the basis for length-extension resistance (Test 5).
 
-5. **NIST.** "SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions." *FIPS 202*, 2015.  - Reference sponge construction for comparison.
+5. **NIST.** "SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions." *FIPS 202*, 2015. - Reference sponge construction for comparison.
 
-6. **Welford, B.P.** "Note on a method for calculating corrected sums of squares and products." *Technometrics*, 4(3), pp. 419–420, 1962.  - The online variance algorithm used in the dudect implementation.
+6. **Welford, B.P.** "Note on a method for calculating corrected sums of squares and products." *Technometrics*, 4(3), pp. 419–420, 1962. - The online variance algorithm used in the dudect implementation.
 
 ---
 

@@ -117,7 +117,7 @@ impl KkRng {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  KkRngPool  - Parallel RNG with N independent streams
+//  KkRngPool - Parallel RNG with N independent streams
 // ─────────────────────────────────────────────────────────────────
 
 #[cfg(feature = "std")]
@@ -138,7 +138,7 @@ use std::sync::{atomic::{AtomicUsize, Ordering}, Mutex};
 /// let bytes = pool.next_bytes(128);
 /// assert_eq!(bytes.len(), 128);
 ///
-/// // Parallel fill  - splits work across all generators
+/// // Parallel fill - splits work across all generators
 /// let mut buf = vec![0u8; 4096];
 /// pool.fill_bytes_parallel(&mut buf);
 /// assert!(buf.iter().any(|&b| b != 0));

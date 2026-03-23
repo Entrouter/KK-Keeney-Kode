@@ -112,7 +112,7 @@ impl EntropyPool {
             Ok(snap)
         } else {
             drop(state);
-            // Pool exhausted  - fall back to synchronous gather
+            // Pool exhausted - fall back to synchronous gather
             entropy::gather()
         }
     }

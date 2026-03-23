@@ -1,4 +1,4 @@
-//! CUDA batch benchmarks  - permute and KDF.
+//! CUDA batch benchmarks - permute and KDF.
 //!
 //! Run: cargo bench --bench cuda_bench --features cuda
 
@@ -32,7 +32,7 @@ fn bench_cuda_permute_batch(c: &mut Criterion) {
             });
         });
 
-        // Persistent-buffer variant (should be faster  - avoids cudaMalloc/Free per call)
+        // Persistent-buffer variant (should be faster - avoids cudaMalloc/Free per call)
         group.bench_with_input(BenchmarkId::new("cuda_persistent", n), &n, |b, &n| {
             let mut states: Vec<KkState> = (0..n).map(|_| iv).collect();
             b.iter(|| {

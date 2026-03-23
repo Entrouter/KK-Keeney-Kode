@@ -8,7 +8,7 @@
 //! # KK Entropy Key Agreement (KK-EKA)
 //!
 //! A 3-message PSK-based key agreement protocol where both parties
-//! contribute fresh entropy. No public-key cryptography  - authentication
+//! contribute fresh entropy. No public-key cryptography - authentication
 //! is via KK-MAC over a pre-shared key.
 //!
 //! ## Protocol Flow
@@ -37,11 +37,11 @@
 //!
 //! ## Security Properties
 //!
-//! - **Forward secrecy**  - session key depends on ephemeral entropy from BOTH parties
-//! - **Mutual authentication**  - both prove PSK knowledge via kk_mac
-//! - **Contributory**  - neither party alone controls the session key
-//! - **Commitment binding**  - Alice commits to entropy BEFORE seeing Bob's
-//! - **Temporal freshness**  - entropy snapshots carry nanosecond timestamps
+//! - **Forward secrecy** - session key depends on ephemeral entropy from BOTH parties
+//! - **Mutual authentication** - both prove PSK knowledge via kk_mac
+//! - **Contributory** - neither party alone controls the session key
+//! - **Commitment binding** - Alice commits to entropy BEFORE seeing Bob's
+//! - **Temporal freshness** - entropy snapshots carry nanosecond timestamps
 
 use zeroize::Zeroize;
 
@@ -196,7 +196,7 @@ impl EkaInitiator {
     /// Process Bob's response and complete the handshake.
     ///
     /// Verifies Bob's authentication tag, produces `EkaMsg3` for Bob,
-    /// and derives the shared session key. Consumes `self`  - the
+    /// and derives the shared session key. Consumes `self` - the
     /// initiator state is zeroized on drop.
     pub fn process_msg2(self, msg2: &EkaMsg2) -> Result<(EkaMsg3, [u8; 32])> {
         // Verify auth_b = kk_mac(psk, entropy_b || commit_a)
@@ -303,7 +303,7 @@ impl EkaResponder {
     ///
     /// Verifies Alice's commitment (hash matches revealed entropy)
     /// and her authentication tag, then derives the shared session key.
-    /// Consumes `self`  - state is zeroized on drop.
+    /// Consumes `self` - state is zeroized on drop.
     pub fn process_msg3(self, msg3: &EkaMsg3) -> Result<[u8; 32]> {
         // Verify commitment: kk_hash(entropy_a) must match commit_a from msg1
         let recomputed_commit = kk_mix::kk_hash(&msg3.entropy_a_bytes);

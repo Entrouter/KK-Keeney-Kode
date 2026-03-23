@@ -1,4 +1,4 @@
-# KK (Keeney Kode)  - Formal Specification
+# KK (Keeney Kode) - Formal Specification
 
 **Version:** 1.0  
 **Author:** John A Keeney - Entrouter - Australia  
@@ -31,9 +31,9 @@
 
 ### 1.1 Overview
 
-KK (Keeney Kode) is a novel symmetric cryptographic system where every cryptographic operation  - hashing, key derivation, message authentication, encryption, and key agreement  - is built from a single primitive: the KK permutation. The permutation operates on a 1600-bit state using two novel building blocks: **Multiply-Fold-Rotate (MFR)** and **Data-Dependent Rotation (DDR)**.
+KK (Keeney Kode) is a novel symmetric cryptographic system where every cryptographic operation - hashing, key derivation, message authentication, encryption, and key agreement - is built from a single primitive: the KK permutation. The permutation operates on a 1600-bit state using two novel building blocks: **Multiply-Fold-Rotate (MFR)** and **Data-Dependent Rotation (DDR)**.
 
-The defining innovation of KK is **temporal permutation variance**: the rotation schedule inside the permutation can be derived from an entropy snapshot, meaning the *mathematical structure* of the cipher changes with every encryption. This is not merely different data through the same algorithm -it is a *different algorithm entirely* at each moment.
+The defining innovation of KK is **temporal permutation variance**: the rotation schedule inside the permutation can be derived from an entropy snapshot, meaning the *mathematical structure* of the cipher changes with every encryption. This is not merely different data through the same algorithm-it is a *different algorithm entirely* at each moment.
 
 ### 1.2 Notation
 
@@ -275,11 +275,11 @@ After one quintet-round, all five words have influenced each other through a cha
 
 The KK permutation transforms a 1600-bit state $S = (S[0], S[1], \ldots, S[24])$ over $R$ rounds. Each round consists of:
 
-1. **Row phase**  - 5 quintet-rounds on rows of the 5×5 grid
-2. **Column phase**  - 5 quintet-rounds on columns
-3. **Diagonal phase**  - 5 quintet-rounds on diagonals
-4. **Round constant injection**  - at corners + center
-5. **Intra-round re-keying**  - every 8th round
+1. **Row phase** - 5 quintet-rounds on rows of the 5×5 grid
+2. **Column phase** - 5 quintet-rounds on columns
+3. **Diagonal phase** - 5 quintet-rounds on diagonals
+4. **Round constant injection** - at corners + center
+5. **Intra-round re-keying** - every 8th round
 
 ### 4.2 Row Phase
 
@@ -345,10 +345,10 @@ An `EntropySnapshot` $\varepsilon$ consists of:
 
 The 4 entropy sources, mixed through `kk_entropy_mix()`:
 
-1. **CSPRNG**  - 32 bytes from the OS random number generator (`OsRng`)
-2. **Timestamp**  - System time nanoseconds since epoch
-3. **CPU counter**  - `RDTSC` XOR'd with stack address (x86\_64), or `Instant` fallback
-4. **Thread jitter**  - 64 measurements of `yield_now()` timing with `black_box`, mixed through `kk_hash`
+1. **CSPRNG** - 32 bytes from the OS random number generator (`OsRng`)
+2. **Timestamp** - System time nanoseconds since epoch
+3. **CPU counter** - `RDTSC` XOR'd with stack address (x86\_64), or `Instant` fallback
+4. **Thread jitter** - 64 measurements of `yield_now()` timing with `black_box`, mixed through `kk_hash`
 
 → `entropy.rs`
 
@@ -690,7 +690,7 @@ $$\text{nonce} \leftarrow \text{OsRng}(32)$$
 1. $\text{ck} \leftarrow \text{derive\_commitment\_key}(K, \varepsilon)$
 2. $\text{msg} \leftarrow N \parallel \text{prev} \parallel \varepsilon.\text{bytes} \parallel \text{LE}_{16}(\varepsilon.\text{timestamp\_nanos}) \parallel C$
 3. $\text{mac} \leftarrow \text{KK-MAC-Entropy}(\text{ck}, \text{msg}, \varepsilon.\text{bytes})$
-    - note: uses entropy-derived rotations for the MAC itself
+   - note: uses entropy-derived rotations for the MAC itself
 4. Return `TemporalProof` $\{\text{mac}, N, \text{prev}\}$
 
 → `temporal::commit_bound()`
@@ -813,7 +813,7 @@ $$\text{combined} = E_{n+1} \parallel T_{n+1} \parallel C_{n+1}^{\text{pre}} \pa
 $$\text{output} \leftarrow \text{KK-KDF}(\text{combined}, \varepsilon.\text{bytes}, \texttt{b"KK-rope-mix-v1"}, 64)$$
 
 6. Split the 64-byte output:
-   - $C_{n+1} \leftarrow \text{output}[0..32]$ (new chain strand  - forward secrecy)
+   - $C_{n+1} \leftarrow \text{output}[0..32]$ (new chain strand - forward secrecy)
    - $\text{message\_key} \leftarrow \text{output}[32..64]$ (returned to caller)
 
 7. Zeroize $\text{combined}$ and $\text{output}$.
@@ -858,7 +858,7 @@ Each ratchet advance produces metadata that must be transmitted alongside the ci
 **Output:** `RopePacket`.
 
 1. $(\text{mk}, \text{step}) \leftarrow \text{ratchet.advance()}$
-2. $\text{inner} \leftarrow \text{codec::encode}(\text{mk}, P)$  - inner packet uses its own independent entropy
+2. $\text{inner} \leftarrow \text{codec::encode}(\text{mk}, P)$ - inner packet uses its own independent entropy
 3. Zeroize $\text{mk}$
 4. Return `RopePacket` $\{\text{step}, \text{inner}\}$
 
@@ -912,9 +912,9 @@ and derive a session key without ever transmitting the PSK.
 | `EkaMsg2` | 80 B | `entropy_b_bytes` (48 B) ‖ `auth_b` (32 B) |
 | `EkaMsg3` | 80 B | `entropy_a_bytes` (48 B) ‖ `auth_a` (32 B) |
 
-- `commit_a = kk_hash(serialize(ε_a))`  - a 32-byte hash of the initiator's entropy snapshot.
-- `auth_b = kk_mac(psk, ε_b\_bytes \| commit_a)`  - authenticates responder's entropy bound to the initiator's commitment.
-- `auth_a = kk_mac(psk, ε_a\_bytes \| ε_b\_bytes)`  - authenticates initiator's entropy bound to both snapshots.
+- `commit_a = kk_hash(serialize(ε_a))` - a 32-byte hash of the initiator's entropy snapshot.
+- `auth_b = kk_mac(psk, ε_b\_bytes \| commit_a)` - authenticates responder's entropy bound to the initiator's commitment.
+- `auth_a = kk_mac(psk, ε_a\_bytes \| ε_b\_bytes)` - authenticates initiator's entropy bound to both snapshots.
 
 ### 12.3 Protocol Flow
 
@@ -1041,7 +1041,7 @@ This prevents an attacker from transplanting ciphertext between different AAD co
 
 ### 13.6 Forward Secrecy
 
-The base `codec` module provides **no** forward secrecy  - compromise of the long-term PSK exposes all past messages.
+The base `codec` module provides **no** forward secrecy - compromise of the long-term PSK exposes all past messages.
 
 The `session` module's **Rope Ratchet** provides ~192-bit forward secrecy:
 
@@ -1076,8 +1076,8 @@ All multi-byte integers are **little-endian**. All fields are concatenated with 
 
 | Offset | Size | Field |
 |--------|------|-------|
-| 0 | 32 B | `bytes`  - environmental entropy |
-| 32 | 16 B | `timestamp`  - `u128` nanosecond counter (LE) |
+| 0 | 32 B | `bytes` - environmental entropy |
+| 32 | 16 B | `timestamp` - `u128` nanosecond counter (LE) |
 | **Total** | **48 B** | |
 
 → `entropy::EntropySnapshot`
@@ -1086,10 +1086,10 @@ All multi-byte integers are **little-endian**. All fields are concatenated with 
 
 | Offset | Size | Field |
 |--------|------|-------|
-| 0 | 4 B | `ct_len`  - ciphertext length (`u32` LE) |
+| 0 | 4 B | `ct_len` - ciphertext length (`u32` LE) |
 | 4 | `ct_len` | ciphertext |
-| 4 + ct_len | 48 B | `snapshot`  - `EntropySnapshot` |
-| 52 + ct_len | 32 B | `commitment`  - `TemporalCommitment` |
+| 4 + ct_len | 48 B | `snapshot` - `EntropySnapshot` |
+| 52 + ct_len | 32 B | `commitment` - `TemporalCommitment` |
 | **Total** | **84 + ct_len** | |
 
 → `codec::KkPacket`, `codec::encode()` / `codec::decode()`
@@ -1098,9 +1098,9 @@ All multi-byte integers are **little-endian**. All fields are concatenated with 
 
 | Offset | Size | Field |
 |--------|------|-------|
-| 0 | 4 B | `ct_len`  - ciphertext length (`u32` LE) |
+| 0 | 4 B | `ct_len` - ciphertext length (`u32` LE) |
 | 4 | `ct_len` | ciphertext |
-| 4 + ct_len | 32 B | `commitment`  - `TemporalCommitment` |
+| 4 + ct_len | 32 B | `commitment` - `TemporalCommitment` |
 | **Total** | **36 + ct_len** | |
 
 → `codec::KkSealedMessage`, `codec::encode_split()`
@@ -1109,10 +1109,10 @@ All multi-byte integers are **little-endian**. All fields are concatenated with 
 
 | Offset | Size | Field |
 |--------|------|-------|
-| 0 | 4 B | `ct_len`  - ciphertext length (`u32` LE) |
+| 0 | 4 B | `ct_len` - ciphertext length (`u32` LE) |
 | 4 | `ct_len` | ciphertext |
-| 4 + ct_len | 48 B | `snapshot`  - `EntropySnapshot` |
-| 52 + ct_len | 96 B | `proof`  - `TemporalProof` |
+| 4 + ct_len | 48 B | `snapshot` - `EntropySnapshot` |
+| 52 + ct_len | 96 B | `proof` - `TemporalProof` |
 | **Total** | **148 + ct_len** | |
 
 → `codec::KkBoundPacket`, `codec::encode_bound()`
@@ -1121,9 +1121,9 @@ All multi-byte integers are **little-endian**. All fields are concatenated with 
 
 | Offset | Size | Field |
 |--------|------|-------|
-| 0 | 32 B | `mac`  - KK-MAC tag |
-| 32 | 32 B | `nonce`  - challenge nonce |
-| 64 | 32 B | `prev_mac`  - commitment to prior state |
+| 0 | 32 B | `mac` - KK-MAC tag |
+| 32 | 32 B | `nonce` - challenge nonce |
+| 64 | 32 B | `prev_mac` - commitment to prior state |
 | **Total** | **96 B** | |
 
 → `temporal::TemporalProof`
@@ -1132,12 +1132,12 @@ All multi-byte integers are **little-endian**. All fields are concatenated with 
 
 | Offset | Size | Field |
 |--------|------|-------|
-| 0 | 4 B | `aad_len`  - AAD length (`u32` LE) |
+| 0 | 4 B | `aad_len` - AAD length (`u32` LE) |
 | 4 | `aad_len` | associated data (authenticated, not encrypted) |
-| 4 + aad_len | 4 B | `ct_len`  - ciphertext length (`u32` LE) |
+| 4 + aad_len | 4 B | `ct_len` - ciphertext length (`u32` LE) |
 | 8 + aad_len | `ct_len` | ciphertext |
-| 8 + aad_len + ct_len | 48 B | `snapshot`  - `EntropySnapshot` |
-| 56 + aad_len + ct_len | 32 B | `commitment`  - `TemporalCommitment` |
+| 8 + aad_len + ct_len | 48 B | `snapshot` - `EntropySnapshot` |
+| 56 + aad_len + ct_len | 32 B | `commitment` - `TemporalCommitment` |
 | **Total** | **88 + aad_len + ct_len** | |
 
 → `codec::KkAeadPacket`, `codec::encode_aead()` / `codec::decode_aead()`
@@ -1146,8 +1146,8 @@ All multi-byte integers are **little-endian**. All fields are concatenated with 
 
 | Offset | Size | Field |
 |--------|------|-------|
-| 0 | 8 B | `counter`  - message sequence number (`u64` LE) |
-| 8 | 48 B | `snapshot`  - `EntropySnapshot` |
+| 0 | 8 B | `counter` - message sequence number (`u64` LE) |
+| 8 | 48 B | `snapshot` - `EntropySnapshot` |
 | **Total** | **56 B** | |
 
 → `session::RopeStep`
@@ -1156,7 +1156,7 @@ All multi-byte integers are **little-endian**. All fields are concatenated with 
 
 | Offset | Size | Field |
 |--------|------|-------|
-| 0 | 56 B | `step`  - `RopeStep` |
+| 0 | 56 B | `step` - `RopeStep` |
 | 56 | variable | inner `KkPacket` bytes |
 | **Total** | **56 + inner_len** | |
 
@@ -1166,7 +1166,7 @@ All multi-byte integers are **little-endian**. All fields are concatenated with 
 
 | Offset | Size | Field |
 |--------|------|-------|
-| 0 | 56 B | `step`  - `RopeStep` |
+| 0 | 56 B | `step` - `RopeStep` |
 | 56 | variable | inner `KkAeadPacket` bytes |
 | **Total** | **56 + inner_len** | |
 
@@ -1178,23 +1178,23 @@ All multi-byte integers are **little-endian**. All fields are concatenated with 
 
 | Offset | Size | Field |
 |--------|------|-------|
-| 0 | 32 B | `commit_a`  - `kk_hash(ε_a.to_bytes())` |
+| 0 | 32 B | `commit_a` - `kk_hash(ε_a.to_bytes())` |
 | **Total** | **32 B** | |
 
 **EkaMsg2** (Responder → Initiator)
 
 | Offset | Size | Field |
 |--------|------|-------|
-| 0 | 48 B | `entropy_b_bytes`  - responder's `EntropySnapshot` |
-| 48 | 32 B | `auth_b`  - `kk_mac(psk, ε_b ‖ commit_a)` |
+| 0 | 48 B | `entropy_b_bytes` - responder's `EntropySnapshot` |
+| 48 | 32 B | `auth_b` - `kk_mac(psk, ε_b ‖ commit_a)` |
 | **Total** | **80 B** | |
 
 **EkaMsg3** (Initiator → Responder)
 
 | Offset | Size | Field |
 |--------|------|-------|
-| 0 | 48 B | `entropy_a_bytes`  - initiator's `EntropySnapshot` |
-| 48 | 32 B | `auth_a`  - `kk_mac(psk, ε_a ‖ ε_b)` |
+| 0 | 48 B | `entropy_a_bytes` - initiator's `EntropySnapshot` |
+| 48 | 32 B | `auth_a` - `kk_mac(psk, ε_a ‖ ε_b)` |
 | **Total** | **80 B** | |
 
 → `eka::EkaMsg1`, `eka::EkaMsg2`, `eka::EkaMsg3`
@@ -1224,10 +1224,10 @@ for $i \in \{0, 1, 2, 3, 4\}$ and $j \in \{0, \ldots, 31\}$.
 | `kk_mac` | 6 | MAC tags over canonical messages with different keys |
 | `kk_mac_with_entropy` | 3 | Entropy-augmented MAC using canonical snapshots |
 | `kk_permute` | 1+ | Full 384-bit permutation output for all-zeros input |
-| `rotations_from_entropy` |  - | Entropy-derived rotation schedules |
-| `encode / decode` |  - | Codec roundtrip with deterministic snapshots |
-| `encode_aead / decode_aead` |  - | AEAD roundtrip with AAD binding |
-| `RopeRatchet` |  - | Session ratchet advance/receive consistency |
+| `rotations_from_entropy` | - | Entropy-derived rotation schedules |
+| `encode / decode` | - | Codec roundtrip with deterministic snapshots |
+| `encode_aead / decode_aead` | - | AEAD roundtrip with AAD binding |
+| `RopeRatchet` | - | Session ratchet advance/receive consistency |
 
 ### 15.3 Verification
 
@@ -1251,7 +1251,7 @@ All vector tests parse the published hex strings and compare against live comput
 
 ### 12.1 Overview
 
-KK-EKA is a 3-message PSK-based key agreement protocol where both parties contribute fresh entropy. No public-key cryptography  - authentication is via KK-MAC over a pre-shared key.
+KK-EKA is a 3-message PSK-based key agreement protocol where both parties contribute fresh entropy. No public-key cryptography - authentication is via KK-MAC over a pre-shared key.
 
 ### 12.2 Protocol Flow
 
@@ -1606,17 +1606,17 @@ cargo test vector                   # Filter for vector-specific tests
 
 ```
 src/
-├── lib.rs           - Module declarations, re-exports, crate documentation
-├── kk_mix.rs        - KK permutation, MFR, DDR, sponge, hash, KDF, MAC
-├── kk_mix_avx512.rs  - AVX-512 vectorized permutation (x86_64 only)
-├── entropy.rs       - Entropy sources, gathering, snapshot
-├── kdf.rs           - Per-chunk key derivation, commitment key derivation
-├── codec.rs         - Stream cipher, packet formats, encode/decode
-├── temporal.rs      - Temporal commitment, bound proofs
-├── session.rs       - Rope Ratchet, forward-secret session API
-├── eka.rs           - Entropy Key Agreement protocol
-├── qkd.rs           - Quantum Key Distribution simulation
-└── error.rs         - Error types
+├── lib.rs          - Module declarations, re-exports, crate documentation
+├── kk_mix.rs       - KK permutation, MFR, DDR, sponge, hash, KDF, MAC
+├── kk_mix_avx512.rs - AVX-512 vectorized permutation (x86_64 only)
+├── entropy.rs      - Entropy sources, gathering, snapshot
+├── kdf.rs          - Per-chunk key derivation, commitment key derivation
+├── codec.rs        - Stream cipher, packet formats, encode/decode
+├── temporal.rs     - Temporal commitment, bound proofs
+├── session.rs      - Rope Ratchet, forward-secret session API
+├── eka.rs          - Entropy Key Agreement protocol
+├── qkd.rs          - Quantum Key Distribution simulation
+└── error.rs        - Error types
 ```
 
 ## Appendix B. Code ↔ Spec Cross-Reference

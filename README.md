@@ -110,11 +110,11 @@ cargo fuzz run eka_fuzz
 
 ## Documentation
 
-- [Whitepaper](docs/KK_WHITEPAPER.md)  - complete design specification, empirical analysis & performance benchmarks
-- [Integration Guide](docs/integration-guide.md)  - examples for all codec modes, streaming, sessions, EKA
+- [Whitepaper](docs/KK_WHITEPAPER.md) - complete design specification, empirical analysis & performance benchmarks
+- [Integration Guide](docs/integration-guide.md) - examples for all codec modes, streaming, sessions, EKA
 - [Changelog](CHANGELOG.md)
 - [Security Policy](docs/SECURITY.md)
 
 ## License
 
-MIT, J.A. Keeney, Australia, 2026
+Apache 2.0 with Additional Terms - NO COMMERCIAL USE without prior written authorization from John A Keeney / Entrouter. See [LICENSE](LICENSE) for details.

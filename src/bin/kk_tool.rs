@@ -8,17 +8,17 @@
 //! kk-tool: Command-line interface for KK cryptographic operations.
 //!
 //! Subcommands:
-//!   hash    - KK-Hash of stdin or a string argument
-//!   enc     - Encrypt a file with KK-AEAD
-//!   dec     - Decrypt a file encrypted with KK-AEAD
-//!   rand    - Generate pseudorandom bytes from a seed
-//!   mac     - Compute KK-MAC of stdin or a string
+//!   hash   - KK-Hash of stdin or a string argument
+//!   enc    - Encrypt a file with KK-AEAD
+//!   dec    - Decrypt a file encrypted with KK-AEAD
+//!   rand   - Generate pseudorandom bytes from a seed
+//!   mac    - Compute KK-MAC of stdin or a string
 
 use std::fs;
 use std::io::{self, Read};
 
 fn usage() {
-    eprintln!("kk-tool  - KK (Keeney Kode) cryptographic toolkit");
+    eprintln!("kk-tool - KK (Keeney Kode) cryptographic toolkit");
     eprintln!();
     eprintln!("Usage:");
     eprintln!("  kk-tool hash [TEXT]           Hash TEXT (or stdin) with KK-Hash");

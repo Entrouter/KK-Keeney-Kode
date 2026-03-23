@@ -213,7 +213,7 @@ fn ddr(a: u64, b: u64) -> u64 {
     // Fold all 64 bits into the 6-bit rotation selector.
     // Without folding, only b's low 6 bits determined the rotation,
     // so a difference confined to higher bytes of b (e.g. byte 6)
-    // would be invisible to ddr  - breaking diffusion for state
+    // would be invisible to ddr - breaking diffusion for state
     // words that always occupy the "c" position in quintet_round
     // across all three phases (notably word 12, the grid center).
     let folded = b ^ (b >> 32);
@@ -1018,7 +1018,7 @@ pub(crate) fn kk_mac_batch_8_multipart(
 ///
 /// Same strategy as [`kk_mac_batch_8_avx512`] but absorbs the small
 /// message prefix in scalar Phase A (alongside the key), then only the
-/// large body data goes through SIMD Phase C  - eliminating the need
+/// large body data goes through SIMD Phase C - eliminating the need
 /// to build a contiguous `prefix || body` buffer.
 ///
 /// # Safety

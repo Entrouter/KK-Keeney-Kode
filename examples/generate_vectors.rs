@@ -132,13 +132,13 @@ fn main() {
     // ── kk_permute ──
     println!("## kk_permute\n");
 
-    // Default rotations  - start from all-zero state
+    // Default rotations - start from all-zero state
     let mut state_zero: KkState = [0u64; 25];
     println!("permute_zero_in  = {}", hex_state(&state_zero));
     kk_permute(&mut state_zero);
     println!("permute_zero_out = {}", hex_state(&state_zero));
 
-    // Default rotations  - start from ascending state
+    // Default rotations - start from ascending state
     let mut state_asc: KkState = core::array::from_fn(|i| i as u64);
     println!("permute_asc_in   = {}", hex_state(&state_asc));
     kk_permute(&mut state_asc);

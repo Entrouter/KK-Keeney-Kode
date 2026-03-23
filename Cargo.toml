@@ -11,7 +11,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["John Keeney"]
 description = "KK (Keeney Kode), A novel cryptographic primitive where symbol values are temporal functions of universal entropy"
-license = "Apache-2.0"
+license-file = "LICENSE"
 
 [dependencies]
 rand = { version = "0.8", optional = true }

@@ -26,7 +26,7 @@ use kk_crypto::{encode, decode};
 let secret = b"shared-secret-between-parties";
 let plaintext = b"Hello, KK!";
 
-// Encode  - entropy is captured automatically
+// Encode - entropy is captured automatically
 let packet = encode(secret, plaintext).unwrap();
 
 // Transmit packet.to_bytes() over the wire...
@@ -141,7 +141,7 @@ use kk_crypto::kk_mix::{kk_hash, kk_kdf, kk_mac, kk_mac_verify};
 // Hash
 let digest: [u8; 32] = kk_hash(b"data");
 
-// KDF  - derive 64 bytes
+// KDF - derive 64 bytes
 let derived: Vec<u8> = kk_kdf(b"key", b"salt", b"context", 64);
 
 // MAC

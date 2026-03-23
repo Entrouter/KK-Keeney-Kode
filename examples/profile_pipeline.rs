@@ -1,4 +1,4 @@
-﻿use std::time::Instant;
+use std::time::Instant;
 use kk_crypto::{EntropyPool, encode_aead_batch};
 use kk_crypto::kk_mix::kk_mac;
 
@@ -17,7 +17,7 @@ fn main() {
     let pool_time = t0.elapsed();
     println!("  Pool draw {n}x: {:?}  ({:.1} us/draw)", pool_time, pool_time.as_micros() as f64 / n as f64);
 
-    // 2) Scalar MAC time  - single-threaded baseline
+    // 2) Scalar MAC time - single-threaded baseline
     let key = [0x42u8; 32];
     let data = vec![0xABu8; msg_size];
     let t0 = Instant::now();

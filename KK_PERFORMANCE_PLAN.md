@@ -1,23 +1,23 @@
-# KK Performance Ceiling  - Master Plan
+# KK Performance Ceiling - Master Plan
 
 > **Goal:** Find the absolute ceiling of KK on the AMD Ryzen 9 9950X3D (32 threads, 96MB V-Cache, AVX-512, DDR5).  
 > **Baseline:** Full AEAD encode peaks at ~113 MiB/s (~0.95 Gbps) on 10MB payload, single-threaded.  
 > **Target:** Push as far past 1 Gbps as the hardware allows.  
-> **Rule:** After every phase, run the full test suite (`cargo test`)  - 205 tests must pass, zero regressions.
+> **Rule:** After every phase, run the full test suite (`cargo test`) - 205 tests must pass, zero regressions.
 
 ---
 
-## Phase 1  - Entropy Pool (Close the 5% Gap to 1 Gbps)
+## Phase 1 - Entropy Pool (Close the 5% Gap to 1 Gbps)
 
 ### Problem
 Every `encode()` / `encode_aead()` call invokes `entropy::gather()`, which:
-1. Calls OS CSPRNG (32 bytes)  - kernel transition, ~1-5 μs
-2. Reads `SystemTime::now()`  - fine
-3. Reads `_rdtsc()`  - fine (nanoseconds)
-4. Runs 64-iteration thread jitter loop  - **this is the bottleneck** (~50-200 μs)
+1. Calls OS CSPRNG (32 bytes) - kernel transition, ~1-5 μs
+2. Reads `SystemTime::now()` - fine
+3. Reads `_rdtsc()` - fine (nanoseconds)
+4. Runs 64-iteration thread jitter loop - **this is the bottleneck** (~50-200 μs)
 
 At 10MB payloads the jitter cost amortizes, but it's still ~5% of total encode time.
-For small packets (64B-4KB), entropy dominates  - it can be 60-90% of the total cost.
+For small packets (64B-4KB), entropy dominates - it can be 60-90% of the total cost.
 
 ### Implementation
 
@@ -27,8 +27,8 @@ For small packets (64B-4KB), entropy dominates  - it can be 60-90% of the total 
   - Background refill using `rayon::spawn` or `std::thread::spawn`
   - Thread-safe: `Arc<Mutex<VecDeque<EntropySnapshot>>>`
   - Configurable pool size (default 64, min 8, max 1024)
-  - `fn draw(&self) -> EntropySnapshot`  - pops one, triggers async refill if below watermark
-  - `fn draw_or_gather(&self) -> Result<EntropySnapshot>`  - falls back to synchronous `gather()` if pool exhausted
+  - `fn draw(&self) -> EntropySnapshot` - pops one, triggers async refill if below watermark
+  - `fn draw_or_gather(&self) -> Result<EntropySnapshot>` - falls back to synchronous `gather()` if pool exhausted
   - Watermark: refill starts when pool drops below 50%
   - Pool is pre-warmed on construction (blocks until at least 8 snapshots ready)
 
@@ -54,8 +54,8 @@ impl EntropyPool {
   - Original non-pooled functions remain unchanged (backward compatible)
 
 - [ ] **1.3 Add `EntropyPool` benchmarks to `benches/kk_bench.rs`**
-  - `bench_encode_pooled`  - same 10 size range: `[1, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 10485760]`
-  - `bench_entropy_pool_draw`  - measure draw latency vs `gather()` latency
+  - `bench_encode_pooled` - same 10 size range: `[1, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 10485760]`
+  - `bench_entropy_pool_draw` - measure draw latency vs `gather()` latency
   - Compare side-by-side with non-pooled results
 
 - [ ] **1.4 Wire up in `src/lib.rs`**
@@ -78,7 +78,7 @@ cargo bench --bench kk_bench  # Compare encode vs encode_pooled at all sizes
 ```
 
 ### Expected Outcome
-- Pooled encode at 10MB: **~120+ MiB/s** (>1 Gbps)  - entropy cost drops to near-zero
+- Pooled encode at 10MB: **~120+ MiB/s** (>1 Gbps) - entropy cost drops to near-zero
 - Pooled encode at 64B: **~5-10 MiB/s** (2-4× improvement over ~2.3 MiB/s)
 - Small packets see the biggest relative improvement
 
@@ -87,26 +87,26 @@ cargo bench --bench kk_bench  # Compare encode vs encode_pooled at all sizes
 |------|-------------|---------------------|---------|----------|
 | 1B | ~0.08 | ~0.08 | ~0% | 9.7 µs |
 | 64B | 2.3 | 4.9 | +113% | 9.7 µs |
-| 256B |  - | 18.3 |  - | 9.7 µs |
-| 1KB |  - | 52.5 |  - | 9.7 µs |
-| 4KB |  - | 70.5 |  - | 9.7 µs |
-| 16KB |  - | 73.2 |  - | 9.7 µs |
+| 256B | - | 18.3 | - | 9.7 µs |
+| 1KB | - | 52.5 | - | 9.7 µs |
+| 4KB | - | 70.5 | - | 9.7 µs |
+| 16KB | - | 73.2 | - | 9.7 µs |
 | 64KB | 56.1 | 99.6 | +78% | 9.7 µs |
-| 256KB |  - | 106.0 |  - | 9.7 µs |
+| 256KB | - | 106.0 | - | 9.7 µs |
 | 1MB | 107.0 | 112.9 | +5.5% | 9.7 µs |
 | 10MB | 113.4 | 118.6 | +4.6% | 9.7 µs |
 
 **Pool draw latency: 9.72 µs** (vs ~50-200 µs synchronous gather)
-**Peak: 118.6 MiB/s = 0.99 Gbps**  - just under the 1 Gbps target
+**Peak: 118.6 MiB/s = 0.99 Gbps** - just under the 1 Gbps target
 
 ### Success Criteria
-- [x] Full AEAD encode throughput exceeds 119.2 MiB/s (= 1 Gbps) on 10MB payloads  - **118.6 MiB/s (99.5%)**
+- [x] Full AEAD encode throughput exceeds 119.2 MiB/s (= 1 Gbps) on 10MB payloads - **118.6 MiB/s (99.5%)**
 - [x] All 216 tests pass
 - [x] No API changes to existing public functions
 
 ---
 
-## Phase 2  - Rayon Parallel Encode (Multi-Core Throughput)
+## Phase 2 - Rayon Parallel Encode (Multi-Core Throughput)
 
 ### Problem
 Current encode is single-threaded at the message level. The internal `xor_with_keystream` already uses Rayon for chunk-level parallelism within one message, but for a single large payload, most cores sit idle waiting for sequential chunk batches.
@@ -181,7 +181,7 @@ cargo bench --bench full_bench -- parallel  # Parallel encode/decode results
 
 | Payload | Throughput | Notes |
 |---------|-----------|-------|
-| 1 MB    | 109 MiB/s | Single chunk  - no parallelism benefit |
+| 1 MB    | 109 MiB/s | Single chunk - no parallelism benefit |
 | 10 MB   | 639 MiB/s | 10 chunks, Rayon scaling kicks in |
 | 100 MB  | **1.14 GiB/s** | 100 chunks, near-linear scaling |
 
@@ -193,16 +193,16 @@ cargo bench --bench full_bench -- parallel  # Parallel encode/decode results
 | 10 MB   | 709 MiB/s | Faster than encode (no entropy overhead) |
 | 100 MB  | **1.32 GiB/s** | Peak throughput |
 
-**Key Finding:** At 100MB, parallel encode reaches 1.14 GiB/s and decode 1.32 GiB/s  - exceeding the 1 GiB/s target. Decode outperforms encode because it skips entropy gathering. At 1MB (single chunk), throughput matches the single-threaded baseline (~109 MiB/s) as expected.
+**Key Finding:** At 100MB, parallel encode reaches 1.14 GiB/s and decode 1.32 GiB/s - exceeding the 1 GiB/s target. Decode outperforms encode because it skips entropy gathering. At 1MB (single chunk), throughput matches the single-threaded baseline (~109 MiB/s) as expected.
 
 ### Success Criteria
-- [x] Aggregate throughput on 100MB payload exceeds 1 GiB/s on 32 threads  - **✅ 1.14 GiB/s encode, 1.32 GiB/s decode**
-- [x] Merkle commitment prevents chunk manipulation  - **✅ reorder + removal detection tested**
-- [x] All tests pass  - **✅ 249 tests, 0 failures**
+- [x] Aggregate throughput on 100MB payload exceeds 1 GiB/s on 32 threads - **✅ 1.14 GiB/s encode, 1.32 GiB/s decode**
+- [x] Merkle commitment prevents chunk manipulation - **✅ reorder + removal detection tested**
+- [x] All tests pass - **✅ 249 tests, 0 failures**
 
 ---
 
-## Phase 3  - AVX-512 Verification & Native Target
+## Phase 3 - AVX-512 Verification & Native Target
 
 ### Problem
 The 9950X3D (Zen 5) supports AVX-512. `kk_mix_avx512.rs` exists and `kk_kdf_batch_8` already dispatches to it at runtime via `is_x86_feature_detected!`. But:
@@ -213,13 +213,13 @@ The 9950X3D (Zen 5) supports AVX-512. `kk_mix_avx512.rs` exists and `kk_kdf_batc
 ### Implementation
 
 - [x] **3.1 Verify current AVX-512 detection**
-  - Created `examples/avx512_check.rs`  - prints CPU features + brand string
+  - Created `examples/avx512_check.rs` - prints CPU features + brand string
   - Results: avx512f=true, avx512dq=true, avx512vl=true, avx512bw=true
   - CPU: AMD Ryzen 9 9950X3D 16-Core Processor
-  - `target_feature avx512f: ENABLED at compile time`  - native config working
+  - `target_feature avx512f: ENABLED at compile time` - native config working
 
 - [x] **3.2 Benchmark batch KDF (AVX-512) vs scalar sequential**
-  - `.cargo/config.toml` already has `target-cpu=native`  - no separate run needed
+  - `.cargo/config.toml` already has `target-cpu=native` - no separate run needed
   - Results:
     | Output | Scalar 8× (µs) | Batch AVX-512 (µs) | Speedup |
     |--------|----------------|--------------------|---------|
@@ -235,12 +235,12 @@ The 9950X3D (Zen 5) supports AVX-512. `kk_mix_avx512.rs` exists and `kk_kdf_batc
 
 - [x] **3.4 Impact on encode pipeline**
   - Encode uses single KDF call with 32B output per message
-  - Batch KDF at 32B shows no speedup (1.01×)  - absorb dominates
+  - Batch KDF at 32B shows no speedup (1.01×) - absorb dominates
   - **AVX-512 batch KDF will only matter for Phase 7 (Batched AEAD)** where 8 messages can be KDF'd simultaneously
 
 - [x] **3.5 Test AVX-512 batch KDF correctness**
-  - `batch_kdf_matches_scalar`  - PASS
-  - `batch_kdf_multi_block_squeeze`  - PASS
+  - `batch_kdf_matches_scalar` - PASS
+  - `batch_kdf_multi_block_squeeze` - PASS
   - Both cross-check tests already existed and pass with native flags
 
 ### Test Gate
@@ -251,12 +251,12 @@ cargo bench --bench full_bench        # Primitives with new flags
 ```
 
 ### Expected Outcome
-- If AVX-512 is already dispatching correctly: **minimal change** (good  - it's already working)
+- If AVX-512 is already dispatching correctly: **minimal change** (good - it's already working)
 - If it's NOT dispatching (falling back to scalar): **2-6× speedup on batch KDF** operations
 - The `kk_kdf_batch_8` throughput should be ~5-6× single `kk_kdf`
 
 ### Actual Results
-- AVX-512 IS dispatching correctly  - all 4 features detected, compile-time enabled
+- AVX-512 IS dispatching correctly - all 4 features detected, compile-time enabled
 - Batch KDF speedup: **1.56× at 256B**, ~1.0× at 32B/64B (absorb-dominated)
 - The expected ~5-6× speedup doesn't materialize because the sponge absorb
   phases (key+salt+info) dominate for small outputs. Only the squeeze phase
@@ -271,7 +271,7 @@ cargo bench --bench full_bench        # Primitives with new flags
 
 ---
 
-## Phase 4  - Huge Payload Benchmark (Find the Real Ceiling)
+## Phase 4 - Huge Payload Benchmark (Find the Real Ceiling)
 
 ### Problem
 Current max benchmark size is 10MB. The throughput was still climbing at 10MB (113 MiB/s).
@@ -297,7 +297,7 @@ The 9950X3D has 96MB of L3 V-Cache. We need to find:
   - Extract all throughput lines
   - Build the full scaling curve
 
-- [x] **4.4 Document the L3 cliff (no cliff found  - V-Cache working)**
+- [x] **4.4 Document the L3 cliff (no cliff found - V-Cache working)**
   - Plot (text table) of payload size vs throughput
   - Identify the inflection point where throughput stops climbing
   - This is the true single-thread ceiling
@@ -314,7 +314,7 @@ cargo test   # All tests pass (benchmarks don't affect tests)
 
 ### Success Criteria
 - [x] Complete scaling curve from 1B to 256MB
-- [x] Identified the plateau  - flat ~110 MiB/s, no L3 cliff
+- [x] Identified the plateau - flat ~110 MiB/s, no L3 cliff
 - [x] Results documented in this file
 
 ### Results Table
@@ -325,17 +325,17 @@ cargo test   # All tests pass (benchmarks don't affect tests)
 | 32 MB       | 108.3       | 109.2       | 54.5            | |
 | 64 MB       | 107.8       | 110.5       | 56.0            | |
 | 128 MB      | 110.3       | 109.9       | 59.1            | ~L3 boundary |
-| 256 MB      | 109.0       | 110.0       |  -               | past L3, steady ~110 MiB/s |
+| 256 MB      | 109.0       | 110.0       | -               | past L3, steady ~110 MiB/s |
 
 **Key Finding:** Throughput is flat ~108-110 MiB/s across all sizes (32MB-256MB).
-No L3 cache cliff  - the 96MB V-Cache is working. Bottleneck is entropy gather + KDF, not memory bandwidth.
+No L3 cache cliff - the 96MB V-Cache is working. Bottleneck is entropy gather + KDF, not memory bandwidth.
 
 ---
 
-## Phase 5  - Parallel RNG (32 Independent Streams)
+## Phase 5 - Parallel RNG (32 Independent Streams)
 
 ### Problem
-A single `KkRng` instance peaks at ~186 MiB/s (64KB output). The design is embarrassingly parallel  - independent seeds mean independent states mean zero contention.
+A single `KkRng` instance peaks at ~186 MiB/s (64KB output). The design is embarrassingly parallel - independent seeds mean independent states mean zero contention.
 
 ### Implementation
 
@@ -358,13 +358,13 @@ impl KkRngPool {
 ```
 
 - [x] **5.2 Add parallel RNG benchmark to `benches/full_bench.rs`**
-  - `bench_rng_pool_next_bytes`  - tests 256/1024/4096/65536 byte outputs with N generators
-  - `bench_rng_pool_fill_parallel`  - tests 64KB/1MB/10MB/100MB parallel fill
+  - `bench_rng_pool_next_bytes` - tests 256/1024/4096/65536 byte outputs with N generators
+  - `bench_rng_pool_fill_parallel` - tests 64KB/1MB/10MB/100MB parallel fill
   - New `rng_parallel` criterion group added
 
 - [x] **5.3 Add Rayon-based `fill_bytes_parallel`**
   - Split destination buffer into N chunks (ceil division)
-  - Each chunk filled by dedicated `KkRng` instance via `rayon::par_iter()`  - zero Mutex contention
+  - Each chunk filled by dedicated `KkRng` instance via `rayon::par_iter()` - zero Mutex contention
   - Measured aggregate throughput: **2.80 GiB/s peak** (100MB, 32 generators)
 
 - [x] **5.4 Tests**
@@ -384,13 +384,13 @@ cargo bench --bench full_bench -- rng
 - DDR5 bandwidth (~80 GB/s) should not bottleneck at these sizes
 
 ### Success Criteria
-- [x] Aggregate RNG throughput exceeds 2 GiB/s on 32 threads  - **2.80 GiB/s peak**
-- [x] All tests pass  - 235 tests, 0 failures
-- [x] Deterministic when seeds are fixed  - verified in unit + integration tests
+- [x] Aggregate RNG throughput exceeds 2 GiB/s on 32 threads - **2.80 GiB/s peak**
+- [x] All tests pass - 235 tests, 0 failures
+- [x] Deterministic when seeds are fixed - verified in unit + integration tests
 
 ---
 
-## Phase 6  - GPU Compute via wgpu (Moonshot)
+## Phase 6 - GPU Compute via wgpu (Moonshot)
 
 ### Problem
 The RTX 5080 has 10,752 CUDA cores. Each can run an independent KK permutation.
@@ -400,9 +400,9 @@ The RTX 5080 has 10,752 CUDA cores. Each can run an independent KK permutation.
 
 ### Implementation
 
-- [ ] **6.1 Research Phase  - Feasibility study**
+- [ ] **6.1 Research Phase - Feasibility study**
   - Can we express `kk_permute` in WGSL (wgpu shader language)?
-  - WGSL supports `u32` but NOT `u64` natively  - this is a critical blocker
+  - WGSL supports `u32` but NOT `u64` natively - this is a critical blocker
   - 64-bit multiply in WGSL requires emulation via two 32-bit operations
   - Alternative: Use `vulkano` or `opencl3` crate for native `uint64_t`
   - Decision: Which GPU compute path to take?
@@ -414,7 +414,7 @@ The RTX 5080 has 10,752 CUDA cores. Each can run an independent KK permutation.
   - Batch: upload N states → permute all → download N states
 
 - [ ] **6.3 Create `src/gpu.rs` module**
-  - `GpuAccelerator` struct  - initializes wgpu device, compiles shader
+  - `GpuAccelerator` struct - initializes wgpu device, compiles shader
   - `fn kk_kdf_batch_gpu(key, salt, infos: &[&[u8]], output_len) -> Vec<Vec<u8>>`
   - Batch sizes: 1024, 4096, 10752 (one per CUDA core)
 
@@ -458,14 +458,14 @@ cargo bench --bench kk_bench --features gpu
 - [ ] All tests pass
 
 ### Risks & Blockers
-- **u64 emulation in WGSL:** May halve theoretical throughput  - evaluate OpenCL/Vulkan compute as alternative
+- **u64 emulation in WGSL:** May halve theoretical throughput - evaluate OpenCL/Vulkan compute as alternative
 - **Driver compatibility:** wgpu requires Vulkan/DX12 backend; may need GPU driver update
 - **Complexity:** This is a significant engineering effort (~500-1000 lines of GPU code)
 - **PCIe latency:** Makes this unsuitable for real-time per-packet encryption
 
 ---
 
-## Phase 7  - Batched AEAD (Real Server Workload)
+## Phase 7 - Batched AEAD (Real Server Workload)
 
 ### Problem
 Servers don't encrypt one giant blob. They handle thousands of concurrent small-to-medium messages (1KB-64KB each). The real question: **what's the aggregate MiB/s when encrypting 1000 independent messages in parallel?**
@@ -502,11 +502,11 @@ pub fn decode_aead_batch(
   - **Message sizes:** 1KB, 4KB, 16KB, 64KB
   - **Measurement:** Total bytes across all messages / wall time = aggregate MiB/s
   - **Variants:**
-    - `batch_aead_1000x1KB`  - 1000 messages × 1KB each = 1MB total
-    - `batch_aead_1000x4KB`  - 1000 messages × 4KB each = 4MB total
-    - `batch_aead_1000x16KB`  - 1000 messages × 16KB each = 16MB total
-    - `batch_aead_1000x64KB`  - 1000 messages × 64KB each = 64MB total
-    - `batch_aead_10000x4KB`  - 10000 messages × 4KB each = 40MB total
+    - `batch_aead_1000x1KB` - 1000 messages × 1KB each = 1MB total
+    - `batch_aead_1000x4KB` - 1000 messages × 4KB each = 4MB total
+    - `batch_aead_1000x16KB` - 1000 messages × 16KB each = 16MB total
+    - `batch_aead_1000x64KB` - 1000 messages × 64KB each = 64MB total
+    - `batch_aead_10000x4KB` - 10000 messages × 4KB each = 40MB total
   - Compare: pooled vs non-pooled entropy
 
 - [x] **7.4 Messages-per-second metric**
@@ -528,7 +528,7 @@ cargo bench --bench kk_bench -- batch
 ```
 
 ### Expected Outcome
-- **Without pool:** Limited by entropy gathering  - ~1000 gathers × 200μs = 200ms just for entropy
+- **Without pool:** Limited by entropy gathering - ~1000 gathers × 200μs = 200ms just for entropy
 - **With pool:** All 32 threads saturated with encryption work
   - 32 threads × ~50 MiB/s per thread (4KB messages) ≈ **~1.6 GiB/s aggregate** (~13 Gbps)
   - 32 threads × ~100 MiB/s per thread (64KB messages) ≈ **~3.2 GiB/s aggregate** (~26 Gbps)
@@ -561,12 +561,12 @@ cargo bench --bench kk_bench -- batch
 - 4KB: **~233K msg/s** (1000 msgs / 4.30ms)
 - 64KB: **~30K msg/s** (1000 msgs / 33.4ms)
 
-**Key Finding:** Pooled vs no-pool difference is minimal (~3-5%) at batch scale. Rayon parallelism dominates  - entropy gather is NOT the bottleneck when 32 threads are saturated with independent messages.
+**Key Finding:** Pooled vs no-pool difference is minimal (~3-5%) at batch scale. Rayon parallelism dominates - entropy gather is NOT the bottleneck when 32 threads are saturated with independent messages.
 
 ### Success Criteria
-- [x] Aggregate AEAD throughput exceeds 1 GiB/s for 1000 × 64KB batch with pool  - **✅ 1.83 GiB/s**
-- [x] Messages/second reported alongside MiB/s  - **✅ 417K msg/s at 1KB**
-- [x] All tests pass  - **✅ 221 tests, 0 failures**
+- [x] Aggregate AEAD throughput exceeds 1 GiB/s for 1000 × 64KB batch with pool - **✅ 1.83 GiB/s**
+- [x] Messages/second reported alongside MiB/s - **✅ 417K msg/s at 1KB**
+- [x] All tests pass - **✅ 221 tests, 0 failures**
 
 ---
 
@@ -594,13 +594,13 @@ Phase 6 (GPU Compute)            ← Independent. Moonshot. Do last.
 ```
 
 ### Recommended Sequence
-1. **Phase 4**  - Zero risk. Benchmark only. Instant data.
-2. **Phase 1**  - Entropy pool. Closes the 1 Gbps gap. Unlocks Phases 2, 7.
-3. **Phase 3**  - AVX-512 verification. Quick check, possible free speedup.
-4. **Phase 7**  - Batched AEAD. The real server workload headline number.
-5. **Phase 5**  - Parallel RNG. Easy, impressive aggregate number.
-6. **Phase 2**  - Parallel encode. Needs Merkle commitment. More complex.
-7. **Phase 6**  - GPU moonshot. Save for last. High effort, high wow factor.
+1. **Phase 4** - Zero risk. Benchmark only. Instant data.
+2. **Phase 1** - Entropy pool. Closes the 1 Gbps gap. Unlocks Phases 2, 7.
+3. **Phase 3** - AVX-512 verification. Quick check, possible free speedup.
+4. **Phase 7** - Batched AEAD. The real server workload headline number.
+5. **Phase 5** - Parallel RNG. Easy, impressive aggregate number.
+6. **Phase 2** - Parallel encode. Needs Merkle commitment. More complex.
+7. **Phase 6** - GPU moonshot. Save for last. High effort, high wow factor.
 
 ---
 
@@ -627,7 +627,7 @@ If any regression detected: **stop, investigate, fix before proceeding.**
 
 ---
 
-## Baseline Numbers (March 22, 2026  - Commit f1392ab)
+## Baseline Numbers (March 22, 2026 - Commit f1392ab)
 
 Captured on AMD Ryzen 9 9950X3D, single-threaded, release profile (LTO + codegen-units=1).
 

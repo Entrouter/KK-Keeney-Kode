@@ -724,7 +724,7 @@ fn eka_wrong_psk_rejected() {
     let (alice, msg1) = EkaInitiator::new(psk_alice).unwrap();
     let (_, msg2) = EkaResponder::new(psk_bob, &msg1).unwrap();
 
-    // Alice verifies auth_b using her PSK  - Bob's tag was computed with a different PSK
+    // Alice verifies auth_b using her PSK - Bob's tag was computed with a different PSK
     let result = alice.process_msg2(&msg2);
     assert!(result.is_err(), "wrong PSK must cause auth_b verification to fail");
 }
@@ -773,7 +773,7 @@ fn eka_commitment_binding() {
 
     // Create a completely different entropy_a but keep the original auth_a
     let mut fake_msg3 = msg3.clone();
-    // Flip all bytes in entropy_a  - the commitment hash will not match
+    // Flip all bytes in entropy_a - the commitment hash will not match
     for b in fake_msg3.entropy_a_bytes.iter_mut() {
         *b ^= 0xFF;
     }

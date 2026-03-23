@@ -35,7 +35,7 @@ This policy covers vulnerabilities in the KK-Crypto Rust crate:
 
 | Date | Auditor | Scope | Report |
 |------|---------|-------|--------|
-|  -    |  -       |  -     | No audit has been conducted yet. |
+| -    | -       | -     | No audit has been conducted yet. |
 
 KK-Crypto has **not** been independently audited. When an audit is arranged,
 this table will be updated with the auditor, scope, and a link to the report.

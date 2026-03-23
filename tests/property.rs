@@ -39,7 +39,7 @@ fn aad() -> impl Strategy<Value = Vec<u8>> {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  1. Roundtrip identity  - all 4 codec modes
+//  1. Roundtrip identity - all 4 codec modes
 // ─────────────────────────────────────────────────────────────────
 
 proptest! {
@@ -75,7 +75,7 @@ proptest! {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  2. Determinism  - hash, KDF, MAC
+//  2. Determinism - hash, KDF, MAC
 // ─────────────────────────────────────────────────────────────────
 
 proptest! {
