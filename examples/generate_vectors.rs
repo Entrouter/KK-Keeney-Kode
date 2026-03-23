@@ -81,6 +81,7 @@ fn main() {
 
     // ── kk_kdf ──
     println!("## kk_kdf\n");
+    #[allow(clippy::type_complexity)]
     let kdf_cases: Vec<(&str, &[u8], &[u8], &[u8], usize)> = vec![
         ("basic_32", b"secret-key", b"salt-value", b"info-string", 32),
         ("basic_64", b"secret-key", b"salt-value", b"info-string", 64),
@@ -118,6 +119,7 @@ fn main() {
     let snap0 = make_snapshot(0);
     let snap1_ent = make_snapshot(1);
     let long_msg_ent = vec![0x55u8; 256];
+    #[allow(clippy::type_complexity)]
     let mac_ent_cases: Vec<(&str, &[u8], &[u8], &[u8])> = vec![
         ("ent_basic", b"mac-key", b"message", &snap0.bytes),
         ("ent_long", b"mac-key", &long_msg_ent, &snap0.bytes),
@@ -171,6 +173,7 @@ fn main() {
 
     // ── encode/decode with fixed snapshot ──
     println!("## encode_with_snapshot\n");
+    #[allow(clippy::type_complexity)]
     let enc_cases: Vec<(&str, &[u8], &[u8], u8)> = vec![
         ("hello", b"shared-secret", b"Hello, KK!", 0),
         ("binary", b"key-two", &[0x00, 0xFF, 0x80, 0x7F], 1),
@@ -192,6 +195,7 @@ fn main() {
 
     // ── encode_aead with fixed snapshot ──
     println!("## encode_aead_with_snapshot\n");
+    #[allow(clippy::type_complexity)]
     let aead_cases: Vec<(&str, &[u8], &[u8], &[u8], u8)> = vec![
         ("basic_aead", b"shared-secret", b"Hello AEAD!", b"header-v1", 0),
         ("empty_aad", b"key-two", b"payload", b"", 1),

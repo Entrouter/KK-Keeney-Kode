@@ -672,10 +672,10 @@ pub fn kk_kdf_batch_8(
         if is_x86_feature_detected!("avx512f") && is_x86_feature_detected!("avx512dq") {
             // Apply padding on each sponge (scalar, trivial: 2 XOR bytes)
             // then vectorize the expensive permutation across all 8.
-            for i in 0..8 {
-                sponges[i].xor_rate_byte(sponges[i].buf_pos, DOMAIN_KDF);
-                sponges[i].xor_rate_byte(RATE_BYTES - 1, 0x80);
-                sponges[i].buf_pos = 0;
+            for sponge in sponges.iter_mut() {
+                sponge.xor_rate_byte(sponge.buf_pos, DOMAIN_KDF);
+                sponge.xor_rate_byte(RATE_BYTES - 1, 0x80);
+                sponge.buf_pos = 0;
             }
 
             let mut raw_states: [KkState; 8] =
@@ -696,8 +696,8 @@ pub fn kk_kdf_batch_8(
     }
 
     // Scalar fallback: finalize each sponge individually
-    for i in 0..8 {
-        sponges[i].finalize_absorb(DOMAIN_KDF);
+    for sponge in sponges.iter_mut() {
+        sponge.finalize_absorb(DOMAIN_KDF);
     }
 
     // --- Scalar fallback ---
@@ -717,6 +717,7 @@ pub fn kk_kdf_batch_8(
 /// Requires AVX-512F + AVX-512DQ.
 #[cfg(all(target_arch = "x86_64", feature = "std"))]
 #[target_feature(enable = "avx512f,avx512dq")]
+#[allow(dead_code)]
 unsafe fn vectorized_squeeze_8(
     states: &mut [KkState; 8],
     rotations: &[[u32; 2]; 15],
@@ -847,6 +848,7 @@ pub fn kk_mac_verify_with_entropy(
 ///
 /// Automatically falls back to 8× scalar [`kk_mac`] when messages have
 /// different lengths or on non-AVX-512 hardware.
+#[allow(dead_code)]
 pub(crate) fn kk_mac_batch_8(keys: [&[u8]; 8], messages: [&[u8]; 8]) -> [[u8; 32]; 8] {
     let keys_uniform = keys.windows(2).all(|w| w[0].len() == w[1].len());
     let msgs_uniform = messages.windows(2).all(|w| w[0].len() == w[1].len());
@@ -857,7 +859,7 @@ pub(crate) fn kk_mac_batch_8(keys: [&[u8]; 8], messages: [&[u8]; 8]) -> [[u8; 32
             && msgs_uniform
             && is_x86_feature_detected!("avx512f")
             && is_x86_feature_detected!("avx512dq")
-            && keys[0].len() % 8 == 0
+            && keys[0].len().is_multiple_of(8)
         {
             return unsafe { kk_mac_batch_8_avx512(keys, messages) };
         }
@@ -884,6 +886,7 @@ pub(crate) fn kk_mac_batch_8(keys: [&[u8]; 8], messages: [&[u8]; 8]) -> [[u8; 32
 /// Requires AVX-512F + AVX-512DQ. Key length must be a multiple of 8.
 #[cfg(all(target_arch = "x86_64", feature = "std"))]
 #[target_feature(enable = "avx512f,avx512dq")]
+#[allow(dead_code)]
 unsafe fn kk_mac_batch_8_avx512(keys: [&[u8]; 8], messages: [&[u8]; 8]) -> [[u8; 32]; 8] {
     use core::arch::x86_64::*;
     use crate::kk_mix_avx512::{load_8_states, store_8_states, kk_permute_n_x8};
@@ -998,7 +1001,7 @@ pub(crate) fn kk_mac_batch_8_multipart(
             && bodies_uniform
             && is_x86_feature_detected!("avx512f")
             && is_x86_feature_detected!("avx512dq")
-            && keys[0].len() % 8 == 0
+            && keys[0].len().is_multiple_of(8)
         {
             return unsafe { kk_mac_batch_8_multipart_avx512(keys, prefixes, bodies) };
         }

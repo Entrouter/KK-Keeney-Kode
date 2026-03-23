@@ -225,6 +225,6 @@ mod tests {
         }
         // Give the background thread a moment to refill
         std::thread::sleep(std::time::Duration::from_secs(2));
-        assert!(pool.len() > 0, "pool should refill after draws");
+        assert!(!pool.is_empty(), "pool should refill after draws");
     }
 }

@@ -1,3 +1,4 @@
+#![allow(clippy::needless_range_loop)]
 // Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
 // Licensed under the Apache License, Version 2.0 with Additional Terms.
 // NO COMMERCIAL USE without prior written authorization from Entrouter.
@@ -32,6 +33,7 @@ const DEFAULT_ROTATIONS: [[u32; 2]; 15] = [
     [15, 33], [21, 45], [27, 35], [1, 57],  [25, 55],
 ];
 
+#[allow(dead_code)]
 const KK_IV: [u64; STATE_WORDS] = [
     0x6A09E667F3BCC908, 0xBB67AE8584CAA73B, 0x3C6EF372FE94F82B,
     0xA54FF53A5F1D36F1, 0x510E527FADE682D1, 0x9B05688C2B3E6C1F,

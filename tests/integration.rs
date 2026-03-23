@@ -535,7 +535,7 @@ fn kk_mac_no_collision() {
     // Test with EXACT same conditions as AEAD: 32-byte key, 76-byte message, diff at pos 62
     let key = vec![0x78u8; 32]; // 32-byte key like derive_commitment_key produces
     let mut msg1 = vec![0u8; 76];
-    for i in 0..76 { msg1[i] = i as u8; }
+    for (i, byte) in msg1.iter_mut().enumerate().take(76) { *byte = i as u8; }
     let mut msg2 = msg1.clone();
     msg2[62] ^= 0xFF; // flip one byte (same position as ciphertext[0] in AEAD message)
 

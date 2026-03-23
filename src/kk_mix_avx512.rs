@@ -316,9 +316,9 @@ mod tests {
 
         // Build 8 distinct states
         let mut scalar_states: [KkState; 8] = [KK_IV; 8];
-        for i in 0..8 {
-            scalar_states[i][0] ^= (i as u64).wrapping_mul(0x1111_1111_1111_1111);
-            scalar_states[i][12] ^= (i as u64).wrapping_mul(0xAAAA_BBBB_CCCC_DDDD);
+        for (i, state) in scalar_states.iter_mut().enumerate() {
+            state[0] ^= (i as u64).wrapping_mul(0x1111_1111_1111_1111);
+            state[12] ^= (i as u64).wrapping_mul(0xAAAA_BBBB_CCCC_DDDD);
         }
 
         // Run scalar on each
@@ -350,8 +350,8 @@ mod tests {
         }
 
         let mut scalar_states: [KkState; 8] = [KK_IV; 8];
-        for i in 0..8 {
-            scalar_states[i][0] ^= (i as u64).wrapping_mul(0xDEAD_BEEF_CAFE_BABE);
+        for (i, state) in scalar_states.iter_mut().enumerate() {
+            state[0] ^= (i as u64).wrapping_mul(0xDEAD_BEEF_CAFE_BABE);
         }
 
         let mut expected = scalar_states;

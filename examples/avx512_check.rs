@@ -29,6 +29,7 @@ fn main() {
 fn get_cpu_brand() -> String {
     let mut brand = String::new();
     for leaf in 0x80000002u32..=0x80000004u32 {
+        #[allow(unused_unsafe)]
         let result = unsafe { core::arch::x86_64::__cpuid(leaf) };
         for &reg in &[result.eax, result.ebx, result.ecx, result.edx] {
             let bytes = reg.to_le_bytes();

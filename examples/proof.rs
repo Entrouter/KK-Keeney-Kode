@@ -263,7 +263,7 @@ fn main() {
 
     for i in 0..5 {
         // Create a fake packet with random entropy
-        let fake = kk_crypto::encode(secret, &vec![0x41u8; 5]).unwrap();
+        let fake = kk_crypto::encode(secret, &[0x41u8; 5]).unwrap();
         let mut forged_packet = packet.clone();
         forged_packet.entropy_snapshot = fake.entropy_snapshot;
         // Re-derive a commitment so it doesn't fail verification

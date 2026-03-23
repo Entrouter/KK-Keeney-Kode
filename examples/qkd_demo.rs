@@ -83,14 +83,14 @@ fn main() {
 
     // Step 1: BB84 Key Exchange
     header("STEP 1, BB84 Quantum Key Exchange");
-    print!("    Alice prepares {} qubits (random bits × random bases)...\n", n_qubits);
+    println!("    Alice prepares {} qubits (random bits × random bases)...", n_qubits);
     out.flush().ok();
     let alice = alice_prepare(n_qubits);
 
-    print!("    Bob measures with random bases...\n");
+    println!("    Bob measures with random bases...");
     let bob = bob_measure(&alice.qubits);
 
-    print!("    Public basis comparison + sifting...\n");
+    println!("    Public basis comparison + sifting...");
     let qkd = distill_key(&alice, &bob).unwrap();
 
     println!();
@@ -154,8 +154,8 @@ fn main() {
 
     // Step 4: Bob decrypts ε and decodes
     header("STEP 4, Bob Receives & Decodes");
-    print!("    Bob receives: KkSealedMessage + encrypted ε (both public wire)\n");
-    print!("    Bob decrypts ε with QKD key...\n");
+    println!("    Bob receives: KkSealedMessage + encrypted ε (both public wire)");
+    println!("    Bob decrypts ε with QKD key...");
 
     let recovered_eps = decrypt_epsilon(&qkd.shared_key_alice, &encrypted_eps).unwrap();
 
@@ -183,16 +183,16 @@ fn main() {
     bold("  └──────────────────────────────────────────────────────────────┘\n");
 
     header("STEP 1, BB84 with Eavesdropper");
-    print!("    Alice prepares {} qubits...\n", n_qubits);
+    println!("    Alice prepares {} qubits...", n_qubits);
     let alice2 = alice_prepare(n_qubits);
 
     print!("    ");
     color(Color::Red, "⚡ Eve intercepts the quantum channel!");
     println!();
-    print!("    Eve measures with random bases and re-sends...\n");
+    println!("    Eve measures with random bases and re-sends...");
     let (eve, tampered_qubits) = eve_intercept(&alice2.qubits);
 
-    print!("    Bob measures Eve's tampered qubits...\n");
+    println!("    Bob measures Eve's tampered qubits...");
     let bob2 = bob_measure(&tampered_qubits);
 
     let qkd2 = distill_key(&alice2, &bob2).unwrap();
@@ -272,26 +272,26 @@ fn main() {
     print!("                                            ");
     color(Color::Cyan, "Bob");
     println!();
-    print!("      │                                              │\n");
+    println!("      │                                              │");
     print!("      ├── ");
     color(Color::Magenta, "BB84 quantum channel");
-    print!(" ──────────────────┤\n");
+    println!(" ──────────────────┤");
     print!("      │   ");
     color(Color::DarkGrey, "(qubits → sift → check → QKD key)");
     println!();
-    print!("      │                                              │\n");
+    println!("      │                                              │");
     print!("      ├── ");
     color(Color::Cyan, "Channel 1");
     print!(": KkSealedMessage ");
     color(Color::DarkGrey, "(public)");
-    print!(" ──→│\n");
+    println!(" ──→│");
     print!("      ├── ");
     color(Color::Yellow, "Channel 2");
     print!(": QKD-encrypted ε ");
     color(Color::DarkGrey, "(public)");
-    print!(" ──→│\n");
-    print!("      │                                              │\n");
-    print!("      │        Bob: QKD-decrypt ε → decode_split()   │\n");
+    println!(" ──→│");
+    println!("      │                                              │");
+    println!("      │        Bob: QKD-decrypt ε → decode_split()   │");
 
     println!();
     print!("    ");
@@ -299,13 +299,13 @@ fn main() {
     println!();
     print!("      ");
     color(Color::Green, "1.");
-    print!(" Shared secret (pre-shared knowledge)\n");
+    println!(" Shared secret (pre-shared knowledge)");
     print!("      ");
     color(Color::Green, "2.");
-    print!(" KkSealedMessage (ciphertext + HMAC)\n");
+    println!(" KkSealedMessage (ciphertext + HMAC)");
     print!("      ");
     color(Color::Green, "3.");
-    print!(" ε (QKD-encrypted, physics-protected)\n");
+    println!(" ε (QKD-encrypted, physics-protected)");
 
     println!();
     print!("    ");
@@ -313,16 +313,16 @@ fn main() {
     println!();
     print!("      ");
     color(Color::Red, "•");
-    print!(" Heisenberg uncertainty (no-cloning theorem) to steal QKD key\n");
+    println!(" Heisenberg uncertainty (no-cloning theorem) to steal QKD key");
     print!("      ");
     color(Color::Red, "•");
-    print!(" Information-theoretic ε non-reconstructibility\n");
+    println!(" Information-theoretic ε non-reconstructibility");
     print!("      ");
     color(Color::Red, "•");
-    print!(" HMAC-SHA256 temporal commitment binding\n");
+    println!(" HMAC-SHA256 temporal commitment binding");
     print!("      ");
     color(Color::Red, "•");
-    print!(" HKDF-SHA256 key derivation without salt\n");
+    println!(" HKDF-SHA256 key derivation without salt");
 
     println!();
     print!("    ");

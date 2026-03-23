@@ -202,7 +202,7 @@ impl KkRngPool {
         }
 
         let n = self.generators.len();
-        let chunk_size = (dest.len() + n - 1) / n; // ceil division
+        let chunk_size = dest.len().div_ceil(n);
 
         dest.chunks_mut(chunk_size)
             .enumerate()

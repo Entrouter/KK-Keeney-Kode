@@ -127,7 +127,7 @@ fn measure_ns<F: FnMut()>(mut f: F) -> f64 {
 
 /// Cropping: discard measurements above the percentile threshold
 /// to remove OS scheduling noise. Returns threshold value.
-fn percentile(times: &mut Vec<f64>, pct: f64) -> f64 {
+fn percentile(times: &mut [f64], pct: f64) -> f64 {
     times.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let idx = ((times.len() as f64) * pct) as usize;
     times[idx.min(times.len() - 1)]

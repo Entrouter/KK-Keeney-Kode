@@ -8,7 +8,7 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use std::time::Duration;
 use kk_crypto::{decode, encode, encode_pooled, EntropyPool, KkPacket};
-use kk_crypto::{encode_aead, decode_aead, encode_aead_batch, decode_aead_batch, KkAeadPacket};
+use kk_crypto::{encode_aead_batch, decode_aead_batch};
 
 const SECRET: &[u8] = b"bench-shared-secret-2026";
 
@@ -162,11 +162,11 @@ fn bench_avx512_vs_scalar(c: &mut Criterion) {
 
         group.bench_function("scalar_sequential", |b| {
             b.iter(|| {
-                for i in 0..8 {
+                for info in &infos {
                     black_box(kk_kdf(
                         black_box(key),
                         black_box(salt),
-                        black_box(infos[i]),
+                        black_box(info),
                         output_len,
                     ));
                 }

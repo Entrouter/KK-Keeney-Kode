@@ -1,3 +1,4 @@
+#![allow(clippy::needless_range_loop)]
 // Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
 // Licensed under the Apache License, Version 2.0 with Additional Terms.
 // NO COMMERCIAL USE without prior written authorization from Entrouter.

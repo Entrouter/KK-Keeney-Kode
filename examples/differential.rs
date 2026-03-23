@@ -642,7 +642,6 @@ fn main() {
     // Print a summary: min/max/avg active words per round across all 25 starting positions
     println!("  Starting from a single-word difference (all bits flipped):");
     println!("  {:>6} {:>8} {:>8} {:>8}", "Round", "Min", "Max", "Avg");
-    let full_diffusion_round;
     let mut fdr = 9; // sentinel (never reached)
     for r in 0..8 {
         let active_counts: Vec<usize> = propagation.iter().map(|v| v[r]).collect();
@@ -652,7 +651,7 @@ fn main() {
         println!("  {:>6} {:>8} {:>8} {:>8.1}", r + 1, min, max, avg);
         if min == 25 && fdr == 9 { fdr = r + 1; }
     }
-    full_diffusion_round = fdr;
+    let full_diffusion_round = fdr;
     // For a 25-word wide-trail cipher, full diffusion in ≤4 rounds is good.
     // Keccak achieves full diffusion in 2 rounds (simpler structure, no multiplication).
     // KK's MFR+DDR operations are heavier per-round, compensating for slower diffusion.

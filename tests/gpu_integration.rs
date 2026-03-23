@@ -76,8 +76,8 @@ fn gpu_permute_matches_cpu_patterned_state() {
 
     // Deterministic non-trivial state
     let mut patterned: KkState = [0u64; STATE_WORDS];
-    for i in 0..STATE_WORDS {
-        patterned[i] = (i as u64).wrapping_mul(0x9E3779B97F4A7C15) ^ 0xDEADBEEFCAFEBABE;
+    for (i, p) in patterned.iter_mut().enumerate() {
+        *p = (i as u64).wrapping_mul(0x9E3779B97F4A7C15) ^ 0xDEADBEEFCAFEBABE;
     }
 
     let mut cpu_state = patterned;
@@ -129,8 +129,8 @@ fn gpu_permute_batch_256_matches_cpu() {
     let mut states: Vec<KkState> = (0..256)
         .map(|i| {
             let mut s: KkState = [0u64; STATE_WORDS];
-            for w in 0..STATE_WORDS {
-                s[w] = (i as u64 * 31 + w as u64 * 97) ^ 0xA5A5A5A5A5A5A5A5;
+            for (w, word) in s.iter_mut().enumerate() {
+                *word = (i as u64 * 31 + w as u64 * 97) ^ 0xA5A5A5A5A5A5A5A5;
             }
             s
         })

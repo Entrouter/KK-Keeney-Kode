@@ -305,15 +305,15 @@ fn test3_mfr16_per_bit() -> Vec<f64> {
 
     // Summarize
     println!("\n  Lower half (bits 0-7), long carry chain above:");
-    for bit in 0..8 {
+    for (bit, &mdp) in per_bit_mdp.iter().enumerate().take(8) {
         let theory = -((15 - bit) as f64);
-        let actual = per_bit_mdp[bit].log2();
+        let actual = mdp.log2();
         println!("    bit {}: actual=2^{:.2}  theory(2^-(n-1-k))=2^{:.0}  delta={:+.2} bits",
             bit, actual, theory, actual - theory);
     }
     println!("  Upper half (bits 8-15), short carry chain, fold region:");
-    for bit in 8..16 {
-        println!("    bit {:>2}: MDP=2^{:.2}", bit, per_bit_mdp[bit].log2());
+    for (bit, &mdp) in per_bit_mdp.iter().enumerate().take(16).skip(8) {
+        println!("    bit {:>2}: MDP=2^{:.2}", bit, mdp.log2());
     }
 
     per_bit_mdp
@@ -551,7 +551,7 @@ fn main() {
     println!("TEST 3: MFR 16-bit Per-Bit DDT Profile");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     let mfr16_bits = test3_mfr16_per_bit();
-    let t3 = mfr16_bits[0] < mfr8_bits[0] as f64;
+    let t3 = mfr16_bits[0] < mfr8_bits[0];
     println!("\n  RESULT: {}, bit-0 improves: 8-bit 2^{:.2} → 16-bit 2^{:.2}\n",
         if t3 { "PASS ✅" } else { "FAIL ❌" }, mfr8_bits[0].log2(), mfr16_bits[0].log2());
     if t3 { pass += 1; } else { fail += 1; }

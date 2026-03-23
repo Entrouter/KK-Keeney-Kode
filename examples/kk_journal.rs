@@ -53,7 +53,7 @@ fn list_entries() -> Vec<EntryMeta> {
         .filter(|e| {
             e.path()
                 .extension()
-                .map_or(false, |ext| ext == "kkj")
+                .is_some_and(|ext| ext == "kkj")
         })
         .filter_map(|e| {
             let ts_str = e.file_name().to_string_lossy().strip_suffix(".kkj")?.to_string();

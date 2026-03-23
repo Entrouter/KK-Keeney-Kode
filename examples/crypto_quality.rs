@@ -102,18 +102,18 @@ fn test_sac() -> (bool, String) {
         rng.fill(&mut input);
         let base_hash = kk_hash(&input);
 
-        for bit in 0..input_bits {
+        for (bit, flip_count) in flip_counts.iter_mut().enumerate() {
             let mut modified = input.clone();
             flip_bit(&mut modified, bit);
             let mod_hash = kk_hash(&modified);
 
             let hd = hamming_distance(&base_hash, &mod_hash);
-            flip_counts[bit] += hd as u64;
+            *flip_count += hd as u64;
 
             // Track which output bits flipped
-            for ob in 0..OUTPUT_BITS {
+            for (ob, obf) in output_bit_flips.iter_mut().enumerate() {
                 if get_bit(&base_hash, ob) != get_bit(&mod_hash, ob) {
-                    output_bit_flips[ob] += 1;
+                    *obf += 1;
                 }
             }
         }
@@ -171,7 +171,7 @@ fn test_bic() -> (bool, String) {
     // and collect the flip pattern across many inputs
     let mut flips = vec![[0u8; OUTPUT_BITS]; NUM_INPUTS];
 
-    for trial in 0..NUM_INPUTS {
+    for trial_flips in flips.iter_mut() {
         let mut input = vec![0u8; INPUT_LEN];
         rng.fill(&mut input);
         let base = kk_hash(&input);
@@ -179,8 +179,8 @@ fn test_bic() -> (bool, String) {
         flip_bit(&mut input, 0);
         let modified = kk_hash(&input);
 
-        for ob in 0..OUTPUT_BITS {
-            flips[trial][ob] = if get_bit(&base, ob) != get_bit(&modified, ob) { 1 } else { 0 };
+        for (ob, flip_val) in trial_flips.iter_mut().enumerate() {
+            *flip_val = if get_bit(&base, ob) != get_bit(&modified, ob) { 1 } else { 0 };
         }
     }
 
@@ -437,9 +437,9 @@ fn test_kats() -> (bool, String) {
 
     let pass = all_deterministic && all_match;
     let detail = if all_match {
-        format!("6 vectors verified: all deterministic, all match frozen values")
+        "6 vectors verified: all deterministic, all match frozen values".to_string()
     } else {
-        format!("REGRESSION: computed values don't match frozen KAT vectors!")
+        "REGRESSION: computed values don't match frozen KAT vectors!".to_string()
     };
 
     (pass, detail)
@@ -455,6 +455,7 @@ fn main() {
     println!("╚══════════════════════════════════════════════════════════════════╝");
     println!();
 
+    #[allow(clippy::type_complexity)]
     let tests: Vec<(&str, fn() -> (bool, String))> = vec![
         ("Strict Avalanche Criterion", test_sac),
         ("Bit Independence Criterion", test_bic),
@@ -476,7 +477,7 @@ fn main() {
         let status = if pass { "PASS" } else { "FAIL" };
         let marker = if pass { "  " } else { "!!" };
 
-        println!("\r  Test {}: {} {} {}  {}", i + 1, status, marker, name, "");
+        println!("\r  Test {}: {} {} {}  ", i + 1, status, marker, name);
         println!("         {}", detail);
         println!();
 

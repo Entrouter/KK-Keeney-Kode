@@ -31,12 +31,8 @@
 //!
 //! let key = b"shared-secret";
 //! let salt = b"entropy-salt";
-//! let infos: Vec<&[u8]> = (0..4096u32)
-//!     .map(|i| i.to_le_bytes())
-//!     .collect::<Vec<_>>()
-//!     .iter()
-//!     .map(|b| b.as_slice())
-//!     .collect();
+//! let raw: Vec<[u8; 4]> = (0..4096u32).map(|i| i.to_le_bytes()).collect();
+//! let infos: Vec<&[u8]> = raw.iter().map(|b| b.as_slice()).collect();
 //! let results = gpu.kk_kdf_batch(key, salt, &infos, 32);
 //! ```
 
@@ -276,7 +272,7 @@ impl GpuAccelerator {
 
         // Dispatch
         let workgroup_size = 64u32;
-        let num_workgroups = (n as u32 + workgroup_size - 1) / workgroup_size;
+        let num_workgroups = (n as u32).div_ceil(workgroup_size);
 
         let mut encoder = self
             .device
