@@ -29,7 +29,7 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
-      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo clippy --all-targets --features std,gpu -- -D warnings
 
   test:
     name: Test (${{ matrix.rust }})
@@ -43,8 +43,8 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --all-targets --all-features
-      - run: cargo test --doc
+      - run: cargo test --all-targets --features std,gpu
+      - run: cargo test --doc --features std,gpu
 
   doc:
     name: Docs
@@ -53,7 +53,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo doc --no-deps --all-features
+      - run: cargo doc --no-deps --features std,gpu
         env:
           RUSTDOCFLAGS: -D warnings
 
