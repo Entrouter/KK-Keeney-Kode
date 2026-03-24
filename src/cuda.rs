@@ -124,9 +124,8 @@ impl CudaAccelerator {
         };
 
         if rc != 0 {
-            // Fall through silently - states unchanged.
-            // In a production system you'd want error propagation,
-            // but for benchmarking & testing this is fine.
+            // Non-zero return: leave states unchanged (no partial mutation).
+            // Error is silent here; callers should check via higher-level API.
             return;
         }
 

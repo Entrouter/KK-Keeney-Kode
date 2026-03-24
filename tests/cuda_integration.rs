@@ -1,3 +1,10 @@
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
+
 //! CUDA correctness tests: verify CUDA produces identical output to CPU.
 //!
 //! Run with: `cargo test --features cuda --test cuda_integration`

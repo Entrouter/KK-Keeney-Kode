@@ -1,3 +1,10 @@
+// Copyright (c) 2026 John A Keeney, Entrouter. All rights reserved.
+// Licensed under the Apache License, Version 2.0 with Additional Terms.
+// NO COMMERCIAL USE without prior written authorization from Entrouter.
+// Unauthorized commercial use will be prosecuted to the fullest extent of the law.
+// See the LICENSE file in the project root for full license information.
+// NOTICE: Removal of this header is a violation of the license.
+
 // KK Permutation  - WGSL Compute Shader
 // Emulates u64 via vec2<u32> (lo, hi) since WGSL has no native u64.
 // Each invocation processes one independent 25-word state (200 bytes).
