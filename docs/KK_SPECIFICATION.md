@@ -1837,3 +1837,10 @@ src/
 ---
 
 *End of specification.*
+
+---
+
+John A Keeney
+Entrouter
+2026
+hello@entrouter.com

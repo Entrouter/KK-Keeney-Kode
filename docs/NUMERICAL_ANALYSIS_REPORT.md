@@ -624,3 +624,9 @@ Wall time: 8.8 seconds.
 
 *Report generated from actual execution output of all 10 KK cryptographic analysis examples.*  
 *All numbers are measured values, not theoretical estimates, unless explicitly labeled as predictions or extrapolations.*
+---
+
+John A Keeney
+Entrouter
+2026
+hello@entrouter.com
