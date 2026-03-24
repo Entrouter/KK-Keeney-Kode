@@ -12,6 +12,11 @@ edition = "2021"
 authors = ["John Keeney"]
 description = "KK (Keeney Kode), A novel cryptographic primitive where symbol values are temporal functions of universal entropy"
 license-file = "LICENSE"
+repository = "https://github.com/Entrouter/KK-Keeney-Kode"
+homepage = "https://github.com/Entrouter/KK-Keeney-Kode"
+readme = "README.md"
+keywords = ["cryptography", "hash", "sponge", "cipher", "aead"]
+categories = ["cryptography", "no-std"]
 
 [dependencies]
 rand = { version = "0.8", optional = true }
