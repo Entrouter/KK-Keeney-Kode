@@ -27,7 +27,7 @@ The absence of lookup tables makes KK naturally resistant to cache-timing side-c
 
 The distinguishing contribution of KK beyond the permutation itself is **temporal permutation variance**: the rotation schedule governing MFR operations within the permutation is derived from a runtime entropy snapshot, causing the algebraic structure of the cipher to change with every invocation. Each ciphertext is produced by a permutation with a distinct internal geometry, rendering multi-query differential and linear attacks structurally inapplicable because the attacker cannot accumulate observations under a fixed permutation. This property enables built-in temporal commitment proofs that bind ciphertexts to their creation timestamps with cryptographic strength, a capability directly applicable to regulatory compliance, audit trails, supply-chain integrity verification, and tamper-evident logging.
 
-From the single KK permutation, a complete cryptographic suite is constructed following the duplex sponge paradigm [4, 7] with rate $r = 1216$ bits and capacity $c = 384$ bits, yielding approximately $2^{192}$ generic sponge security [23]. The suite comprises KK-Hash (collision-resistant hashing), KK-KDF (key derivation with temporal binding), KK-MAC (message authentication), KK-Codec (authenticated stream encryption), a 4-strand Rope Ratchet providing forward secrecy for messaging and session-based protocols, KK-EKA (ephemeral key agreement), and an optional BB84 quantum key distribution integration layer.
+From the single KK permutation, a complete cryptographic suite is constructed following the duplex sponge paradigm [4, 7] with rate $r = 1216$ bits and capacity $c = 384$ bits, yielding approximately $2^{192}$ generic sponge security [23]. The suite comprises KK-Hash (collision-resistant hashing), KK-KDF (key derivation with temporal binding), KK-MAC (message authentication), KK-Codec (authenticated stream encryption), a 4-strand Rope Ratchet providing forward secrecy for messaging and session-based protocols, KK-EKA (ephemeral key agreement), KK-RNG (deterministic random bit generation with forward secrecy), and an optional BB84 quantum key distribution integration layer.
 
 Security analysis proceeds through three complementary methodologies. First, exhaustive difference distribution tables (DDT) and linear approximation tables (LAT) are computed at 8-bit and 16-bit reduced word widths, establishing per-bit scaling laws: MFR's maximum differential probability scales as $2^{-1}$ per bit of word width, yielding an extrapolated 64-bit single-operation maximum differential probability of $2^{-63}$; the linear bias scales as $2^{-2}$ per bit. Second, these per-operation bounds are composed across the minimum 424 active MFR operations in a 32-round differential trail to produce aggregate bounds: a best differential trail probability of at most $2^{-26{,}712}$ and a best linear trail correlation of at most $2^{-2{,}544}$, exceeding the $2^{-800}$ target (half the capacity) by margins of $25{,}912$ and $1{,}744$ bits respectively. A complementary duality theorem establishes that the maximum differential probability concentrates at the most significant bit while the maximum linear bias concentrates at the least significant bit; no single bit position is simultaneously weak in both domains. Third, standard empirical tests confirm strict avalanche criterion compliance (mean $128.00/256$ bit flips), bit independence (maximum correlation $0.046$), zero collisions in $2 \times 10^6$ trials, complete length-extension immunity, chi-squared uniformity, constant-time execution (dudect $|t| = 2.28$, threshold $4.5$), and stable known-answer vectors across all 251 tests.
 
@@ -111,7 +111,7 @@ The principal contributions of this work are:
 
 4. **Bit-position duality theorem.** We prove that the maximum differential probability concentrates at the most significant bit while the maximum linear bias concentrates at the least significant bit, establishing that no single bit position is simultaneously weak in both analytical domains.
 
-5. **Complete cryptographic suite from a single permutation.** From one permutation, we derive collision-resistant hashing, key derivation, message authentication, authenticated stream encryption, a 4-strand ratchet for forward secrecy, ephemeral key agreement, and an optional quantum key distribution layer. A formal specification sufficient for independent reimplementation is provided, covering all 11 wire format packet types.
+5. **Complete cryptographic suite from a single permutation.** From one permutation, we derive collision-resistant hashing, key derivation, message authentication, authenticated stream encryption, a 4-strand ratchet for forward secrecy, ephemeral key agreement, a deterministic random bit generator (DRBG) with forward secrecy, and an optional quantum key distribution layer. A formal specification sufficient for independent reimplementation is provided, covering all 11 wire format packet types.
 
 6. **Open-source reference implementation with comprehensive testing.** The complete Rust implementation includes 251 tests, 8 fuzz targets, 56 Criterion benchmark measurement points, and executable proofs for every quantitative claim in this paper. The code is available at https://github.com/Entrouter/KK-Keeney-Kode and https://crates.io/crates/kk-crypto.
 
@@ -188,9 +188,10 @@ The principal contributions of this work are:
 53. [AEAD Mode](#53-aead-mode)
 54. [Rope Ratchet](#54-rope-ratchet)
 55. [KK-EKA (Entropy Key Agreement)](#55-kk-eka-entropy-key-agreement)
-56. [Security Claims](#56-security-claims)
-57. [Wire Format Diagrams](#57-wire-format-diagrams)
-58. [Test Vector References](#58-test-vector-references)
+56. [KK-RNG (Deterministic Random Bit Generator)](#56-kk-rng-deterministic-random-bit-generator)
+57. [Security Claims](#57-security-claims)
+58. [Wire Format Diagrams](#58-wire-format-diagrams)
+59. [Test Vector References](#59-test-vector-references)
 
 ### Appendices
 - [A. Module Structure](#appendix-a-module-structure)
@@ -382,6 +383,10 @@ The non-reconstructibility proof was executed with 10 different ciphertexts, eac
 
 Every candidate plaintext produced a consistent keystream, confirming that ciphertexts are information-theoretically indistinguishable without the entropy snapshot.
 
+### Entropy Pool
+
+For high-throughput encoding paths, the `EntropyPool` pre-generates entropy snapshots in a background thread and stores them in a bounded queue (`VecDeque`). Callers draw snapshots with near-zero latency via the `encode_pooled()` and `encode_aead_pooled()` convenience functions; if the pool is temporarily exhausted, the system falls back to synchronous `gather()`. The pool pre-warms 8 snapshots at construction time and refills continuously, ensuring that encoding-intensive workloads are never blocked by entropy gathering. See `src/entropy_pool.rs` for the implementation.
+
 ---
 
 ## 9. Key Derivation: KK-KDF
@@ -550,6 +555,10 @@ KK defines three packet formats for different security requirements:
 **Bound Packet (KkBoundPacket, for temporal proofs):** 4-byte length prefix, variable-length ciphertext, 48-byte entropy snapshot, 96-byte temporal proof (MAC plus verifier nonce plus previous MAC). Total overhead: 148 bytes.
 
 All length fields are encoded as 32-bit little-endian unsigned integers.
+
+### Streaming API
+
+A streaming API (`StreamEncoder` / `StreamDecoder` in `src/codec.rs`) allows incremental plaintext accumulation before finalisation. `StreamEncoder::new()` captures an entropy snapshot at construction time; successive `update()` calls buffer plaintext chunks; `finalize()` produces a complete `KkPacket`. The decoder mirrors this pattern. This interface is useful for protocols that construct messages incrementally or receive plaintext in fragments before committing to a single authenticated packet.
 
 ---
 
@@ -2728,39 +2737,98 @@ BOTH: zeroize ephemeral state
 
 ---
 
-## 56. Security Claims
+## 56. KK-RNG (Deterministic Random Bit Generator)
 
-### 56.1 Collision Resistance (KK-Hash)
+### 56.1 Overview
+
+KK-RNG is a deterministic random bit generator (DRBG) built entirely from the KK sponge. It replaces any need for an external DRBG by producing an unlimited stream of cryptographically independent pseudorandom bytes from a single seed. The construction provides forward secrecy of the output stream: past outputs cannot be recovered even if the current internal state is compromised.
+
+### 56.2 KkRng Construction
+
+**Seed:** arbitrary-length byte string $S$ (recommended $\geq 32$ bytes).
+
+**State:** 256-bit value $\sigma$ plus 64-bit counter $c$.
+
+**Initialisation:**
+
+$$\sigma_0 \leftarrow \text{KK-Hash}(S), \qquad c_0 \leftarrow 0$$
+
+**Generation** (`next_bytes(len)`):
+
+1. $\text{combined} \leftarrow \text{KK-KDF}(\sigma_i,\; c_i.\text{to\_le\_bytes()},\; \texttt{b"KK-RNG"},\; \text{len} + 32)$
+2. $\text{output} \leftarrow \text{combined}[0 \,..\, \text{len})$
+3. $\sigma_{i+1} \leftarrow \text{combined}[\text{len} \,..\, \text{len}+32)$
+4. $c_{i+1} \leftarrow c_i + 1$
+5. Zeroize $\text{combined}$
+6. Return $\text{output}$
+
+Each call ratchets the state forward: the 32 bytes beyond the requested output become the new state, and the counter increments. The old state is zeroized on drop (`Zeroize`, `ZeroizeOnDrop`).
+
+**Reseed** (`reseed(additional_seed)`):
+
+$$\sigma \leftarrow \text{KK-Hash}(\sigma \parallel \text{additional\_seed}), \qquad c \leftarrow 0$$
+
+→ `rng::KkRng::new()`, `rng::KkRng::next_bytes()`, `rng::KkRng::reseed()`
+
+### 56.3 KkRngPool (Parallel Generation)
+
+`KkRngPool` maintains $N$ independent `KkRng` instances for concurrent random byte generation. Each generator is domain-separated at construction:
+
+$$\sigma_0^{(j)} \leftarrow \text{KK-Hash}(S \parallel j.\text{to\_le\_bytes()}) \qquad \forall\; j \in [0, N)$$
+
+**Dispatch:** a relaxed atomic counter selects the next generator in round-robin order. Each generator is protected by its own `Mutex`, so concurrent callers block only when two threads select the same generator.
+
+**Parallel fill** (`fill_bytes_parallel`): The destination buffer is split into $N$ equal segments and each segment is filled by a distinct generator in parallel via Rayon `par_iter`.
+
+**Performance:** On the reference platform (AMD Ryzen 9 9950X3D, 32 threads), the pool achieves 2.80 GiB/s of forward-secret random bytes (see Table 35.8).
+
+→ `rng::KkRngPool::new()`, `rng::KkRngPool::next_bytes()`, `rng::KkRngPool::fill_bytes_parallel()`
+
+### 56.4 Forward Secrecy Property
+
+**Claim:** Given the internal state $\sigma_i$ at step $i$, an attacker cannot recover any output $\text{output}_j$ for $j < i$.
+
+**Basis:** Each step derives $\sigma_{i+1}$ from $\sigma_i$ through KK-KDF, a one-way function under the sponge-PRF assumption. Recovering $\sigma_i$ from $\sigma_{i+1}$ requires inverting the KK permutation's capacity, which has cost $2^{192}$. The output bytes and ratchet bytes are produced in a single KDF call and separated after derivation; the ratchet portion is never exposed.
+
+### 56.5 Determinism
+
+For a given seed $S$, the sequence of outputs is fully deterministic. This enables reproducible key generation for testing and enables KK-RNG to serve as a key-schedulable stream source in protocols that require deterministic transcript replay.
+
+---
+
+## 57. Security Claims
+
+### 57.1 Collision Resistance (KK-Hash)
 
 **Claim:** KK-Hash provides $2^{128}$ collision resistance (birthday bound on 256-bit output).
 
 **Basis:** The sponge capacity of 384 bits prevents internal state collisions with probability $> 1 - 2^{-192}$. The output is 256 bits, so the birthday bound governs the external collision probability at $2^{128}$.
 
-### 56.2 Preimage Resistance (KK-Hash)
+### 57.2 Preimage Resistance (KK-Hash)
 
 **Claim:** KK-Hash provides $2^{192}$ preimage resistance (capacity-limited).
 
 **Basis:** Inverting the sponge requires guessing the 384-bit capacity, providing $2^{192}$ single-target preimage resistance.
 
-### 56.3 KDF Security
+### 57.3 KDF Security
 
 **Claim:** KK-KDF is a PRF (pseudorandom function) under the assumption that the KK permutation is a pseudorandom permutation (PRP).
 
 **Basis:** The sponge-based KDF with domain separation, length-prefixed inputs, and capacity isolation follows the standard sponge-PRF model. Additionally, KK-KDF uses entropy-derived rotations from the salt, making the permutation structure itself key-dependent.
 
-### 56.4 MAC Unforgeability
+### 57.4 MAC Unforgeability
 
 **Claim:** KK-MAC provides $2^{128}$ existential unforgeability under chosen-message attack (EUF-CMA), assuming the KK permutation is a PRP.
 
 **Basis:** The keyed sponge MAC with domain separation follows the standard sponge-MAC security model. The length-prefixed key prevents length-extension attacks. The 384-bit capacity provides $2^{192}$ state-recovery resistance, but the 256-bit tag limits forgery to $2^{-256}$ per attempt.
 
-### 56.5 Forward Secrecy (Rope Ratchet)
+### 57.5 Forward Secrecy (Rope Ratchet)
 
 **Claim:** The Rope Ratchet provides ~192-bit forward secrecy.
 
 **Basis:** Compromise of the current ratchet state reveals the current chain strand (32B) but the previous chain strand was overwritten and zeroized. Recovering it requires inverting KK-KDF, which requires guessing the 384-bit sponge capacity. The 4-strand mixing through entropy-derived rotations further strengthens the claim: to recover a past message key, an attacker would need to invert a sponge whose algebraic structure (rotation schedule) is unknown.
 
-### 56.6 Contributory Key Agreement (KK-EKA)
+### 57.6 Contributory Key Agreement (KK-EKA)
 
 **Claim:** KK-EKA provides a contributory key agreement: neither party alone controls the session key.
 
@@ -2770,19 +2838,19 @@ BOTH: zeroize ephemeral state
 - Bob's entropy is revealed before Alice's, but Alice cannot change $\varepsilon_a$ after commitment
 - Both parties authenticate via KK-MAC over the PSK, preventing impostor contributions
 
-### 56.7 Temporal Binding
+### 57.7 Temporal Binding
 
 **Claim:** The temporal commitment binds the ciphertext to the entropy snapshot at the moment of creation. Modifying the ciphertext, snapshot, or either party's secret invalidates the commitment.
 
 **Basis:** The commitment MAC covers $\varepsilon.\text{bytes} \parallel \varepsilon.\text{timestamp} \parallel C$, and the commitment key is derived from the shared secret and entropy. Forging requires knowledge of the shared secret.
 
-### 56.8 DDR Differential Resistance
+### 57.8 DDR Differential Resistance
 
 **Claim:** DDR prevents efficient differential cryptanalysis by forcing exponential path explosion.
 
 **Basis:** Any differential trail through DDR must account for all 64 possible rotation distances simultaneously (since the rotation depends on the data difference itself). Standard differential analysis tools track fixed rotations; DDR invalidates this assumption. Additionally, the constant-time implementation prevents timing-based distinguishers.
 
-### 56.9 Limitations
+### 57.9 Limitations
 
 - KK is a novel, un-audited primitive. It has **not** been reviewed by third-party cryptographers. It should not be used for production security until independent analysis is complete.
 - The base codec (without Rope Ratchet) has no forward secrecy.
@@ -2791,11 +2859,11 @@ BOTH: zeroize ephemeral state
 
 ---
 
-## 57. Wire Format Diagrams
+## 58. Wire Format Diagrams
 
 All multi-byte integers are little-endian. All lengths are in bytes.
 
-### 57.1 EntropySnapshot (48 bytes)
+### 58.1 EntropySnapshot (48 bytes)
 
 ```
  0                   16                  32                  48
@@ -2813,7 +2881,7 @@ Offset  Size  Field
 Total:  48
 ```
 
-### 57.2 TemporalCommitment (32 bytes)
+### 58.2 TemporalCommitment (32 bytes)
 
 ```
 Offset  Size  Field
@@ -2823,7 +2891,7 @@ Offset  Size  Field
 Total:  32
 ```
 
-### 57.3 TemporalProof (96 bytes)
+### 58.3 TemporalProof (96 bytes)
 
 ```
 Offset  Size  Field
@@ -2835,7 +2903,7 @@ Offset  Size  Field
 Total:  96
 ```
 
-### 57.4 KkPacket
+### 58.4 KkPacket
 
 ```
 Offset       Size            Field
@@ -2848,7 +2916,7 @@ Offset       Size            Field
 Total:       4 + ct_len + 48 + 32 = ct_len + 84
 ```
 
-### 57.5 KkSealedMessage (Split-Channel)
+### 58.5 KkSealedMessage (Split-Channel)
 
 ```
 Offset       Size            Field
@@ -2860,7 +2928,7 @@ Offset       Size            Field
 Total:       4 + ct_len + 32 = ct_len + 36
 ```
 
-### 57.6 KkBoundPacket
+### 58.6 KkBoundPacket
 
 ```
 Offset       Size            Field
@@ -2873,7 +2941,7 @@ Offset       Size            Field
 Total:       4 + ct_len + 48 + 96 = ct_len + 148
 ```
 
-### 57.7 KkAeadPacket
+### 58.7 KkAeadPacket
 
 ```
 Offset              Size       Field
@@ -2888,7 +2956,7 @@ Offset              Size       Field
 Total:              8 + aad_len + ct_len + 48 + 32 = aad_len + ct_len + 88
 ```
 
-### 57.8 RopeStep (56 bytes)
+### 58.8 RopeStep (56 bytes)
 
 ```
 Offset  Size  Field
@@ -2899,7 +2967,7 @@ Offset  Size  Field
 Total:  56
 ```
 
-### 57.9 RopePacket
+### 58.9 RopePacket
 
 ```
 Offset   Size            Field
@@ -2910,7 +2978,7 @@ Offset   Size            Field
 Total:   56 + (ct_len + 84) = ct_len + 140
 ```
 
-### 57.10 RopeAeadPacket
+### 58.10 RopeAeadPacket
 
 ```
 Offset   Size            Field
@@ -2921,7 +2989,7 @@ Offset   Size            Field
 Total:   56 + (aad_len + ct_len + 88) = aad_len + ct_len + 144
 ```
 
-### 57.11 EKA Messages
+### 58.11 EKA Messages
 
 ```
 EkaMsg1 (32 bytes):
@@ -2944,11 +3012,11 @@ Offset  Size  Field
 
 ---
 
-## 58. Test Vector References
+## 59. Test Vector References
 
 Deterministic test vectors are defined in `KK_TEST_VECTORS.md` and verified by the `tests/integration.rs` test suite (44 vector tests). All vectors use fixed entropy snapshots and timestamps to ensure reproducibility.
 
-### 58.1 Vector Categories
+### 59.1 Vector Categories
 
 | Category | Count | Description |
 |----------|-------|-------------|
@@ -2961,14 +3029,14 @@ Deterministic test vectors are defined in `KK_TEST_VECTORS.md` and verified by t
 | Session (Rope Ratchet) | 6 | Sequential encode/decode with ratchet state |
 | EKA key agreement | 6 | Full protocol transcript with known entropy |
 
-### 58.2 Reference File
+### 59.2 Reference File
 
 See `KK_TEST_VECTORS.md` in the repository root for:
 - All input values (shared secrets, plaintexts, AAD, entropy snapshots)
 - Expected output values (ciphertexts, commitments, MACs, derived keys)
 - Step-by-step intermediate values for hand verification
 
-### 58.3 Running Vectors
+### 59.3 Running Vectors
 
 ```bash
 cargo test                          # All 170 tests including 44 vector tests
@@ -2992,6 +3060,10 @@ src/
 ├── session.rs      - Rope Ratchet, forward-secret session API
 ├── eka.rs          - Entropy Key Agreement protocol
 ├── qkd.rs          - Quantum Key Distribution simulation
+├── rng.rs          - KK-RNG: deterministic random bit generator, parallel pool
+├── entropy_pool.rs - Pre-generated entropy pool for high-throughput paths
+├── gpu.rs          - WGPU compute shader acceleration (feature: gpu)
+├── cuda.rs         - CUDA native acceleration (feature: cuda)
 └── error.rs        - Error types
 ```
 
@@ -3033,6 +3105,8 @@ src/
 | §54.8 Decode session | `decode_session()` | `session.rs` | 469 |
 | §55.4 EKA Initiator | `EkaInitiator` | `eka.rs` | 151 |
 | §55.5 EKA Responder | `EkaResponder` | `eka.rs` | 244 |
+| §56.2 KkRng | `KkRng::new()`, `next_bytes()` | `rng.rs` | 61 |
+| §56.3 KkRngPool | `KkRngPool::new()`, `fill_bytes_parallel()` | `rng.rs` | 164 |
 
 ---
 
