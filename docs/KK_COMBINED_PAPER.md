@@ -51,7 +51,7 @@ Despite the maturity of the ARX (Addition-Rotation-XOR) paradigm, which underpin
 
 This paper presents KK (Keeney Kode), a construction that occupies this previously empty point in the design space. KK is built from two novel primitives, Multiply-Fold-Rotate (MFR) and Data-Dependent Rotation (DDR), composed into a 1600-bit sponge permutation. The central design innovation is temporal permutation variance: the rotation schedule within the permutation is derived from an entropy snapshot captured at runtime, so each invocation operates under a distinct permutation geometry. The entire cryptographic suite, from hashing and key derivation through authenticated encryption, session management, key agreement, and optional quantum key distribution, is derived from this single permutation.
 
-The paper is organized as follows. The remainder of this front matter discusses related work and states the contributions explicitly. Part I (Sections 1 through 17) presents the design and architecture. Part II (Sections 18 through 34) presents the empirical security analysis across 10 categories including exhaustive DDT/LAT computation. Part III (Sections 35 and 36) reports performance benchmarks. Part IV (Sections 37 through 43) provides assessment, limitations, and conclusions. Part V (Sections 44 through 58) gives the complete formal specification sufficient for independent reimplementation. Appendices A and B provide module structure and code-to-specification cross-references.
+The paper is organized as follows. The remainder of this front matter discusses related work and states the contributions explicitly. Part I (Sections 1 through 17) presents the design and architecture. Part II (Sections 18 through 34) presents the empirical security analysis across 10 categories including exhaustive DDT/LAT computation. Part III (Sections 35 and 36) reports performance benchmarks. Part IV (Sections 37 through 43) provides assessment, limitations, and conclusions. Part V (Sections 44 through 59) gives the complete formal specification sufficient for independent reimplementation. Appendices A and B provide module structure and code-to-specification cross-references.
 
 ---
 
@@ -767,7 +767,7 @@ The sponge construction's capacity (384 bits, 6 words) is never exposed in the o
 
 ### 24.1 Methodology
 
-Generate 3,200,000 output bytes from sequential inputs. Bin each byte into 256 categories and compute the chi-squared statistic:
+Generate 3,200,000 output bytes from sequential inputs. Bin each byte into 256 categories and compute the Pearson chi-squared statistic [3]:
 
 $$\chi^2 = \sum_{i=0}^{255} \frac{(O_i - E_i)^2}{E_i}$$
 
@@ -1042,7 +1042,7 @@ Security margin: $26{,}712 - 800 = \mathbf{25{,}912}$ bits above the $2^{-800}$ 
 
 Worst-case variant (using bit-3 MDP $= 2^{-59.1}$): $(2^{-59.1})^{424} = 2^{-25{,}055}$, margin 24,255 bits.
 
-**Note:** DDR branching factor $2^{2,880}$ is NOT included in these bounds. Including it would further strengthen the bound.
+**Note:** DDR branching factor $2^{2{,}880}$ is NOT included in these bounds. Including it would further strengthen the bound.
 
 ### 29.9 Comparison to Heuristic
 
@@ -1221,8 +1221,8 @@ The duality sum (MDP + LP in log2) grows monotonically from LSB to MSB, confirmi
 
 | Analysis | Phenomenon | Trail Bound | Margin vs $2^{-800}$ |
 |:--------:|:----------:|:-----------:|:---------------------:|
-| Differential | MSB MDP = 1 | $2^{-26,712}$ | 25,912 bits |
-| Linear | LSB LP = 1 | $2^{-2,544}$ | 1,744 bits |
+| Differential | MSB MDP = 1 | $2^{-26{,}712}$ | 25,912 bits |
+| Linear | LSB LP = 1 | $2^{-2{,}544}$ | 1,744 bits |
 
 Both phenomena are **universal algebraic properties** of modular multiplication by odd numbers - they cannot be eliminated by any design that uses this operation. However:
 
@@ -1331,9 +1331,9 @@ In a naive cipher where repeated plaintext produces repeated ciphertext, the out
 
 | Property | Value | Interpretation |
 |----------|-------|----------------|
-| Differential trail bound | $2^{-26,712}$ | 25,912 bits above $2^{-800}$ target |
-| Linear trail bound | $2^{-2,544}$ | 1,744 bits above $2^{-800}$ target |
-| DDR trail explosion | $2^{2,880}$ paths | Combinatorial barrier to analysis |
+| Differential trail bound | $2^{-26{,}712}$ | 25,912 bits above $2^{-800}$ target |
+| Linear trail bound | $2^{-2{,}544}$ | 1,744 bits above $2^{-800}$ target |
+| DDR trail explosion | $2^{2{,}880}$ paths | Combinatorial barrier to analysis |
 | Avalanche (SAC) | 50.00% | Indistinguishable from ideal 50% |
 | Bit Independence (BIC) | 0.046 max | Well below 0.10 threshold |
 | Constant-time max |t| | 2.28 | Well below 4.5 threshold |
@@ -1578,7 +1578,7 @@ Empirical testing is necessary but not sufficient. These tests can *disqualify* 
 
 1. **No formal security proof.** There is no reduction from the KK permutation to a known hard mathematical problem (e.g., the discrete logarithm problem, lattice problems). SHA-3's Keccak has a formal capacity-based security bound; KK does not yet have an analogous proof.
 
-2. **Computational differential and linear analysis only.** Sections 27–28 provide computational differential and linear trail searches with 2^16 – 2^20 samples. Sections 29–30 strengthen this with exhaustive DDT/LAT computation at reduced word sizes and proven trail bounds (differential: $2^{-26,712}$; linear: $2^{-2,544}$), but the 64-bit extrapolations rely on scaling models. Full enumeration of all characteristics across 32 rounds of a 1600-bit state is computationally infeasible; formal arguments (e.g., wide-trail strategy proofs) would provide additional guarantees.
+2. **Computational differential and linear analysis only.** Sections 27–28 provide computational differential and linear trail searches with 2^16 – 2^20 samples. Sections 29–30 strengthen this with exhaustive DDT/LAT computation at reduced word sizes and proven trail bounds (differential: $2^{-26{,}712}$; linear: $2^{-2{,}544}$), but the 64-bit extrapolations rely on scaling models. Full enumeration of all characteristics across 32 rounds of a 1600-bit state is computationally infeasible; formal arguments (e.g., wide-trail strategy proofs) would provide additional guarantees.
 
 3. **Algebraic degree lower-bounded but not proven.** Section 28.3 demonstrates algebraic degree ≥ 22 within one full round via higher-order derivative tests, but this is a computational lower bound, not a formal certificate. The true degree is likely much higher.
 
@@ -1590,8 +1590,8 @@ Empirical testing is necessary but not sufficient. These tests can *disqualify* 
 
 | Priority | Action | Purpose |
 |----------|--------|---------|
-| ~~Critical~~ | ~~Formal differential trail proof~~ | **Addressed in Section 29**: exhaustive DDT at 8/16-bit, trail bound $2^{-26,712}$ (margin 25,912 bits) |
-| ~~Critical~~ | ~~Formal linear trail bound~~ | **Addressed in Section 30**: exhaustive LAT at 8/16-bit, trail bound $2^{-2,544}$ (margin 1,744 bits). LSB LP=1 phenomenon proven universal; DDR floor alone provides sufficient margin. |
+| ~~Critical~~ | ~~Formal differential trail proof~~ | **Addressed in Section 29**: exhaustive DDT at 8/16-bit, trail bound $2^{-26{,}712}$ (margin 25,912 bits) |
+| ~~Critical~~ | ~~Formal linear trail bound~~ | **Addressed in Section 30**: exhaustive LAT at 8/16-bit, trail bound $2^{-2{,}544}$ (margin 1,744 bits). LSB LP=1 phenomenon proven universal; DDR floor alone provides sufficient margin. |
 | Critical | Third-party cryptanalysis audit | Independent expert review |
 | High | Published specification document | Enable reproducible analysis |
 | High | Cross-platform dudect runs | Verify timing on ARM, AMD, older Intel |
@@ -1613,9 +1613,9 @@ The KK permutation passes all empirical tests evaluated in this paper, including
 - **Statistically uniform output** confirmed by chi-squared analysis
 - **Stable, deterministic output** verified against frozen reference vectors
 - **No exploitable differential trail** found across 6 tests (MFR/DDR component analysis, full-state diffusion, multi-round and 32-round differential search, branch number analysis)
-- **Formal differential trail bound** of $2^{-26,712}$ (proven at reduced word sizes via exhaustive DDT, extrapolated to 64-bit; security margin 25,912 bits above $2^{-800}$)
+- **Formal differential trail bound** of $2^{-26{,}712}$ (proven at reduced word sizes via exhaustive DDT, extrapolated to 64-bit; security margin 25,912 bits above $2^{-800}$)
 - **No exploitable linear approximation** found across 7 tests (MFR/DDR component analysis, multi-round and 32-round linear search with 500+ mask pairs); all biases at statistical noise floor
-- **Formal linear trail bound** of $2^{-2,544}$ (proven at reduced word sizes via exhaustive LAT, extrapolated to 64-bit; security margin 1,744 bits above $2^{-800}$). LSB LP=1 phenomenon formally characterised; DDR floor provides sufficient margin independently.
+- **Formal linear trail bound** of $2^{-2{,}544}$ (proven at reduced word sizes via exhaustive LAT, extrapolated to 64-bit; security margin 1,744 bits above $2^{-800}$). LSB LP=1 phenomenon formally characterised; DDR floor provides sufficient margin independently.
 - **Complementary duality proven**: MSB MDP=1 (differential) and LSB LP=1 (linear) affect opposite ends of the word; 4/4 theorems verified constructively at 8/16/32-bit.
 - **High algebraic degree** confirmed: MFR ≥ 24, quintet round ≥ 20, full permutation ≥ 22 from round 1 onward, indicating strong resistance to algebraic and higher-order differential attacks
 - **8 continuous fuzz targets** covering hash, KDF, MAC, encode/decode, AEAD, session ratchet, temporal proofs, and EKA handshake, all run without crashes
@@ -1626,9 +1626,9 @@ The KK permutation passes all empirical tests evaluated in this paper, including
 
 These results place the KK permutation in the same empirical class as SHA-3 (Keccak) and BLAKE3 on standard cryptographic quality metrics. The 32-round, 5×5 grid structure with MFR+DDR operations achieves full diffusion in 4 rounds, statistical independence of output bits, no linear bias above noise, and near-maximal algebraic degree.
 
-The formal DDT analysis (Section 29) substantially strengthens the differential picture: exhaustive computation at 8-bit and 16-bit confirm MFR's per-bit MDP scales at exactly −1.0 per word-size bit, yielding an extrapolated 64-bit operational MDP of $2^{-63}$. Combined with 424+ active MFR operations across 32 rounds, the formal trail bound is $2^{-26,712}$, over 25,000 bits of margin above the $2^{-800}$ threshold. DDR contributes an additional $2^{2,880}$ trail branching factor not included in this bound.
+The formal DDT analysis (Section 29) substantially strengthens the differential picture: exhaustive computation at 8-bit and 16-bit confirm MFR's per-bit MDP scales at exactly −1.0 per word-size bit, yielding an extrapolated 64-bit operational MDP of $2^{-63}$. Combined with 424+ active MFR operations across 32 rounds, the formal trail bound is $2^{-26{,}712}$, over 25,000 bits of margin above the $2^{-800}$ threshold. DDR contributes an additional $2^{2{,}880}$ trail branching factor not included in this bound.
 
-The formal LAT analysis (Section 30) provides the complementary linear picture. The MFR operation exhibits a universal LSB LP=1 phenomenon, the exact dual of the MSB MDP=1 in the differential domain. However, the per-bit LP scales as $2^{-2k}$, and the DDR contributes a mandatory $LP \leq 2^{-12}$ ($= 1/n^2$) per active quintet. Even assuming worst-case MFR LP=1 for every operation, the DDR-only trail bound is $2^{-2,544}$, providing 1,744 bits of margin above the $2^{-800}$ target.
+The formal LAT analysis (Section 30) provides the complementary linear picture. The MFR operation exhibits a universal LSB LP=1 phenomenon, the exact dual of the MSB MDP=1 in the differential domain. However, the per-bit LP scales as $2^{-2k}$, and the DDR contributes a mandatory $LP \leq 2^{-12}$ ($= 1/n^2$) per active quintet. Even assuming worst-case MFR LP=1 for every operation, the DDR-only trail bound is $2^{-2{,}544}$, providing 1,744 bits of margin above the $2^{-800}$ target.
 
 The bit-boundary proof sketch (Section 31) formalises the complementary duality: differential weakness concentrates at the MSB while linear weakness concentrates at the LSB. No single bit position is weak in both dimensions. All four theorems were verified constructively at 8-bit (exhaustive), 16-bit (exhaustive), and 32-bit (sampled), with 4/4 proved.
 
