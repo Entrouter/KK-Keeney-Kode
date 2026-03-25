@@ -3071,38 +3071,38 @@ src/
 
 | Spec Section | Function | Source File | Line |
 |--------------|----------|-------------|------|
-| §46.1 MFR | `mfr()` | `kk_mix.rs` | 180 |
-| §46.2 DDR | `ddr()` | `kk_mix.rs` | 209 |
-| §46.3 QuintetRound | `quintet_round()` | `kk_mix.rs` | 254 |
-| §47 Permutation | `kk_permute_n()` | `kk_mix.rs` | 279 |
-| §48.2 Rotation derivation | `rotations_from_entropy()` | `kk_mix.rs` | 366 |
-| §48.3 Entropy mixing | `kk_entropy_mix()` | `kk_mix.rs` | 815 |
-| §49.3 Absorb | `KkSponge::absorb()` | `kk_mix.rs` | 462 |
-| §49.4 Finalize | `KkSponge::finalize_absorb()` | `kk_mix.rs` | 506 |
-| §49.5 Squeeze | `KkSponge::squeeze()` | `kk_mix.rs` | 519 |
-| §50.1 Hash | `kk_hash()` | `kk_mix.rs` | 567 |
-| §50.2 KDF | `kk_kdf()` | `kk_mix.rs` | 593 |
-| §50.3 KDF Batch | `kk_kdf_batch_8()` | `kk_mix.rs` | 626 |
-| §50.4 MAC | `kk_mac()` | `kk_mix.rs` | 729 |
-| §50.5 MAC Verify | `kk_mac_verify()` | `kk_mix.rs` | 748 |
-| §50.6 MAC Entropy | `kk_mac_with_entropy()` | `kk_mix.rs` | 763 |
+| §46.1 MFR | `mfr()` | `kk_mix.rs` | 195 |
+| §46.2 DDR | `ddr()` | `kk_mix.rs` | 224 |
+| §46.3 QuintetRound | `quintet_round()` | `kk_mix.rs` | 269 |
+| §47 Permutation | `kk_permute_n()` | `kk_mix.rs` | 287 |
+| §48.2 Rotation derivation | `rotations_from_entropy()` | `kk_mix.rs` | 392 |
+| §48.3 Entropy mixing | `kk_entropy_mix()` | `kk_mix.rs` | 1179 |
+| §49.3 Absorb | `KkSponge::absorb()` | `kk_mix.rs` | 506 |
+| §49.4 Finalize | `KkSponge::finalize_absorb()` | `kk_mix.rs` | 548 |
+| §49.5 Squeeze | `KkSponge::squeeze()` | `kk_mix.rs` | 561 |
+| §50.1 Hash | `kk_hash()` | `kk_mix.rs` | 609 |
+| §50.2 KDF | `kk_kdf()` | `kk_mix.rs` | 635 |
+| §50.3 KDF Batch | `kk_kdf_batch_8()` | `kk_mix.rs` | 669 |
+| §50.4 MAC | `kk_mac()` | `kk_mix.rs` | 802 |
+| §50.5 MAC Verify | `kk_mac_verify()` | `kk_mix.rs` | 821 |
+| §50.6 MAC Entropy | `kk_mac_with_entropy()` | `kk_mix.rs` | 836 |
 | §51.1 Chunk KDF | `derive_symbol_key()` | `kdf.rs` | 36 |
-| §51.2 Batch KDF | `derive_symbol_key_batch()` | `kdf.rs` | 67 |
-| §51.3 Keystream XOR | `xor_with_keystream()` | `codec.rs` | 655 |
-| §51.4 Encode | `encode()` | `codec.rs` | 195 |
-| §51.5 Decode | `decode()` | `codec.rs` | 224 |
+| §51.2 Batch KDF | `derive_symbol_key_batch()` | `kdf.rs` | 64 |
+| §51.3 Keystream XOR | `xor_with_keystream()` | `codec.rs` | 1025 |
+| §51.4 Encode | `encode()` | `codec.rs` | 201 |
+| §51.5 Decode | `decode()` | `codec.rs` | 230 |
 | §52.1 Commit key | `derive_commitment_key()` | `kdf.rs` | 55 |
 | §52.2 Commit | `commit()` | `temporal.rs` | 89 |
 | §52.3 Verify | `verify()` | `temporal.rs` | 108 |
-| §52.4.2 Commit bound | `commit_bound()` | `temporal.rs` | 293 |
-| §52.4.3 Verify bound | `verify_bound()` | `temporal.rs` | 339 |
+| §52.4.2 Commit bound | `commit_bound()` | `temporal.rs` | 338 |
+| §52.4.3 Verify bound | `verify_bound()` | `temporal.rs` | 384 |
 | §53.2 AEAD commit | `commit_aead()` | `temporal.rs` | 142 |
-| §53.3 AEAD encode | `encode_aead()` | `codec.rs` | 557 |
-| §53.4 AEAD decode | `decode_aead()` | `codec.rs` | 582 |
+| §53.3 AEAD encode | `encode_aead()` | `codec.rs` | 574 |
+| §53.4 AEAD decode | `decode_aead()` | `codec.rs` | 595 |
 | §54.2 Ratchet init | `RopeRatchet::new()` | `session.rs` | 185 |
 | §54.3 Ratchet step | `RopeRatchet::step()` | `session.rs` | 288 |
-| §54.7 Encode session | `encode_session()` | `session.rs` | 444 |
-| §54.8 Decode session | `decode_session()` | `session.rs` | 469 |
+| §54.7 Encode session | `encode_session()` | `session.rs` | 424 |
+| §54.8 Decode session | `decode_session()` | `session.rs` | 446 |
 | §55.4 EKA Initiator | `EkaInitiator` | `eka.rs` | 151 |
 | §55.5 EKA Responder | `EkaResponder` | `eka.rs` | 244 |
 | §56.2 KkRng | `KkRng::new()`, `next_bytes()` | `rng.rs` | 61 |
