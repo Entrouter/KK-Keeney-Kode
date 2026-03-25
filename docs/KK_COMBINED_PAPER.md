@@ -1038,6 +1038,8 @@ Total active operations across 32 rounds: 960 MFR + 480 DDR. Post-diffusion (rou
 >
 > *Proof.* Each of the 424 post-diffusion MFR operations contributes at most $\text{MDP} = 2^{-63}$ (the bit-3 worst-case non-MSB probability, verified by exhaustive DDT at 8/16-bit and scaling regression). Under the standard independence assumption, these multiply. $\blacksquare$
 
+**Caveat:** This bound assumes independent round contributions and represents a structural floor, not a tight characteristic bound. Correlated multi-round characteristics could yield a higher effective trail probability; establishing tight bounds requires dedicated characteristic search at full word size.
+
 Security margin: $26{,}712 - 800 = \mathbf{25{,}912}$ bits above the $2^{-800}$ target.
 
 Worst-case variant (using bit-3 MDP $= 2^{-59.1}$): $(2^{-59.1})^{424} = 2^{-25{,}055}$, margin 24,255 bits.
@@ -1747,7 +1749,7 @@ Run `cargo run --example proof` or any other example to reproduce the results. T
 
 KK (Keeney Kode) is a novel symmetric cryptographic system where every cryptographic operation - hashing, key derivation, message authentication, encryption, and key agreement - is built from a single primitive: the KK permutation. The permutation operates on a 1600-bit state using two novel building blocks: **Multiply-Fold-Rotate (MFR)** and **Data-Dependent Rotation (DDR)**.
 
-The defining innovation of KK is **temporal permutation variance**: the rotation schedule inside the permutation can be derived from an entropy snapshot, meaning the *mathematical structure* of the cipher changes with every encryption. This is not merely different data through the same algorithm-it is a *different algorithm entirely* at each moment.
+The defining innovation of KK is **temporal permutation variance**: the rotation schedule inside the permutation can be derived from an entropy snapshot, meaning the *mathematical structure* of the cipher changes with every encryption. This is not merely different data through the same algorithm-it is a *different instance from the same permutation family* at each invocation, forcing an attacker to contend with a combinatorial space of rotation schedules rather than a single fixed permutation.
 
 ### 44.2 Notation
 
