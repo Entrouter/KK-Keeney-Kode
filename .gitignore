@@ -1,3 +1,7 @@
 **/target/
 /kk-journal/
 *.txt
+docs/node_modules/
+docs/package-lock.json
+docs/fonts/
+docs/*.html

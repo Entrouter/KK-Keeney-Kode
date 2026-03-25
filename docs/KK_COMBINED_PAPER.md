@@ -7,7 +7,7 @@ See the LICENSE file in the project root for full license information.
 NOTICE: Removal of this header is a violation of the license.
 -->
 
-# KK: A Table-Free ARX Sponge with Computed 2^-26,712 Differential and 2^-2,544 Linear Trail Bounds
+# KK: A Table-Free ARX Sponge with Computed $2^{-26{,}712}$ Differential and $2^{-2{,}544}$ Linear Trail Bounds
 
 ## Design, Analysis, Specification, and Performance
 
@@ -19,17 +19,110 @@ NOTICE: Removal of this header is a violation of the license.
 
 ## Abstract
 
-This paper presents the complete design, security analysis, formal specification, and performance characterisation of Keeney Kode (KK), a novel cryptographic primitive built entirely from first principles. No SHA. No AES. No borrowed S-boxes. Every operation, every constant, every round function was purpose-built.
+The global deployment of symmetric cryptography relies on a small number of standard primitives, principally AES [20], the SHA-2 and SHA-3 families [5, 8], and ChaCha20-Poly1305 [10, 11]. While these constructions have withstood decades of sustained cryptanalytic effort, the resulting monoculture concentrates systemic risk: a structural break in any single widely deployed primitive would cascade across protocols, implementations, and infrastructure simultaneously. Algorithmic diversity, in which multiple distinct constructions with independent design lineages serve overlapping roles, is a recognized mitigation strategy [20, 21], yet few new designs with fundamentally different internal structures have been proposed for the sponge construction paradigm [4, 7]. In practice, protocol designers seeking a table-free, sponge-based alternative to AES or SHA-3 with a distinct algebraic lineage have no established option.
 
-KK is a 1600-bit sponge permutation with temporal entropy binding, data-dependent internal routing, and a formal proof that without the entropy snapshot, decryption is information-theoretically impossible. The permutation is driven by two novel operations - **Multiply-Fold-Rotate (MFR)** and **Data-Dependent Rotation (DDR)** - composed into a 5-word quintet round structure executed 15 times per round over 32 rounds.
+This paper introduces Keeney Kode (KK), a 1600-bit cryptographic sponge permutation built entirely from arithmetic, rotation, and XOR operations (the ARX paradigm) without lookup tables, S-boxes, or borrowed components. KK introduces two novel primitives: **Multiply-Fold-Rotate (MFR)**, a bijective non-linear mixing operation combining wrapping multiplication, XOR folding, and rotation; and **Data-Dependent Rotation (DDR)**, a constant-time operation in which the rotation distance is determined by the data being processed, forcing exponential path explosion in differential and linear trail analysis. These primitives are composed into a quintet round, a 5-word mixing structure that achieves full diffusion across the 25-word (1600-bit) state via row, column, and diagonal phases over 32 rounds of 15 quintets each.
 
-The empirical security evaluation spans 10 categories of cryptographic testing: constant-time verification (dudect), strict avalanche criterion (SAC), bit independence criterion (BIC), collision resistance, length-extension resistance, chi-squared uniformity, known answer tests, differential trail analysis (including exhaustive DDT at reduced word sizes), linear cryptanalysis (including exhaustive LAT at reduced word sizes), and algebraic degree analysis. Formal trail bounds are established: **differential 2^-26,712** (margin 25,912 bits above 2^-800) and **linear 2^-2,544** (margin 1,744 bits above 2^-800). A comprehensive 40/40 test scorecard across all 10 analysis categories confirms every metric passes. Performance benchmarks across 56 Criterion measurement points characterise throughput from core primitives through AEAD, session, and key agreement operations.
+The absence of lookup tables makes KK naturally resistant to cache-timing side-channel attacks on all platforms, including embedded processors, IoT devices, and shared cloud environments where table-based ciphers such as AES require dedicated hardware (AES-NI) or constant-time software implementations that sacrifice performance. KK achieves constant-time execution without platform-specific countermeasures, as verified by dudect timing leakage analysis ($|t| = 2.28$, threshold $4.5$).
 
-Part V provides the complete formal specification sufficient for independent implementation, including all algorithmic definitions with LaTeX notation, wire format diagrams for all 11 packet types, security claims with known limitations, and a code-to-specification cross-reference table.
+The distinguishing contribution of KK beyond the permutation itself is **temporal permutation variance**: the rotation schedule governing MFR operations within the permutation is derived from a runtime entropy snapshot, causing the algebraic structure of the cipher to change with every invocation. Each ciphertext is produced by a permutation with a distinct internal geometry, rendering multi-query differential and linear attacks structurally inapplicable because the attacker cannot accumulate observations under a fixed permutation. This property enables built-in temporal commitment proofs that bind ciphertexts to their creation timestamps with cryptographic strength, a capability directly applicable to regulatory compliance, audit trails, supply-chain integrity verification, and tamper-evident logging.
+
+From the single KK permutation, a complete cryptographic suite is constructed following the duplex sponge paradigm [4, 7] with rate $r = 1216$ bits and capacity $c = 384$ bits, yielding approximately $2^{192}$ generic sponge security [23]. The suite comprises KK-Hash (collision-resistant hashing), KK-KDF (key derivation with temporal binding), KK-MAC (message authentication), KK-Codec (authenticated stream encryption), a 4-strand Rope Ratchet providing forward secrecy for messaging and session-based protocols, KK-EKA (ephemeral key agreement), and an optional BB84 quantum key distribution integration layer.
+
+Security analysis proceeds through three complementary methodologies. First, exhaustive difference distribution tables (DDT) and linear approximation tables (LAT) are computed at 8-bit and 16-bit reduced word widths, establishing per-bit scaling laws: MFR's maximum differential probability scales as $2^{-1}$ per bit of word width, yielding an extrapolated 64-bit single-operation maximum differential probability of $2^{-63}$; the linear bias scales as $2^{-2}$ per bit. Second, these per-operation bounds are composed across the minimum 424 active MFR operations in a 32-round differential trail to produce aggregate bounds: a best differential trail probability of at most $2^{-26{,}712}$ and a best linear trail correlation of at most $2^{-2{,}544}$, exceeding the $2^{-800}$ target (half the capacity) by margins of $25{,}912$ and $1{,}744$ bits respectively. A complementary duality theorem establishes that the maximum differential probability concentrates at the most significant bit while the maximum linear bias concentrates at the least significant bit; no single bit position is simultaneously weak in both domains. Third, standard empirical tests confirm strict avalanche criterion compliance (mean $128.00/256$ bit flips), bit independence (maximum correlation $0.046$), zero collisions in $2 \times 10^6$ trials, complete length-extension immunity, chi-squared uniformity, constant-time execution (dudect $|t| = 2.28$, threshold $4.5$), and stable known-answer vectors across all 251 tests.
+
+On an AMD Ryzen 9 9950X3D (16 cores / 32 threads, Zen 5, AVX-512, 5.35 GHz boost), a single physical core achieves 497 MiB/s batch AEAD throughput; scaling to 32 SMT threads yields 5.22 GiB/s (85,000+ authenticated 64 KB messages per second). Single-primitive speeds reach 186 MiB/s for hashing, 145 MiB/s for KDF squeeze, and 127 MiB/s for MAC, with the full 32-round permutation executing in $1.14\;\mu\text{s}$. An AVX-512 implementation for parallel permutation instances and GPU acceleration (wgpu 1.01 GiB/s, CUDA 2.08 GiB/s on RTX 5080) are provided.
+
+KK is positioned as a diversity candidate: not as a replacement for established standards, but as an independently designed construction available for systems requiring algorithmic heterogeneity, table-free constant-time execution, built-in temporal binding, or a sponge-based authenticated encryption suite with a non-S-box algebraic lineage. Potential deployment contexts include defense-in-depth encryption layers, embedded and IoT systems where AES-NI is unavailable, compliance-sensitive applications requiring cryptographic timestamps, secure messaging protocols requiring forward secrecy, and environments preparing for post-quantum transition by diversifying their cryptographic foundations.
+
+KK has not undergone third-party cryptanalysis. The trail bounds rely on scaling extrapolation from reduced word sizes, not closed-form proofs at full 64-bit width. No formal indifferentiability proof has been attempted. This paper is an invitation to the cryptographic community to analyse, attack, and improve this construction. A complete formal specification sufficient for independent reimplementation is included, covering all algorithmic definitions, wire format diagrams for 11 packet types, security claims with explicit limitations, and a code-to-specification cross-reference table.
+
+**Keywords:** sponge construction, ARX, data-dependent rotation, differential cryptanalysis, linear cryptanalysis, temporal binding, authenticated encryption, algorithmic diversity, cache-timing resistance
+
+---
+
+## Introduction
+
+Modern symmetric cryptography is dominated by a small set of standard primitives. AES [20] serves as the universal block cipher; SHA-2 and SHA-3 (Keccak) [5, 8] provide hashing; ChaCha20-Poly1305 [10, 11] is the principal alternative stream cipher in TLS and related protocols. These designs have earned their positions through decades of sustained cryptanalytic effort, NIST standardization processes, and optimized implementations across diverse hardware platforms.
+
+Nevertheless, the concentration of global deployment on a handful of algorithmic lineages creates a well-recognized form of systemic risk. If a practical structural attack were discovered against the mathematical core of any one widely deployed primitive, the damage would propagate across all systems dependent on it simultaneously. The cryptographic community has long acknowledged that algorithmic diversity, the availability of multiple constructions with independent design lineages and distinct algebraic structures, serves as an important form of systemic resilience [20, 21].
+
+Despite the maturity of the ARX (Addition-Rotation-XOR) paradigm, which underpins designs from ChaCha20 [11] and Salsa20 [10] through BLAKE/BLAKE2/BLAKE3 [12, 13, 14] and lightweight ciphers such as Speck [17], no existing construction combines all of the following properties in a single design: (i) a table-free ARX permutation operating on a wide (1600-bit) state within a sponge framework, (ii) data-dependent rotations within the permutation itself (as opposed to within a block cipher, as in RC5/RC6 [18, 19]), and (iii) a mechanism by which the internal algebraic structure of the permutation varies across invocations, structurally preventing multi-query attack accumulation.
+
+This paper presents KK (Keeney Kode), a construction that occupies this previously empty point in the design space. KK is built from two novel primitives, Multiply-Fold-Rotate (MFR) and Data-Dependent Rotation (DDR), composed into a 1600-bit sponge permutation. The central design innovation is temporal permutation variance: the rotation schedule within the permutation is derived from an entropy snapshot captured at runtime, so each invocation operates under a distinct permutation geometry. The entire cryptographic suite, from hashing and key derivation through authenticated encryption, session management, key agreement, and optional quantum key distribution, is derived from this single permutation.
+
+The paper is organized as follows. The remainder of this front matter discusses related work and states the contributions explicitly. Part I (Sections 1 through 17) presents the design and architecture. Part II (Sections 18 through 34) presents the empirical security analysis across 10 categories including exhaustive DDT/LAT computation. Part III (Sections 35 and 36) reports performance benchmarks. Part IV (Sections 37 through 43) provides assessment, limitations, and conclusions. Part V (Sections 44 through 58) gives the complete formal specification sufficient for independent reimplementation. Appendices A and B provide module structure and code-to-specification cross-references.
+
+---
+
+## Related Work
+
+### Sponge Constructions
+
+The sponge construction was introduced by Bertoni, Daemen, Peeters, and Van Assche [4, 7] and subsequently adopted as the basis of the Keccak permutation [8], which was standardized as SHA-3 (FIPS 202) [5]. Keccak operates on a 1600-bit state using the chi non-linear step (a 5-bit S-box applied in parallel across all lanes), theta (parity-based linear diffusion), rho and pi (fixed rotations and lane transpositions), and iota (round constant injection). The algebraic structure of Keccak-f[1600] is entirely fixed across all invocations and all key material; security rests on the conjectured indifferentiability of Keccak-f from a random permutation [7, 23].
+
+Ascon [9], the winner of the NIST Lightweight Cryptography competition, applies the sponge paradigm to a smaller 320-bit state, using a 5-bit S-box layer followed by linear diffusion. Ascon prioritizes hardware efficiency and low-area implementations. Xoodoo [27], a 384-bit permutation from the Keccak design team, explores a similar algebraic approach at an intermediate state size.
+
+KK shares the sponge paradigm and a structured 5-wide state layout with these designs, but differs in three fundamental respects: the non-linearity arises from wrapping multiplication combined with XOR folding rather than S-boxes, the rotation distances within the DDR operation are data-dependent rather than fixed, and the permutation's algebraic structure varies across invocations through the entropy-derived rotation schedule. These differences place KK outside the S-box permutation family entirely.
+
+### ARX Stream Ciphers and Hash Functions
+
+The ARX paradigm, relying exclusively on modular addition, bitwise rotation, and XOR, avoids lookup tables and is naturally resistant to cache-timing side channels. Salsa20 [10] and its widely deployed variant ChaCha20 [11], designed by Bernstein, use a quarter-round function applied to a 512-bit (4x4 word) state in counter mode. The BLAKE hash function family [12], a SHA-3 finalist, combines an ARX compression function with the HAIFA iteration mode. BLAKE2 [13] optimized BLAKE for software performance, and BLAKE3 [14] further restructured the design around a Merkle tree for unbounded parallelism.
+
+KK shares the ARX philosophy of avoiding lookup tables but differs in state size (1600 bits versus 512 bits for ChaCha, 512/1024 for BLAKE), in the use of multiplication-based non-linearity (wrapping multiply plus XOR fold, rather than pure modular addition), and in operating as a full sponge construction rather than a counter-mode stream cipher or Merkle-Damgard/HAIFA hash.
+
+### ARX Permutation-Based AEAD
+
+Gimli [15], designed by Bernstein, Kolbl, Lucks, and others, is a 384-bit ARX permutation intended for cross-platform efficiency, employing a "big swap" and "small swap" with fixed rotation distances. NORX [16], by Aumasson, Jovanovic, and Neves, is an ARX-based AEAD scheme using a 512-bit state with a monkeyDuplex construction. Both designs use entirely fixed rotation distances and fixed algebraic structure across all invocations.
+
+KK's quintet round structure serves an analogous role to Gimli's SP-box or NORX's G function, but the data-dependent rotation distances in DDR create a fundamental structural difference: the set of active differential characteristics depends on the data itself, not merely on the difference pattern imposed by the attacker.
+
+### Lightweight ARX Block Ciphers
+
+The SIMON and SPECK families [17], designed by the NSA for resource-constrained environments, provide lightweight block ciphers in the ARX paradigm. Speck uses modular addition, rotation, and XOR on word pairs; Simon uses AND, rotation, and XOR. Both employ fixed rotation distances and have been subject to extensive third-party cryptanalysis. KK targets a fundamentally different use case (wide-state sponge for general-purpose cryptography) but draws on the same ARX design philosophy.
+
+### Data-Dependent Rotations
+
+Data-dependent rotations, in which the rotation distance is determined by some function of the data being processed, were introduced by Rivest in RC5 [18] and its successor RC6 [19]. MARS [26], an AES candidate by Burwick and others at IBM, also employed data-dependent rotations in its core mixing function. In these designs, the data-dependent rotation occurs within a block cipher operating on small blocks (64 or 128 bits), and the rotation distance is typically derived from a small number of bits of an intermediate value.
+
+KK's DDR operation applies data-dependent rotation within a 1600-bit sponge permutation, where the rotation distance is determined by a full 64-bit word (masked to 6 bits for the rotation count). The temporal permutation variance mechanism goes further: the rotation schedule for MFR operations (distinct from DDR) is derived from an external entropy source, making those rotation distances independent of the plaintext entirely. This creates a structural separation not present in RC5/RC6, where the data-dependent rotations are necessarily correlated with the plaintext.
+
+### Differential and Linear Analysis of ARX Constructions
+
+The wide trail strategy [20], introduced by Daemen and Rijmen in the design of Rijndael (AES), provides a framework for proving minimum bounds on the number of active S-boxes in differential and linear trails. Differential cryptanalysis [21], introduced by Biham and Shamir, and linear cryptanalysis [22], introduced by Matsui, remain the principal analytical frameworks for evaluating symmetric primitives.
+
+Mouha and Preneel [24] and Leurent [25] have developed specialized techniques for bounding differential characteristics in ARX constructions, addressing the challenge that ARX operations do not admit the same algebraic decomposition as S-box-based designs. KK's analysis follows a related strategy: exhaustive computation of DDT and LAT at reduced word widths, with per-bit scaling extrapolation to full width, composed across minimum active operations to produce full-round trail bounds.
+
+### Sponge Security Proofs
+
+Jovanovic, Luykx, and Mennink [23] proved that sponge-based authenticated encryption can achieve security beyond the $2^{c/2}$ birthday bound when the underlying permutation is modeled as ideal. KK's capacity of 384 bits targets $2^{192}$ generic security, consistent with this framework. The present work does not attempt a formal indifferentiability proof for the KK permutation; the security analysis rests on computational evidence (exhaustive DDT/LAT at reduced widths and empirical testing at full width) rather than provable security reductions. Establishing such a proof, or identifying structural barriers to one, remains an explicit open problem.
+
+---
+
+## Our Contributions
+
+The principal contributions of this work are:
+
+1. **Two novel ARX primitives.** We introduce Multiply-Fold-Rotate (MFR), a bijective mixing operation with measured maximum differential probability scaling as $2^{-(n-1)}$ for $n$-bit words and algebraic degree at least 24; and Data-Dependent Rotation (DDR), a constant-time operation whose rotation distance is determined by the data, creating input-dependent active-operation patterns that force exponential explosion in the number of differential and linear trails an attacker must consider.
+
+2. **Temporal permutation variance.** We introduce an entropy-derived rotation schedule mechanism that causes the algebraic structure of the permutation itself (not merely the key material) to change with every invocation. This creates a structural barrier to multi-query attacks: since each invocation operates under a distinct permutation geometry, an attacker cannot accumulate differential or linear observations under a fixed permutation.
+
+3. **Exhaustive differential and linear analysis with scaling extrapolation.** We compute complete DDT and LAT for MFR at 8-bit and 16-bit word widths ($4.29 \times 10^9$ and $1.84 \times 10^{19}$ evaluations respectively), establish per-bit scaling laws, and compose the resulting per-operation bounds across minimum active operations in a 32-round trail to produce aggregate bounds of $2^{-26{,}712}$ (differential) and $2^{-2{,}544}$ (linear), with margins of $25{,}912$ and $1{,}744$ bits above the $2^{-800}$ security target.
+
+4. **Bit-position duality theorem.** We prove that the maximum differential probability concentrates at the most significant bit while the maximum linear bias concentrates at the least significant bit, establishing that no single bit position is simultaneously weak in both analytical domains.
+
+5. **Complete cryptographic suite from a single permutation.** From one permutation, we derive collision-resistant hashing, key derivation, message authentication, authenticated stream encryption, a 4-strand ratchet for forward secrecy, ephemeral key agreement, and an optional quantum key distribution layer. A formal specification sufficient for independent reimplementation is provided, covering all 11 wire format packet types.
+
+6. **Open-source reference implementation with comprehensive testing.** The complete Rust implementation includes 251 tests, 8 fuzz targets, 56 Criterion benchmark measurement points, and executable proofs for every quantitative claim in this paper. The code is available at https://github.com/Entrouter/KK-Keeney-Kode and https://crates.io/crates/kk-crypto.
 
 ---
 
 ## Table of Contents
+
+### Preliminary
+- [Introduction](#introduction)
+- [Related Work](#related-work)
+- [Our Contributions](#our-contributions)
 
 ### Part I - Design & Architecture
 1. [The Core Idea: Temporal Cryptography](#1-the-core-idea-temporal-cryptography)
@@ -116,7 +209,7 @@ Traditional encryption maps plaintext to ciphertext deterministically. The same 
 
 KK operates on a fundamentally different axiom:
 
-**KK(S) = S XOR epsilon - KK(S) = S ⊕ ε**
+$$\text{KK}(S) = S \oplus \varepsilon$$
 
 Where epsilon is the universal entropy at the precise instant of creation. The symbol "A" has no fixed value. Its value is a temporal function of the universe at that moment. Encode the same plaintext twice, one nanosecond apart, and you get two cryptographically unrelated ciphertexts. This is not achieved by appending a random nonce. The cipher itself, its internal structure, its rotation schedule, its key derivation, all change based on entropy captured at the moment of encoding.
 
@@ -143,36 +236,55 @@ No external dependencies. No imported cryptographic primitives. Everything flows
 
 ### 3.1 MFR: Multiply-Fold-Rotate
 
+> **Definition 1** *(Multiply-Fold-Rotate).* For $a, b \in \{0,1\}^{64}$ and rotation constant $\text{rot} \in [1,63]$:
+>
+> $$\text{MFR}(a, b, \text{rot}) = \big((a \times_{64} (b \mathbin{|} 1)) \oplus ((a \times_{64} (b \mathbin{|} 1)) \gg 32)\big) \lll \text{rot}$$
+>
+> *The $\mathbin{|}1$ forces an odd multiplier, guaranteeing bijectivity over $\mathbb{Z}/2^{64}\mathbb{Z}$. The fold ($\oplus$ with right-shift by $n/2$) breaks multiplicative ring structure.*
+
 ```
 product = a * (b | 1)                    [wrapping 64-bit multiply]
 folded  = product XOR (product >> 32)    [fold high bits into low]
 result  = folded <<< rot                 [rotate left by constant]
 ```
 
-The `b | 1` forces an odd multiplier, guaranteeing a bijection over Z/(2^64). Since gcd(odd, 2^64) = 1, multiplication is invertible and no information is destroyed. The folding step XORs the high 32 bits into the low 32 bits, crashing carry-chain bit dependencies back into the lower word and creating dense non-linear mixing. The final rotation prevents alignment patterns across sequential applications.
+The `b | 1` forces an odd multiplier, guaranteeing a bijection over $\mathbb{Z}/2^{64}\mathbb{Z}$. Since $\gcd(\text{odd}, 2^{64}) = 1$, multiplication is invertible and no information is destroyed. The folding step XORs the high 32 bits into the low 32 bits, crashing carry-chain bit dependencies back into the lower word and creating dense non-linear mixing. The final rotation prevents alignment patterns across sequential applications.
 
-**Measured algebraic degree: at least 24.** Algebraic attacks against degree-d systems in n variables require O(n^d) time. With n = 1600 and d = 24, this is beyond any conceivable computation.
+**Measured algebraic degree: at least 24.** Algebraic attacks against degree-$d$ systems in $n$ variables require $O(n^d)$ time. With $n = 1600$ and $d = 24$, this is beyond any conceivable computation.
 
-**Differential properties:** For non-MSB differences, the maximum differential probability (MDP) is approximately 2^−20 at 64-bit width. 98.6% of differential pairs have MDP below 1/8.
+**Differential properties:** For non-MSB differences, the maximum differential probability (MDP) is approximately $2^{-20}$ at 64-bit width. 98.6% of differential pairs have MDP below $1/8$.
 
 ### 3.2 DDR: Data-Dependent Rotation
 
+> **Definition 2** *(Data-Dependent Rotation).* For $a, b \in \{0,1\}^{64}$, let $\text{folded} = b \oplus (b \gg 32)$:
+>
+> $$s = \big(\text{folded} \oplus (\text{folded} \gg 16) \oplus (\text{folded} \gg 8)\big) \mathbin{\&} 63, \qquad \text{DDR}(a, b) = a \lll s$$
+>
+> *All 64 bits of $b$ contribute to the rotation distance through cascaded folding. Implemented in constant time via 6 branchless fixed-distance conditional rotations.*
+
 ```
-s = b AND 63            [extract 6-bit rotation distance]
-result = a <<< s        [rotate a left by s positions]
+folded = b XOR (b >> 32)                                     [fold 64 bits to 32]
+s = (folded XOR (folded >> 16) XOR (folded >> 8)) AND 63     [cascaded fold to 6-bit distance]
+result = a <<< s                                             [rotate a left by s positions]
 ```
 
 The rotation distance is determined by the data itself. Any differential trail must account for all 64 possible rotation distances at every DDR node, multiplying the path count by up to 64 per node. After several rounds with multiple DDR operations, the number of paths grows exponentially beyond tractability.
 
 **Constant-time implementation:** KK decomposes each DDR into six fixed-distance conditional rotations using bitwise masks, executing all six unconditionally. No branches, no variable shifts, identical instruction sequence regardless of rotation distance.
 
-**Timing verification (dudect):** Welch t-test across 10,000 samples yielded max t = 1.91, well below the 4.5 threshold. No timing leakage detected.
+**Timing verification (dudect):** Welch t-test across 10,000 samples per scenario yielded max $|t| = 2.28$ across all four test scenarios, well below the 4.5 threshold. No timing leakage detected.
 
 ---
 
 ## 4. The Quintet Round: A Novel 5-Word Mixing Structure
 
 KK does not use the traditional 2-word Feistel network or the 4-word column/diagonal structure of ChaCha. It uses a quintet round, a 5-word mixing unit that I believe is novel in cipher design:
+
+> **Definition 3** *(QuintetRound).* Given state words $(a, b, c, d, e) \in (\{0,1\}^{64})^5$ and rotation pair $(\text{rot}_0, \text{rot}_1)$:
+>
+> $$a \leftarrow \text{MFR}(a, b, \text{rot}_0), \quad c \leftarrow c \oplus a, \quad d \leftarrow \text{DDR}(d, c), \quad e \leftarrow \text{MFR}(e, d, \text{rot}_1), \quad b \leftarrow b \oplus e$$
+>
+> *Two non-linear MFR operations, one data-dependent rotation, and two XOR diffusions form a complete 5-word mixing unit. After one application all five input words are mutually dependent.*
 
 ```
 a = MFR(a, b, rot0)     [non-linear mix]
@@ -190,6 +302,12 @@ Measured algebraic degree of the quintet round: at least 20.
 
 ## 5. Full Permutation: 32 Rounds of 15 Quintets
 
+> **Definition 4** *(Full Permutation).* The KK permutation $\pi : \{0,1\}^{1600} \to \{0,1\}^{1600}$ consists of $R = 32$ rounds over a $5 \times 5$ grid of 64-bit words $S[0..24]$. Each round applies 15 QuintetRounds in three phases:
+>
+> $$\pi = \prod_{r=0}^{R-1} \Big(\text{Rekey}_r \circ K_r \circ \text{Diag}_r \circ \text{Col}_r \circ \text{Row}_r\Big)$$
+>
+> *where $\text{Row}_r$ processes rows $S[5i..5i{+}4]$, $\text{Col}_r$ processes columns $S[j, j{+}5, \ldots, j{+}20]$, $\text{Diag}_r$ processes five diagonal patterns, $K_r$ XORs round constants derived from $\phi, e, \pi, \sqrt{2}$ into positions $[0,4,12,20,24]$, and $\text{Rekey}_r$ (every 8 rounds) injects capacity bits into the rate with round-dependent rotation.*
+
 Each round executes 15 quintet rounds in three phases:
 
 **Row Phase (5 quintets):** Each row of the 5×5 grid is processed. Row 0: words [0,1,2,3,4], Row 1: words [5,6,7,8,9], etc.
@@ -198,7 +316,7 @@ Each round executes 15 quintet rounds in three phases:
 
 **Diagonal Phase (5 quintets):** Five diagonal patterns (e.g., [0,6,12,18,24]) provide cross-cutting diffusion paths unreachable by rows and columns alone.
 
-After one round, a single-word input difference activates 23/25 state words. By round 2, full 25/25 activation is achieved. Over 32 rounds: 480 quintet rounds, 960 MFR operations, 480 DDR operations.
+After one round, a single-word input difference activates 23/25 state words on average (minimum 5/25). By round 2, full 25/25 activation is achieved. Over 32 rounds: 480 quintet rounds, 960 MFR operations, 480 DDR operations.
 
 ### Round Constants and Re-Keying
 
@@ -247,7 +365,7 @@ All four sources are absorbed into a KK sponge and squeezed. Even if one source 
 
 ### Information-Theoretic Non-Reconstructibility
 
-A formal proof (executable Rust code in the repository) demonstrates: for any ciphertext C and candidate plaintext P′, the keystream K′ = C ⊕ P′ is consistent with some entropy snapshot. Every candidate plaintext is equally valid. No verification oracle exists. The search space of 2^256 possible entropy values exceeds the number of atoms in the observable universe (approximately 2^266). Even testing one candidate per Planck time across every atom would not exhaust the space in the age of the universe.
+A formal proof (executable Rust code in the repository) demonstrates: for any ciphertext C and candidate plaintext P′, the keystream $K' = C \oplus P'$ is consistent with some entropy snapshot. Every candidate plaintext is equally valid. No verification oracle exists. The search space of $2^{256}$ possible entropy values approaches the number of atoms in the observable universe (approximately $2^{266}$). Even testing one candidate per Planck time across every atom would not exhaust the space in the age of the universe.
 
 ### Empirical Verification (`examples/proof.rs`)
 
@@ -365,7 +483,7 @@ Integration tests verify that temporal commitments are bound to their inputs:
 - **Ciphertext tampering:** Modifying any byte of the ciphertext causes MAC verification to fail.
 - **Timestamp tampering:** Changing the timestamp invalidates the commitment.
 - **Chain integrity:** The `prev_mac` field ensures that reordering or removing proofs from a chain is detected.
-- **EKA session binding:** The KK-EKA handshake protocol (Section 12 of the Specification) produces a session key from which temporal proofs inherit their binding. Tampering with any handshake message causes the key exchange to fail.
+- **EKA session binding:** The KK-EKA handshake protocol (Part V, Formal Specification) produces a session key from which temporal proofs inherit their binding. Tampering with any handshake message causes the key exchange to fail.
 
 ---
 
@@ -398,6 +516,24 @@ A terminal `0x80` byte at the end of the rate prevents length-extension attacks 
 ---
 
 ## 15. Sponge Construction Details
+
+> **Definition 5** *(Sponge State).* The KK sponge operates on a 1600-bit state $S = (S[0], \ldots, S[24])$ partitioned into rate $r = 152$ bytes (19 words) and capacity $c = 48$ bytes (6 words), yielding $c/2 = 192$-bit security against generic attacks.
+
+> **Definition 6** *(Absorb).* Given input $M = m_0 \| m_1 \| \cdots$, partition into $r$-byte blocks. For each block, XOR bytes into the rate portion of $S$ (word-aligned where possible):
+>
+> $$S[\lfloor i/8 \rfloor] \leftarrow S[\lfloor i/8 \rfloor] \oplus \big(m_i \ll (8 \cdot (i \bmod 8))\big), \qquad S \leftarrow \pi(S) \text{ after every } r \text{ bytes}$$
+
+> **Definition 7** *(Finalize).* After absorbing all input, apply domain-separated multi-rate padding:
+>
+> $$S_{\text{buf}} \leftarrow S_{\text{buf}} \oplus (\texttt{domain} \ll 8 \cdot \text{pos}), \quad S_{r-1} \leftarrow S_{r-1} \oplus (\texttt{0x80} \ll 56), \quad S \leftarrow \pi(S)$$
+>
+> *where* $\texttt{domain} \in \{\texttt{0x01}, \texttt{0x02}, \texttt{0x03}\}$ *for hash, KDF, and MAC respectively.*
+
+> **Definition 8** *(Squeeze).* To produce $n$ output bytes, read sequentially from the rate of $S$. If more than $r$ bytes are needed, apply $\pi$ and continue:
+>
+> $$\text{out}_{i} = \text{byte}_{i \bmod r}(S), \quad S \leftarrow \pi(S) \text{ after every } r \text{ bytes}$$
+>
+> *KDF mode uses 20-round $\pi$ for squeeze; hash mode uses 32-round $\pi$.*
 
 Input data is XORed into the rate portion in word-aligned chunks (8 bytes when possible, byte-level for partials). After each full rate block, the 32-round permutation is applied. Output bytes are read from the rate; if more are needed, an additional permutation (20 rounds for KDF, 32 for hash) is applied. Multi-rate padding with domain separation marks the buffer position with the domain byte and appends `0x80` at the rate boundary before the final permutation, preventing length and domain collisions.
 
@@ -537,7 +673,7 @@ Tested on a single x86-64 platform. ARM, AMD Zen, and older Intel microarchitect
 
 ### 20.1 Methodology
 
-For each of 2,000 random inputs, flip each of the 256 input bits independently (512,000 total evaluations). Compute the Hamming distance between the original and flipped outputs. A perfect hash produces mean distance of exactly n/2 = 128.
+For each of 2,000 random inputs, flip each of the 256 input bits independently (512,000 total evaluations). Compute the Hamming distance between the original and flipped outputs. A perfect hash produces mean distance of exactly $n/2 = 128$.
 
 ### 20.2 Results
 
@@ -564,7 +700,7 @@ For each of 2,000 random inputs, flip each of the 256 input bits independently (
 
 ### 21.1 Methodology
 
-For 5,000 random inputs, compute Pearson correlation between all 999 unique output bit pairs using the standard formula:
+For 5,000 random inputs, compute Pearson correlation between 999 randomly sampled output bit pairs (from $\binom{256}{2} = 32{,}640$ total) using the standard formula:
 
 $$r_{ij} = \frac{\sum(x_i - \bar{x}_i)(x_j - \bar{x}_j)}{\sqrt{\sum(x_i - \bar{x}_i)^2 \cdot \sum(x_j - \bar{x}_j)^2}}$$
 
@@ -591,8 +727,8 @@ Hash 2,000,000 sequential byte strings `[0], [1], ..., [1,999,999]` and store al
 |--------|-------|
 | Inputs tested | 2,000,000 |
 | Collisions found | **0** |
-| Birthday bound (256-bit) | 2^128 |
-| Expected collision probability | ~n² / 2^257 ≈ 5.9 × 10^−65 |
+| Birthday bound (256-bit) | $2^{128}$ |
+| Expected collision probability | $\sim n^2 / 2^{257} \approx 5.9 \times 10^{-65}$ |
 
 **Result: PASS.** Zero collisions as expected for a 256-bit output.
 
@@ -703,16 +839,16 @@ KK matches or exceeds SHA-256 and BLAKE3 on all standard quality metrics. Its ch
 
 ### 27.1 Methodology
 
-A computational differential trail analyser (`examples/differential.rs`) evaluates the propagation of input differences through the KK permutation. Local reimplementations of MFR and DDR are tested independently, then composed into multi-round configurations. A deterministic PRNG ensures reproducibility. Trial counts: 2^18 – 2^20 per configuration.
+A computational differential trail analyser (`examples/differential.rs`) evaluates the propagation of input differences through the KK permutation. Local reimplementations of MFR and DDR are tested independently, then composed into multi-round configurations. A deterministic PRNG ensures reproducibility. Trial counts: $2^{18}$–$2^{20}$ per configuration.
 
 ### 27.2 Component-Level Results
 
 | Component | Configuration | MDP | Notes |
 |-----------|--------------|:---:|-------|
 | MFR | Δb = 0 (expected) | deterministic | Odd-multiply bijection |
-| MFR | Δa = 1, Δb = 1 | 2^−20.0 | Full non-linear mixing |
+| MFR | Δa = 1, Δb = 1 | $2^{-20.0}$ | Full non-linear mixing |
 | DDR | Δb = 0 (bijection) | expected | Rotation distance unchanged |
-| DDR | Δb ≠ 0 | 2^−19.0 | Data-dependent reorientation |
+| DDR | Δb ≠ 0 | $2^{-19.0}$ | Data-dependent reorientation |
 
 ### 27.3 Full-State Diffusion
 
@@ -723,11 +859,11 @@ A computational differential trail analyser (`examples/differential.rs`) evaluat
 | 3 | 25 | 25 | 25.0 |
 | 4 | 25 | 25 | 25.0 |
 
-For all 25 starting positions, **full diffusion (25/25 active words) is achieved by round 4.** With 32 rounds, KK provides an 8× diffusion margin.
+For all 25 starting positions, **full diffusion (25/25 active words) is achieved by round 2.** With 32 rounds, KK provides a 16× diffusion margin.
 
 ### 27.4 Multi-Round Differential Probability
 
-Maximum observed probability: 3.81 × 10^−6 (2^−18.0) from round 1 onward. No output difference repeats above the noise floor in extended search.
+Maximum observed probability: $3.81 \times 10^{-6}$ ($2^{-18.0}$) from round 1 onward. No output difference repeats above the noise floor in extended search.
 
 ### 27.5 Full 32-Round Search
 
@@ -737,25 +873,25 @@ Maximum observed probability: 3.81 × 10^−6 (2^−18.0) from round 1 onward. N
 
 Minimum branch number: 2 (one active input produces at least 2 active outputs). Average output active words: 2.98/5. The quintet's topology compensates for the modest branch number through high non-linearity and data-dependent structure.
 
-The branch number was measured by testing all 31 non-zero activity patterns across the 5-word quintet (2^5 - 1 patterns, each tested with 65,536 random input pairs):
+The branch number was measured by testing all 31 non-zero activity patterns across the 5-word quintet ($2^5 - 1$ patterns, each tested with 65,536 random input pairs):
 
 | Metric | Value |
 |--------|-------|
 | Minimum branch number | 2 |
 | Average active output words | 2.98/5 |
-| Full diffusion (25/25 words) | Achieved by round 4 |
-| Diffusion margin | 8x (32 rounds / 4 required) |
+| Full diffusion (25/25 words) | Achieved by round 2 |
+| Diffusion margin | 16x (32 rounds / 2 required) |
 
-Combined with full-state diffusion by round 4, the quintet structure ensures that every input bit influences every output bit well before the final round.
+Combined with full-state diffusion by round 2, the quintet structure ensures that every input bit influences every output bit well before the final round.
 
 ### 27.7 Summary
 
 | Test | Result | Notes |
 |------|:------:|-------|
-| MFR differential uniformity | **PASS** | MDP ≈ 2^−20 for non-trivial diffs |
+| MFR differential uniformity | **PASS** | MDP $\approx 2^{-20}$ for non-trivial diffs |
 | DDR differential uniformity | **PASS** | Bijective for Δb = 0 |
-| Full-state diffusion | **PASS** | 25/25 by round 4 (all positions) |
-| 4-round differential | **PASS** | Max prob 2^−18.0 |
+| Full-state diffusion | **PASS** | 25/25 by round 2 (all positions) |
+| 4-round differential | **PASS** | Max prob $2^{-18.0}$ |
 | 32-round differential | **PASS** | No repeats above noise |
 | Quintet branch number | **PASS** | Min 2, avg 2.98 |
 
@@ -763,8 +899,8 @@ Combined with full-state diffusion by round 4, the quintet structure ensures tha
 
 ### 27.8 Caveats
 
-- Results are sampled (2^18 – 2^20 trials), not exhaustive across the 1600-bit state space.
-- The 2^−576 extrapolation assumes independent round differentials.
+- Results are sampled ($2^{18}$–$2^{20}$ trials), not exhaustive across the 1600-bit state space.
+- The $2^{-576}$ extrapolation assumes independent round differentials.
 - Truncated differentials are not addressed (see Section 29 for formal DDT analysis).
 
 ---
@@ -783,7 +919,7 @@ A bias above $2^{-n/2}$ (noise floor for $n$ samples) indicates a potential line
 
 ### 28.2 Linear Approximation Results
 
-| Configuration | Masks Tested | Max |bias| | Significance |
+| Configuration | Masks Tested | Max \|bias\| | Significance |
 |--------------|:-----------:|:---------:|-------------|
 | MFR (single) | 100 random | 0.0060 | At noise floor |
 | DDR (single) | 100 random | 0.0205 | Expected (rotation alignment) |
@@ -826,15 +962,13 @@ Section 27 provides computational differential analysis via sampling. To go beyo
 
 ### 29.3 MSB Phenomenon: MDP = 1
 
-**Theorem.** For MFR at n-bit width, $\Delta a = 2^{n-1}$ with $\Delta b = 0$ always produces output difference $\Delta y = 2^{n-1} \oplus 2^{n/2-1}$.
-
-**Proof.** Let $c = b|1$ (odd). For the product $p = a \cdot c \bmod 2^n$:
-
-$2^{n-1} \cdot c \bmod 2^n = 2^{n-1}$, because $c = 2k+1$ implies $2^{n-1}(2k+1) = k \cdot 2^n + 2^{n-1} \equiv 2^{n-1} \pmod{2^n}$.
-
-After fold $y = p \oplus (p \gg n/2)$: the flipped bit $n-1$ propagates to bit $n/2-1$ via the right shift.
-
-Result: $\Delta y = 2^{n-1} | 2^{n/2-1}$, deterministic for all $(a, b)$. ∎
+> **Theorem 1** *(MSB Differential Determinism).* For MFR at $n$-bit width, $\Delta a = 2^{n-1}$ with $\Delta b = 0$ always produces output difference $\Delta y = 2^{n-1} \oplus 2^{n/2-1}$.
+>
+> *Proof.* Let $c = b|1$ (odd). For the product $p = a \cdot c \bmod 2^n$:
+>
+> $$2^{n-1} \cdot c \bmod 2^n = 2^{n-1}$$
+>
+> because $c = 2k+1$ implies $2^{n-1}(2k+1) = k \cdot 2^n + 2^{n-1} \equiv 2^{n-1} \pmod{2^n}$. After fold $y = p \oplus (p \gg n/2)$, the flipped bit $n-1$ propagates to bit $n/2-1$ via the right shift. Result: $\Delta y = 2^{n-1} | 2^{n/2-1}$, deterministic for all $(a, b)$. $\blacksquare$
 
 **This is not a weakness.** The MSB difference is a universal algebraic property of modular multiplication. In context: the DDR that follows every MFR rotates the output by a data-dependent distance, destroying the predictable bit position. The subsequent XOR spreads the difference across multiple words.
 
@@ -887,19 +1021,17 @@ Per-bit regression across 8 → 16 → 64 bit widths:
 
 ### 29.8 Formal Differential Trail Bound
 
-Total active operations across 32 rounds: 960 MFR + 480 DDR. Post-diffusion (round 4+), at least 424 MFR operations are active.
+Total active operations across 32 rounds: 960 MFR + 480 DDR. Post-diffusion (round 2+), at least 424 MFR operations are active.
 
-**Conservative bound** (using bit-3 MDP = $2^{-63}$):
-
-$$(2^{-63})^{424} = 2^{-26{,}712}$$
+> **Theorem 2** *(Differential Trail Bound).* The maximum differential trail probability through the full KK permutation satisfies:
+>
+> $$\Pr[\text{trail}] \leq (2^{-63})^{424} = 2^{-26{,}712}$$
+>
+> *Proof.* Each of the 424 post-diffusion MFR operations contributes at most $\text{MDP} = 2^{-63}$ (the bit-3 worst-case non-MSB probability, verified by exhaustive DDT at 8/16-bit and scaling regression). Under the standard independence assumption, these multiply. $\blacksquare$
 
 Security margin: $26{,}712 - 800 = \mathbf{25{,}912}$ bits above the $2^{-800}$ target.
 
-**Worst case** (using bit-3 MDP = $2^{-59.1}$):
-
-$$(2^{-59.1})^{424} = 2^{-25{,}055}$$
-
-Margin: 24,255 bits.
+Worst-case variant (using bit-3 MDP $= 2^{-59.1}$): $(2^{-59.1})^{424} = 2^{-25{,}055}$, margin 24,255 bits.
 
 **Note:** DDR branching factor $2^{2,880}$ is NOT included in these bounds. Including it would further strengthen the bound.
 
@@ -926,17 +1058,13 @@ Section 27 gave a heuristic bound of $2^{-576}$ via sampling. The formal analysi
 
 ### 30.2 LSB Phenomenon: LP = 1
 
-**Theorem.** For MFR at n-bit width, the linear approximation $(\alpha_a = \text{bit}_0, \alpha_b = 0, \beta = \text{bit}_0 \mid \text{bit}_{n/2})$ has $LP = 1.0$.
-
-**Proof.** Input parity: $ip = \text{bit}_0(a)$. For the product $p = a \cdot (b|1)$:
-
-$\text{bit}_0(a \times \text{odd}) = \text{bit}_0(a) \cdot \text{bit}_0(\text{odd}) = \text{bit}_0(a) \cdot 1 = \text{bit}_0(a)$.
-
-Output parity with $\beta = \text{bit}_0 | \text{bit}_{n/2}$: $op = \text{bit}_0(y) \oplus \text{bit}_{n/2}(y)$ where $y = p \oplus (p \gg n/2)$.
-
-Expanding: $op = \text{bit}_0(p) \oplus \text{bit}_{n/2}(p) \oplus \text{bit}_{n/2}(p) = \text{bit}_0(p) = \text{bit}_0(a) = ip$.
-
-Correlation = 1.0, LP = 1.0. ∎
+> **Theorem 3** *(LSB Linear Determinism).* For MFR at $n$-bit width, the linear approximation $(\alpha_a = \text{bit}_0, \alpha_b = 0, \beta = \text{bit}_0 \mid \text{bit}_{n/2})$ has $LP = 1.0$.
+>
+> *Proof.* Input parity: $ip = \text{bit}_0(a)$. For $p = a \cdot (b|1)$:
+>
+> $$\text{bit}_0(a \times \text{odd}) = \text{bit}_0(a) \cdot 1 = \text{bit}_0(a)$$
+>
+> Output parity with $\beta = \text{bit}_0 | \text{bit}_{n/2}$: $op = \text{bit}_0(p) \oplus \text{bit}_{n/2}(p) \oplus \text{bit}_{n/2}(p) = \text{bit}_0(p) = \text{bit}_0(a) = ip$. Correlation $= 1.0$, $LP = 1.0$. $\blacksquare$
 
 **Verification:** Exhaustive at 8-bit ($LP = 1.000000$), exhaustive at 16-bit ($LP = 1.000000$), sampled at 32-bit ($2^{28}$ pairs, $LP = 1.000000$).
 
@@ -968,23 +1096,23 @@ $$LP_\text{DDR}(n) = \frac{1}{n^2}$$
 
 ### 30.5 Three Formal Trail Bounds
 
-**Bound A (DDR-only, primary):** Each quintet contributes one DDR with $LP \leq 2^{-12}$ at 64-bit. With 212 active DDR operations (post-diffusion, 28+ rounds × 15 quintets, conservatively ≥212):
-
-$$(2^{-12})^{212} = 2^{-2{,}544}$$
-
-Margin: $2{,}544 - 800 = \mathbf{1{,}744}$ bits.
-
-**Bound B (MFR bit-1):** Using the bit-1 LP of $2^{-2}$ across 424 active MFR operations:
-
-$$(2^{-2})^{424} = 2^{-848}$$
-
-Margin: 48 bits. This is the *weakest* bound when an attacker targets bit 1 exclusively.
-
-**Bound C (Combined MFR + DDR):** For each quintet, use MFR bit-1 LP ($2^{-4}$ for two MFR) × DDR LP ($2^{-12}$), giving $2^{-16}$ per quintet:
-
-$$(2^{-16})^{212} = 2^{-3{,}392}$$
-
-Margin: 2,592 bits.
+> **Theorem 4** *(Linear Trail Bounds).* Under the per-operation biases established in Sections 29--30, the following bounds hold for the full 32-round KK permutation:
+>
+> **(A) DDR-only (primary).** Each quintet contributes one DDR with $LP \leq 2^{-12}$ at 64-bit. With $\geq 212$ active DDR operations (post-diffusion, $28{+}$ rounds $\times$ 15 quintets):
+>
+> $$(2^{-12})^{212} = 2^{-2{,}544}, \qquad \text{margin: } 2{,}544 - 800 = 1{,}744 \text{ bits}$$
+>
+> **(B) MFR bit-1.** Using the bit-1 LP of $2^{-2}$ across 424 active MFR operations:
+>
+> $$(2^{-2})^{424} = 2^{-848}, \qquad \text{margin: } 48 \text{ bits}$$
+>
+> *This is the weakest bound, when an attacker targets bit 1 exclusively.*
+>
+> **(C) Combined MFR + DDR.** For each quintet, MFR bit-1 LP ($2^{-4}$ for two MFR) $\times$ DDR LP ($2^{-12}$) gives $2^{-16}$ per quintet:
+>
+> $$(2^{-16})^{212} = 2^{-3{,}392}, \qquad \text{margin: } 2{,}592 \text{ bits}$$
+>
+> *All three bounds exceed the $2^{-800}$ security target.* $\blacksquare$
 
 ### 30.6 64-Bit Sampled Verification
 
@@ -992,8 +1120,10 @@ All measured LP values at 64-bit are at the noise floor ($\sim 2^{-22}$ to $2^{-
 
 ### 30.7 Complementary Duality
 
-| Bit Position | MDP | LP |
-|:------------:|:---:|:--:|
+Exhaustive 8-bit results (see Theorem 7, Section 31.3, for per-bit scaling laws):
+
+| Bit Position (8-bit) | MDP | LP |
+|:--------------------:|:---:|:--:|
 | MSB (bit 63) | 1.0 (deterministic) | $2^{-14}$ |
 | LSB (bit 0) | $2^{-7}$ | 1.0 (deterministic) |
 
@@ -1021,35 +1151,41 @@ This section presents constructive proofs of two fundamental phenomena discovere
 
 ### 31.1 MSB Differential Determinism (MDP = 1)
 
-**Theorem 1.** For MFR at n-bit width, $\Delta a = 2^{n-1}$ with $\Delta b = 0$ always produces output difference $\Delta y = 2^{n-1} | 2^{n/2-1}$.
-
-**Proof.** Let $c = b|1$ (odd). For the product $p = a \cdot c \bmod 2^n$:
-- $2^{n-1} \cdot c \bmod 2^n = 2^{n-1}$, because $c = 2k+1$ implies $2^{n-1}(2k+1) = k \cdot 2^n + 2^{n-1} \equiv 2^{n-1} \pmod{2^n}$.
-- Therefore the product XOR difference is exactly $2^{n-1}$.
-- After fold $y = p \oplus (p \gg n/2)$: the flipped bit $n-1$ propagates to bit $n/2-1$ via the right shift.
-- Result: $\Delta y = 2^{n-1} | 2^{n/2-1}$, deterministic for all $(a, b)$. ∎
+> **Theorem 5** *(MSB Differential Determinism).* For MFR at $n$-bit width, $\Delta a = 2^{n-1}$ with $\Delta b = 0$ always produces output difference $\Delta y = 2^{n-1} \mathbin{|} 2^{n/2-1}$.
+>
+> *Proof.* Let $c = b \mathbin{|} 1$ (odd). For the product $p = a \cdot c \bmod 2^n$:
+> - $2^{n-1} \cdot c \bmod 2^n = 2^{n-1}$, because $c = 2k{+}1$ implies $2^{n-1}(2k{+}1) = k \cdot 2^n + 2^{n-1} \equiv 2^{n-1} \pmod{2^n}$.
+> - Therefore the product XOR difference is exactly $2^{n-1}$.
+> - After fold $y = p \oplus (p \gg n/2)$: the flipped bit $n{-}1$ propagates to bit $n/2{-}1$ via the right shift.
+> - Result: $\Delta y = 2^{n-1} \mathbin{|} 2^{n/2-1}$, deterministic for all $(a, b)$. $\blacksquare$
 
 **Verification:** Exhaustive at 8-bit (65,536 pairs, ALL MATCH), exhaustive at 16-bit ($2^{32}$ pairs, ALL MATCH), sampled at 32-bit ($2^{28}$ pairs, ALL MATCH).
 
+*This restates Theorem 1 (Section 29.3) in the unified bit-boundary framework using $\mathbin{|}$ notation.*
+
 ### 31.2 LSB Linear Determinism (LP = 1)
 
-**Theorem 2.** For MFR at n-bit width, the linear approximation $(\alpha_a = \text{bit}_0, \alpha_b = 0, \beta = \text{bit}_0 | \text{bit}_{n/2})$ has $LP = 1.0$.
-
-**Proof.** Input parity: $ip = \text{bit}_0(a)$. For the product $p = a \cdot (b|1)$:
-- $\text{bit}_0(a \times \text{odd}) = \text{bit}_0(a) \cdot \text{bit}_0(\text{odd}) = \text{bit}_0(a) \cdot 1 = \text{bit}_0(a)$.
-- Output parity with $\beta = \text{bit}_0 | \text{bit}_{n/2}$: $op = \text{bit}_0(y) \oplus \text{bit}_{n/2}(y)$ where $y = p \oplus (p \gg n/2)$.
-- Expanding: $op = \text{bit}_0(p) \oplus \text{bit}_{n/2}(p) \oplus \text{bit}_{n/2}(p) = \text{bit}_0(p) = \text{bit}_0(a) = ip$.
-- Correlation = 1.0, LP = 1.0. ∎
+> **Theorem 6** *(LSB Linear Determinism).* For MFR at $n$-bit width, the linear approximation $(\alpha_a = \text{bit}_0,\; \alpha_b = 0,\; \beta = \text{bit}_0 \mathbin{|} \text{bit}_{n/2})$ has $LP = 1.0$.
+>
+> *Proof.* Input parity: $ip = \text{bit}_0(a)$. For the product $p = a \cdot (b \mathbin{|} 1)$:
+> - $\text{bit}_0(a \times \text{odd}) = \text{bit}_0(a) \cdot \text{bit}_0(\text{odd}) = \text{bit}_0(a) \cdot 1 = \text{bit}_0(a)$.
+> - Output parity with $\beta = \text{bit}_0 \mathbin{|} \text{bit}_{n/2}$: $op = \text{bit}_0(y) \oplus \text{bit}_{n/2}(y)$ where $y = p \oplus (p \gg n/2)$.
+> - Expanding: $op = \text{bit}_0(p) \oplus \text{bit}_{n/2}(p) \oplus \text{bit}_{n/2}(p) = \text{bit}_0(p) = \text{bit}_0(a) = ip$.
+> - Correlation $= 1.0$, $LP = 1.0$. $\blacksquare$
 
 **Verification:** Exhaustive at 8-bit ($LP = 1.000000$), exhaustive at 16-bit ($LP = 1.000000$), sampled at 32-bit ($2^{28}$ pairs, $LP = 1.000000$).
 
+*This restates Theorem 3 (Section 30.5) in the unified bit-boundary framework.*
+
 ### 31.3 Per-Bit Scaling Laws
 
-**Theorem 3.** The MFR per-bit scaling laws are complementary:
-- Differential: $\text{MDP}(\text{bit } k) \approx 2^{-(n-1-k)}$, slope $-1.0$ per bit from MSB.
-- Linear: $LP(\text{bit } k) = 2^{-2k}$, slope $-2.0$ per bit from LSB.
+> **Theorem 7** *(Per-Bit Scaling Laws).* The MFR per-bit scaling laws are complementary:
+> - Differential: $\text{MDP}(\text{bit } k) \approx 2^{-(n-1-k)}$, slope $-1.0$ per bit from MSB.
+> - Linear: $LP(\text{bit } k) = 2^{-2k}$, slope $-2.0$ per bit from LSB.
+>
+> *The weakest differential bit (MSB) has the strongest linear resistance, and vice versa.* $\blacksquare$
 
-The weakest differential bit (MSB) has the strongest linear resistance, and vice versa. Verified exhaustively at 8-bit with full per-bit MDP and per-bit LP tables. The sum of differential and linear penalties monotonically increases away from each boundary.
+Verified exhaustively at 8-bit and 16-bit with full per-bit MDP and per-bit LP tables; extrapolated to 64-bit by regression. The sum of differential and linear penalties monotonically increases away from each boundary.
 
 **8-bit exhaustive complementary duality table:**
 
@@ -1068,9 +1204,9 @@ The duality sum (MDP + LP in log2) grows monotonically from LSB to MSB, confirmi
 
 ### 31.4 DDR Universal Floor
 
-**Theorem 4.** DDR single-bit $LP = 1/n^2$ for all bit positions at n-bit width.
-
-Verified exhaustively at 8-bit (all 8 bits: $LP = 2^{-6.00}$, uniform). Combined with the 16-bit verification in Section 30 (all 16 bits: $LP = 2^{-8.00}$), the $1/n^2$ formula is confirmed across two word sizes and extrapolated to $LP = 2^{-12}$ at 64-bit.
+> **Theorem 8** *(DDR Universal Floor).* For DDR at $n$-bit width, the single-bit linear probability satisfies $LP = 1/n^2$ uniformly for all bit positions.
+>
+> *Proof (empirical).* Verified exhaustively at 8-bit (all 8 bits: $LP = 2^{-6.00}$, uniform) and 16-bit (all 16 bits: $LP = 2^{-8.00}$, uniform). The $1/n^2$ formula is confirmed across two word sizes, yielding $LP = 2^{-12}$ at 64-bit by extrapolation. $\blacksquare$
 
 ### 31.5 Combined Security Assessment
 
@@ -1171,7 +1307,7 @@ In a naive cipher where repeated plaintext produces repeated ciphertext, the out
 | # | Example | Tests | Passed | Key Result |
 |---|---------|:-----:|:------:|------------|
 | 1 | Non-Reconstructibility Proof | - | PASS | 10/10 unique ciphertexts, OTP equivalence |
-| 2 | Cryptographic Quality | 6 | **6/6** | SAC 49.99%, BIC 0.0447, 0 collisions |
+| 2 | Cryptographic Quality | 6 | **6/6** | SAC 50.00%, BIC 0.046, 0 collisions |
 | 3 | Differential Analysis | 6 | **6/6** | Max prob < 2^-18 at 32 rounds |
 | 4 | Linear Analysis | 7 | **7/7** | Max bias 2^-7.8 at 32 rounds |
 | 5 | Formal DDT | 7 | **7/7** | Trail bound 2^-26,712, margin 25,912 bits |
@@ -1179,8 +1315,8 @@ In a naive cipher where repeated plaintext produces repeated ciphertext, the out
 | 7 | QKD + Split-Channel | 2 | **2/2** | 0% error clean, 24.5% detects Eve |
 | 8 | Split-Channel Demo | 3 | **3/3** | Wrong entropy REJECTED, correct IDENTICAL |
 | 9 | Bit-Boundary Proofs | 4 | **4/4** | Complementary duality proven |
-| 10 | Constant-Time (dudect) | 5 | **5/5** | Max |t| = 1.21 < 4.5 |
-| **TOTAL** | | **40** | **40/40** | |
+| 10 | Constant-Time (dudect) | 4 | **4/4** | Max |t| = 2.28 < 4.5 |
+| **TOTAL** | | **39** | **39/39** | |
 
 ### Critical Security Numbers
 
@@ -1189,11 +1325,11 @@ In a naive cipher where repeated plaintext produces repeated ciphertext, the out
 | Differential trail bound | $2^{-26,712}$ | 25,912 bits above $2^{-800}$ target |
 | Linear trail bound | $2^{-2,544}$ | 1,744 bits above $2^{-800}$ target |
 | DDR trail explosion | $2^{2,880}$ paths | Combinatorial barrier to analysis |
-| Avalanche (SAC) | 49.99% | Indistinguishable from ideal 50% |
-| Bit Independence (BIC) | 0.0447 max | Well below 0.10 threshold |
-| Constant-time max |t| | 1.21 | Well below 4.5 threshold |
+| Avalanche (SAC) | 50.00% | Indistinguishable from ideal 50% |
+| Bit Independence (BIC) | 0.046 max | Well below 0.10 threshold |
+| Constant-time max |t| | 2.28 | Well below 4.5 threshold |
 | Collision resistance | 0 in 2M | No weakness detected |
-| Full diffusion | Round 4 | All 25 words active |
+| Full diffusion | Round 2 | All 25 words active |
 | Algebraic degree | $\geq$ 24 | Saturates measurement capability |
 
 ### Architecture Constants
@@ -1221,7 +1357,7 @@ In a naive cipher where repeated plaintext produces repeated ciphertext, the out
 
 ## 35. Performance Benchmarks
 
-All benchmarks were collected using the Criterion statistical framework (100 samples per benchmark point, 56 total benchmark points across 6 groups). Hardware: x86-64 with AVX-512F/DQ support.
+All benchmarks were collected using the Criterion statistical framework (100 samples per benchmark point, 56 total benchmark points across 6 groups). Hardware: AMD Ryzen 9 9950X3D (16 cores / 32 threads, Zen 5, AVX-512, 5.35 GHz boost, 96 GB DDR5-6000). All measurements at stock clocks, single socket.
 
 ### 35.1 Core Primitives
 
@@ -1254,6 +1390,8 @@ All benchmarks were collected using the Criterion statistical framework (100 sam
 | kk_entropy_mix | 32 B | 2.35 µs | 13.0 MiB/s |
 | | 64 B | 2.33 µs | 26.2 MiB/s |
 | | 128 B | 2.33 µs | 52.3 MiB/s |
+
+*Note: Hash throughput continues to scale beyond the 64 KB Criterion test point. Asymptotic throughput reaches 186 MiB/s at input sizes above 256 KB, where per-block absorb cost dominates and initialization overhead is fully amortized.*
 
 ### 35.2 AEAD Codec (Encrypt + Authenticate)
 
@@ -1311,12 +1449,36 @@ All benchmarks were collected using the Criterion statistical framework (100 sam
 | temporal verify | 64 B / 1 KB | 3.54 µs / 10.41 µs |
 | entropy_gather | - | 17.38 µs |
 
-### 35.7 Key Observations
+### 35.7 Batch AEAD System Throughput
 
-- **Hash peak throughput: ~127 MiB/s** - consistent across large inputs; sponge absorb rate is the bottleneck as expected.
-- **KDF scales efficiently:** 1.2 µs base cost, throughput climbs to 145.5 MiB/s at 512 B output.
+Batch AEAD encoding (`encode_aead_batch`) distributes independent messages across physical cores using Rayon work-stealing parallelism. Each core performs full AEAD encoding (KDF derivation, stream encryption, MAC authentication) independently.
+
+| Workload | Throughput | Messages/sec |
+|----------|-----------|-------------|
+| 1,000 x 64 KB | **5.22 GiB/s** | 85,000+ |
+| 1,000 x 16 KB | 2.40 GiB/s | 153,000+ |
+| 1,000 x 4 KB | 1.53 GiB/s | 430,000+ |
+| 10,000 x 4 KB | 1.67 GiB/s | 430,000+ |
+
+### 35.8 Multi-Core Scaling
+
+| Configuration | Throughput | Notes |
+|---------------|-----------|-------|
+| Single core (AVX-512 batch) | 497 MiB/s | Per-core batch AEAD |
+| 16 threads (physical cores) | 4.09 GiB/s | Near-linear scaling from single core |
+| 32 threads (SMT) | **5.22 GiB/s** | +27% from hyperthreads (unusual for AVX-512) |
+| GPU (wgpu WGSL compute shader) | 1.01 GiB/s | Raw permutation throughput |
+| GPU (CUDA native, RTX 5080) | 2.08 GiB/s | Raw permutation throughput |
+| KK-RNG pool (32 threads) | 2.80 GiB/s | Forward-secret random bytes |
+
+The +27% SMT scaling is notable: AVX-512 workloads typically show diminished returns from hyperthreading because both logical cores share a single 512-bit execution unit. KK's MFR/DDR instruction mix leaves sufficient pipeline slots for the sibling thread.
+
+### 35.9 Key Observations
+
+- **Hash peak throughput: 186 MiB/s** on the 9950X3D; sponge absorb rate is the bottleneck as expected.
+- **KDF scales efficiently:** 1.2 µs base cost, throughput climbs to 145 MiB/s at 512 B output.
 - **KDF batch is ~8× single cost:** near-perfect linear scaling for 8 parallel derivations.
-- **MAC matches hash speed:** identical throughput profile (same sponge base), ~127 MiB/s at 64 KB.
+- **MAC matches hash profile:** ~127 MiB/s at 64 KB (same sponge base).
 - **Permute core: 1.14 µs** - the fundamental 25-word state transform (~22 Keccak-f equivalent rounds).
 - **Rotation derivation: 11.4 ns** - essentially free; negligible overhead for entropy-driven rotations.
 - **AEAD encode dominates decode:** encode ~22 µs fixed overhead (KDF + hash + MAC); decode only ~4.8 µs at small sizes.
@@ -1326,6 +1488,8 @@ All benchmarks were collected using the Criterion statistical framework (100 sam
 - **Session roundtrip scales well:** 56.5 µs for 64 B up to 463.9 µs for 16 KB (includes fresh RopeRatchet + encode + decode).
 - **Temporal commitments are symmetric:** commit and verify cost the same (~3.5 µs for 64 B).
 - **Entropy gathering: 17.4 µs** - fast system entropy snapshot.
+- **Batch AEAD: 497 MiB/s per physical core,** scaling to 5.22 GiB/s across 32 SMT threads (+27% from hyperthreading, unusual for AVX-512 workloads).
+- **GPU acceleration:** wgpu compute shader reaches 1.01 GiB/s; CUDA native reaches 2.08 GiB/s (RTX 5080).
 
 ---
 
@@ -1346,7 +1510,7 @@ DDR's six branchless conditional rotations collapse to a single `VPROLVQ` instru
 | encode_aead (1 KB) | 33.60 µs | - | - |
 | eka_handshake | 44.60 µs | - | ~22,400/sec |
 
-KDF batch achieves near-perfect linear scaling: 8 parallel derivations in the time of ~8 sequential calls, with the AVX-512 vectorised squeeze path providing ~1.5× speedup when output size grows (e.g., 256 B: scalar sequential 15.34 µs vs batch 10.12 µs). Peak hash throughput reaches ~127 MiB/s at 64 KB. Packet serde overhead is sub-100 ns.
+KDF batch achieves near-perfect linear scaling: 8 parallel derivations in the time of ~8 sequential calls, with the AVX-512 vectorised squeeze path providing ~1.5× speedup when output size grows (e.g., 256 B: scalar sequential 15.34 µs vs batch 10.12 µs). Peak hash throughput reaches 186 MiB/s. Packet serde overhead is sub-100 ns. At system level, batch AEAD encoding on a single physical core reaches 497 MiB/s, scaling to 5.22 GiB/s across 32 SMT threads.
 
 Runtime CPU detection ensures transparent fallback to scalar when AVX-512F/DQ are unavailable. No crashes, no user intervention.
 
@@ -1487,17 +1651,73 @@ Run `cargo run --example proof` or any other example to reproduce the results. T
 
 ## 43. References
 
+### Test Methodology References
+
 1. **Reparaz, O., Balasch, J., Verbauwhede, I.** "Dude, is my code constant time?" *Design, Automation & Test in Europe Conference (DATE)*, 2017. - The dudect methodology implemented in Test 1.
 
 2. **Webster, A.F., Tavares, S.E.** "On the design of S-boxes." *Advances in Cryptology, CRYPTO '85*, LNCS 218, pp. 523–534, 1986. - Original definitions of the Strict Avalanche Criterion and Bit Independence Criterion (Tests 2–3).
 
 3. **Pearson, K.** "On the criterion that a given system of deviations from the probable in the case of a correlated system of variables is such that it can be reasonably supposed to have arisen from random sampling." *Philosophical Magazine*, Series 5, 50(302), pp. 157–175, 1900. - The chi-squared goodness-of-fit test (Test 6).
 
-4. **Bertoni, G., Daemen, J., Peeters, M., Van Assche, G.** "Sponge functions." *ECRYPT Hash Workshop*, 2007. - The sponge construction underlying the KK hash and MAC, and the basis for length-extension resistance (Test 5).
-
-5. **NIST.** "SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions." *FIPS 202*, 2015. - Reference sponge construction for comparison.
-
 6. **Welford, B.P.** "Note on a method for calculating corrected sums of squares and products." *Technometrics*, 4(3), pp. 419–420, 1962. - The online variance algorithm used in the dudect implementation.
+
+### Sponge Constructions and Standards
+
+4. **Bertoni, G., Daemen, J., Peeters, M., Van Assche, G.** "Sponge functions." *ECRYPT Hash Workshop*, 2007. - The sponge construction underlying the KK hash and MAC, and the basis for length-extension resistance.
+
+5. **NIST.** "SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions." *FIPS 202*, 2015. - Reference sponge construction and standard.
+
+7. **Bertoni, G., Daemen, J., Peeters, M., Van Assche, G.** "Cryptographic sponge functions." Version 0.1, 2011. Available: https://keccak.team/files/CSF-0.1.pdf - Comprehensive treatment of sponge security, capacity, and generic attack bounds.
+
+8. **Bertoni, G., Daemen, J., Peeters, M., Van Assche, G.** "The Keccak reference." Version 3.0, 2011. Available: https://keccak.team/files/Keccak-reference-3.0.pdf - Complete specification of the Keccak-f[1600] permutation and its step mappings (chi, theta, rho, pi, iota).
+
+9. **Dobraunig, C., Eichlseder, M., Mendel, F., Schlaffer, M.** "Ascon v1.2: Lightweight Authenticated Encryption and Hashing." *Journal of Cryptology*, 34(3), 2021. NIST Lightweight Cryptography standard. - Winner of the NIST Lightweight Cryptography competition; 320-bit sponge with 5-bit S-box layer.
+
+23. **Jovanovic, M., Luykx, A., Mennink, B.** "Beyond 2^{c/2} security in sponge-based authenticated encryption modes." *ASIACRYPT 2014*, LNCS 8873, pp. 85–104, 2014. - Proves sponge AEAD security beyond the birthday bound; establishes the c/2 security framework referenced by KK's capacity choice.
+
+27. **Daemen, J., Hoffert, S., Peeters, M., Van Assche, G., Van Keer, R.** "Xoodyak, a lightweight cryptographic scheme." *NIST Lightweight Cryptography submission*, 2020. - 384-bit permutation-based design from the Keccak team; represents an intermediate-width sponge approach.
+
+### ARX Stream Ciphers and Hash Functions
+
+10. **Bernstein, D.J.** "The Salsa20 family of stream ciphers." *New Stream Cipher Designs: The eSTREAM Finalists*, LNCS 4986, pp. 84–97, 2008. - Foundational ARX stream cipher using a quarter-round function on 512-bit state.
+
+11. **Bernstein, D.J.** "ChaCha, a variant of Salsa20." 2008. Available: https://cr.yp.to/chacha/chacha-20080128.pdf - The most widely deployed ARX cipher; serves as the principal non-AES cipher in TLS.
+
+12. **Aumasson, J.-P., Henzen, L., Meier, W., Phan, R.C.-W.** "SHA-3 proposal BLAKE." *NIST SHA-3 submission*, 2008. - SHA-3 finalist; ARX compression function in HAIFA iteration mode.
+
+13. **Aumasson, J.-P., Neves, S., Wilcox-O'Hearn, Z., Winnerlein, C.** "BLAKE2: simpler, smaller, fast as MD5." *Applied Cryptography and Network Security (ACNS)*, LNCS 7954, pp. 119–135, 2013. - Optimized ARX hash function widely used in password hashing and integrity checking.
+
+14. **O'Connor, J., Aumasson, J.-P., Neves, S., Wilcox-O'Hearn, Z.** "BLAKE3: one function, fast everywhere." 2020. Available: https://github.com/BLAKE3-team/BLAKE3-specs/blob/master/blake3.pdf - Merkle tree ARX hash with unbounded parallelism; current state of the art in ARX hash throughput.
+
+### ARX Permutation-Based AEAD
+
+15. **Bernstein, D.J., Kolbl, S., Lucks, S., Massolino, P.M.C., Mendel, F., Nawaz, K., Schneider, T., Schwabe, P., Standaert, F.-X., Todo, Y., Viguier, B.** "Gimli: a cross-platform permutation." *Cryptographic Hardware and Embedded Systems (CHES)*, LNCS 10529, pp. 299–320, 2017. - 384-bit ARX permutation with fixed rotations; targets cross-platform efficiency.
+
+16. **Aumasson, J.-P., Jovanovic, P., Neves, S.** "NORX: parallel and scalable AEAD." *European Symposium on Research in Computer Security (ESORICS)*, LNCS 8712, pp. 19–36, 2014. - ARX-based AEAD with monkeyDuplex sponge on 512-bit state; fixed rotation distances.
+
+### Lightweight ARX Block Ciphers
+
+17. **Beaulieu, R., Shors, D., Smith, J., Treatman-Clark, S., Weeks, B., Wingers, L.** "The SIMON and SPECK families of lightweight block ciphers." *IACR ePrint Archive*, 2013/404, 2013. - NSA-designed lightweight ARX (Speck) and AND-rotation-XOR (Simon) families; subject to extensive third-party cryptanalysis.
+
+### Data-Dependent Rotations
+
+18. **Rivest, R.L.** "The RC5 encryption algorithm." *Fast Software Encryption (FSE)*, LNCS 1008, pp. 86–96, 1994. - Introduced data-dependent rotations to symmetric cryptography; rotation distance derived from intermediate cipher state.
+
+19. **Rivest, R.L., Robshaw, M.J.B., Sidney, R., Yin, Y.L.** "The RC6 block cipher." *AES submission*, 1998. - Extended RC5's data-dependent rotation paradigm to a 128-bit block cipher; AES finalist.
+
+26. **Burwick, C., Coppersmith, D., D'Avignon, E., Gennaro, R., Halevi, S., Jutla, C., Matyas, S.M., O'Connor, L., Peyravian, M., Safford, D., Zunic, N.** "MARS: a candidate cipher for AES." *IBM Corporation*, 1999. - AES candidate employing data-dependent rotations in its heterogeneous round structure.
+
+### Differential and Linear Cryptanalysis
+
+20. **Daemen, J., Rijmen, V.** "The Design of Rijndael: AES, the Advanced Encryption Standard." *Springer*, 2002. - Introduced the wide trail strategy for proving minimum active S-box bounds in differential and linear trails.
+
+21. **Biham, E., Shamir, A.** "Differential cryptanalysis of DES-like cryptosystems." *Journal of Cryptology*, 4(1), pp. 3–72, 1991. - Foundational work introducing differential cryptanalysis as a general attack framework for block ciphers.
+
+22. **Matsui, M.** "Linear cryptanalysis method for DES cipher." *EUROCRYPT '93*, LNCS 765, pp. 386–397, 1993. - Introduced linear cryptanalysis; established the framework for linear trail probability analysis used throughout this paper.
+
+24. **Mouha, N., Preneel, B.** "Towards finding optimal differential characteristics for ARX: application to Salsa20." *IACR ePrint Archive*, 2013/328, 2013. - Techniques for bounding differential characteristics in ARX constructions where S-box decomposition is not available.
+
+25. **Leurent, G.** "Analysis of differential attacks in ARX constructions." *ASIACRYPT 2012*, LNCS 7658, pp. 226–243, 2012. - Methods for analyzing differential propagation through modular addition and rotation; directly relevant to ARX trail bound methodology.
 
 ---
 
@@ -1808,8 +2028,8 @@ This breaks fixed-structure analysis within a single permutation call by feeding
 
 ### 47.7 Computational Cost Per Permutation
 
-Per round: $15$ quintet-rounds $= 30$ MFR $+ 15$ DDR $+ 10$ XOR.  
-Per full permutation ($R = 32$): $480$ quintet-rounds $= 960$ MFR $+ 480$ DDR $+ 320$ XOR $+ 160$ wrapping-add (round constants) $+ 4 \times 19 = 76$ re-keying XORs.
+Per round: $15$ quintet-rounds $= 30$ MFR $+ 15$ DDR $+ 30$ XOR.  
+Per full permutation ($R = 32$): $480$ quintet-rounds $= 960$ MFR $+ 480$ DDR $+ 960$ XOR $+ 160$ wrapping-add (round constants) $+ 4 \times 19 = 76$ re-keying XORs.
 
 → `kk_mix::kk_permute_n()` at line 279
 
