@@ -5,3 +5,13 @@ docs/node_modules/
 docs/package-lock.json
 docs/fonts/
 docs/*.html
+docs/.md-to-pdf.js
+docs/package.json
+docs/KK_WHITEPAPER.md
+docs/KK_WHITEPAPER.pdf
+docs/KK_SPECIFICATION.md
+docs/KK_SPECIFICATION.pdf
+docs/NUMERICAL_ANALYSIS_REPORT.md
+docs/NUMERICAL_ANALYSIS_REPORT.pdf
+docs/kk_formulation.md
+docs/kk_formulation.pdf
