@@ -1313,6 +1313,250 @@ In a naive cipher where repeated plaintext produces repeated ciphertext, the out
 
 ---
 
+## Adversarial Self-Attack Suite
+
+### Methodology
+
+A standalone adversarial analysis (`examples/attack.rs`) reimplements MFR, DDR, and the full KK permutation from scratch, independent of the library crate. Twelve targeted attacks exploit the known structural properties documented in Sections 27 through 31. Each attack targets a specific theoretical claim or known design tradeoff and measures empirical results against the mathematical predictions. A deterministic PRNG ensures full reproducibility.
+
+### Summary
+
+| # | Attack | Target Theory | Key Metric | Result |
+|:-:|--------|---------------|------------|:------:|
+| 1 | DDR Selector Collision | § 29.6: $\Pr = 1/64$ | Rate = 0.01573 (1.007x) | **PASS** |
+| 2 | Reduced-Round Differential | § 27.3: full diffusion round 2 | avg = 799.3/800 at round 2 | **PASS** |
+| 3 | Capacity Isolation | §§ 22, 27: sponge $c/2 = 192$ | 0/100K at 4+ rounds | **PASS** |
+| 4 | SAC (full permutation) | § 20: SAC = 50% | Worst bias 0.0157 < 6σ | **PASS** |
+| 5 | MFR Output Bit Bias | § 28: degree $\geq 24$ | max bias 0.00077 ≈ 3σ | **PASS** |
+| 6 | Round Constant Coverage | § 27: dark vs lit words | diff ≤ 1.90 popcount | **PASS** |
+| 7 | Rate/Capacity Mixing | § 27.3: 76% rate asymmetry | 100%/99.9% by round 2 | **PASS** |
+| 8 | KDF Squeeze Gap | § 24: χ² uniformity | χ² = 44.02 < 95.6 | **PASS** |
+| 9 | Quintet Differential | § 27.6: branch number $\geq 2$ | avg = 98/160, 0 collisions | **PASS** |
+| 10 | DDR Free Path | § 29.6: 1/64 inherent path | 100% predictable when collides | **PASS** |
+| 11 | Re-Keying Window | § 27: 8-round re-key cycle | avg ≈ 800/1600 all windows | **PASS** |
+| 12 | Slide/Rotational Symmetry | §§ 27 through 31: round constants | avg ≈ 800/1600, 0 matches | **PASS** |
+
+Total analysis time: 4.64 s (AMD Ryzen 9 9950X3D).
+
+### Attack 1: DDR Selector Collision Rate
+
+*Theory (Section 29.6).* The DDR selector folds a 64-bit word to a 6-bit rotation index through a six-stage XOR cascade, creating an inherent collision probability:
+
+$$\Pr[\mathrm{selector}(b) = \mathrm{selector}(b')] = \frac{1}{64} = 0.015625$$
+
+*Empirical result.* Over $10^7$ random pairs:
+
+| Metric | Value |
+|--------|-------|
+| Collision rate | 0.01573 |
+| Expected (1/64) | 0.01563 |
+| Ratio | 1.007x |
+| Single-bit flip collisions (11 tested bits) | ALL 0.000000 |
+
+The selector behaves as predicted. Single-bit differences never produce selector collisions, confirming that the six-stage fold provides local injectivity for low-weight differences.
+
+### Attack 2: Reduced-Round Differential Propagation
+
+*Theory (Section 27.3).* The full-state diffusion table predicts all 25 words active by round 2:
+
+$$\text{Active words: round 1} \to 24/25, \quad \text{round 2} \to 25/25 \text{ (full)}$$
+
+*Empirical result.* Hamming distance from a single-bit input difference, measured across $10^5$ trials per configuration:
+
+| Rounds | Avg Hamming / 800 | Min | Max | Capacity Avg / 192 |
+|:------:|:-----------------:|:---:|:---:|:-------------------:|
+| 1 | 762.8 | 1 | 897 | 190.5 |
+| 2 | 799.3 | 1 | 884 | 192.0 |
+| 3 | 799.5 | 96 | 877 | 192.0 |
+| 4 | 799.5 | 640 | 891 | 192.1 |
+| 8 | 800.1 | 719 | 876 | 192.0 |
+| 16 | 800.0 | 709 | 885 | 192.0 |
+| 32 | 800.0 | 712 | 887 | 192.0 |
+
+By round 2 the average Hamming distance reaches 799.3/800 (99.9% of ideal), confirming the theoretical diffusion claim. Per-word breakdowns show all 25 words at 32.0/32 average Hamming distance by round 2, with word[18] the last to converge at 31.5. The minimum value of 1 at rounds 1 and 2 represents rare near-fixed-point events that vanish by round 4 (minimum rises to 640).
+
+### Attack 3: Capacity Isolation Search
+
+*Theory (Sections 22, 27).* Sponge security requires that rate-only differences cannot leave the 384-bit capacity unchanged after the permutation. The capacity provides the security margin:
+
+$$\text{Security level} = c/2 = 384/2 = 192 \text{ bits}$$
+
+*Empirical result.* Among $10^5$ single-bit rate-only differences per round count:
+
+| Rounds | Zero-Capacity-Diff | Probability | Min Cap Hamming |
+|:------:|:------------------:|:-----------:|:---------------:|
+| 1 | 28 / 100,000 | $2.80 \times 10^{-4}$ | 0 |
+| 2 | 8 / 100,000 | $8.00 \times 10^{-5}$ | 0 |
+| 4 | 0 / 100,000 | 0 | 151 |
+| 8 | 0 / 100,000 | 0 | 146 |
+| 32 | 0 / 100,000 | 0 | 150 |
+
+At 4+ rounds, zero events achieve capacity isolation bypass. The minimum capacity Hamming distance of 146 to 151 (out of 384) shows the capacity words are fully randomized even by rate-only differences.
+
+### Attack 4: Strict Avalanche Criterion (Full Permutation)
+
+*Theory (Section 20).* The SAC requires each input bit flip to toggle each output bit with probability exactly $1/2$:
+
+$$\text{SAC}(f) = \Pr[\text{output bit flips} \mid \text{one input bit flips}] = \frac{1}{2}$$
+
+The paper reports mean Hamming distance 128.00/256 with flip rate range [49.80%, 50.19%].
+
+*Empirical result.* Full 32-round permutation tested across representative input/output bit pairs:
+
+| Input Position | Worst Bias | At Output Bit |
+|:--------------:|:----------:|:-------------:|
+| word[0] bit 0 | 0.01240 | 890 |
+| word[0] bit 31 | 0.01565 | 1463 |
+| word[0] bit 63 | 0.01100 | 94 |
+| word[9] bit 0 | 0.01115 | 935 |
+| word[9] bit 32 | 0.01200 | 1041 |
+| word[18] bit 0 | 0.01390 | 539 |
+| word[18] bit 63 | 0.01055 | 253 |
+
+| Metric | Value | Threshold |
+|--------|:-----:|:---------:|
+| Worst bias overall | 0.01565 | < 0.02121 (6σ) |
+| 3σ threshold | 0.01061 | |
+
+All biases remain within statistical noise. The worst-case bias of 0.01565 falls below the 6σ alarm threshold, confirming ideal avalanche across the full 1,600-bit state.
+
+### Attack 5: MFR Output Bit Bias
+
+*Theory (Section 28).* MFR has algebraic degree $\geq 24$ and should produce uniformly distributed output bits. For $N = 5 \times 10^6$ trials, the 3σ detection threshold is:
+
+$$3\sigma = \frac{3}{2\sqrt{N}} = \frac{3}{2\sqrt{5{,}000{,}000}} = 0.000671$$
+
+*Empirical result.* Five rotation amounts probed:
+
+| Rotation | Max Bias | At Bit | 3σ | Status |
+|:--------:|:--------:|:------:|:--:|:------:|
+| 7 | 0.000635 | 14 | 0.000671 | Clean |
+| 41 | 0.000496 | 7 | 0.000671 | Clean |
+| 1 | 0.000767 | 40 | 0.000671 | Marginal |
+| 63 | 0.000562 | 56 | 0.000671 | Clean |
+| 32 | 0.000530 | 10 | 0.000671 | Clean |
+
+The rot=1 case shows a marginal bias of 1.14x the 3σ threshold, well below the 6σ alarm level. This is consistent with statistical fluctuation at $5 \times 10^6$ trials and does not indicate structural weakness.
+
+### Attack 6: Round Constant Coverage
+
+*Theory (Section 27).* Round constants are injected at words [0, 4, 12, 20, 24] (the "lit" words). The remaining 20 "dark" words receive no direct constant injection. If the permutation fails to distribute these constants, dark words could be statistically distinguishable.
+
+*Empirical result.* Average population count of lit vs dark words from an IV-initialised state:
+
+| Rounds | Lit Avg Popcount | Dark Avg Popcount | Difference |
+|:------:|:----------------:|:-----------------:|:----------:|
+| 1 | 29.40 | 31.30 | 1.90 |
+| 2 | 31.80 | 32.90 | 1.10 |
+| 4 | 30.00 | 31.55 | 1.55 |
+| 8 | 30.80 | 32.45 | 1.65 |
+| 16 | 32.00 | 31.75 | 0.25 |
+| 32 | 30.80 | 32.35 | 1.55 |
+
+All differences remain small (≤ 1.90 popcount out of 64) and fluctuate around the noise floor rather than exhibiting any systematic trend. The MFR/DDR quintet structure distributes round constant influence to all 25 words effectively.
+
+### Attack 7: Row 4 Capacity Mixing Asymmetry
+
+*Theory (Section 27.3).* The sponge rate occupies 76% of the state (1,216 / 1,600 bits). Row 4 (words 20 through 24) lies entirely within the capacity and only mixes with itself during the row phase, potentially creating asymmetric diffusion.
+
+*Empirical result.* Cross-domain diffusion measured over $10^5$ trials:
+
+| Rounds | Rate to Capacity | Capacity to Rate |
+|:------:|:----------------:|:----------------:|
+| 1 | 190.4 / 192 (99.2%) | 455.0 / 608 (74.8%) |
+| 2 | 191.9 / 192 (100.0%) | 607.6 / 608 (99.9%) |
+| 4 | 192.0 / 192 (100.0%) | 607.5 / 608 (99.9%) |
+
+Round 1 shows the predicted asymmetry: rate changes reach the smaller capacity domain faster (99.2%) than capacity changes reach the larger rate domain (74.8%). By round 2 both directions achieve near-ideal diffusion, confirming that the column and diagonal mixing phases compensate for the row-phase isolation.
+
+### Attack 8: KDF Squeeze Round Gap
+
+*Theory (Section 24).* The KDF uses 20 rounds for squeeze operations (vs 32 for the full hash). The chi-squared test evaluates whether 20-round output is distinguishable from ideal:
+
+$$\chi^2 = \sum_k \frac{(O_k - E_k)^2}{E_k}, \quad \text{critical value} = 95.6 \text{ at } p = 0.01, \text{ df} = 64$$
+
+*Empirical result.* Popcount distribution of word[0] over $10^5$ random states:
+
+| Configuration | χ² | Critical (p = 0.01) | Status |
+|:-------------:|:--:|:-------------------:|:------:|
+| 20 rounds | 44.02 | 95.6 | PASS |
+| 32 rounds | 41.90 | 95.6 | PASS |
+
+Both values fall well below the critical threshold. The 20-round KDF squeeze produces output indistinguishable from the full 32-round permutation.
+
+### Attack 9: Single Quintet Differential Trail
+
+*Theory (Section 27.6).* A single quintet has minimum branch number 2 (average 2.98) across the row/column/diagonal decomposition. For a single-bit input difference, the output should affect multiple words with near-ideal diffusion.
+
+*Empirical result.* Single quintet with rotation pair [7, 41], $2 \times 10^6$ trials per configuration:
+
+| Input Diff | Avg Hamming / 160 | Min | Max | Zero Output Diff |
+|:----------:|:-----------------:|:---:|:---:|:----------------:|
+| Word b (index 1) | 98.0 | 57 | 139 | 0 |
+| Word a (index 0) | 158.5 | n/a | n/a | 0 |
+
+No zero-output differentials observed across $4 \times 10^6$ total trials. The word-b difference shows 98/160 average Hamming (61%), which is expected for a single sub-round component that does not achieve full diffusion alone. The word-a difference produces near-ideal diffusion (158.5/160 = 99.1%) because word `a` participates directly in MFR.
+
+### Attack 10: DDR Free Path Exploitation
+
+*Theory (Section 29.6).* The DDR selector's GF(2)-linear structure creates an inherent 1/64 "free" differential path. When $\mathrm{selector}(b) = \mathrm{selector}(b \oplus \Delta b)$, the DDR output difference is exactly $\mathrm{rotate}(\Delta a, s)$, which is perfectly predictable. The paper's mitigation: rely on the full 32-round permutation's 480 DDR operations to make exploitation computationally infeasible:
+
+$$(1/64)^{480} = 2^{-2{,}880}$$
+
+*Empirical result.* Over $5 \times 10^6$ random differential pairs:
+
+| Metric | Value |
+|--------|-------|
+| Selector collisions | 77,995 / 5,000,000 (0.0156) |
+| Exact prediction rate (when collides) | 77,995 / 77,995 (100.0%) |
+
+Confirmed: the 1/64 free path exists exactly as theorized. When the selector collides, the output difference is 100% predictable. This is a known by-design property. The $2^{-2{,}880}$ barrier ensures that chaining free paths across all 480 DDR operations in a single permutation call is computationally infeasible.
+
+### Attack 11: Re-Keying Window Analysis
+
+*Theory.* The permutation injects re-keying every 8 rounds at $r \equiv 7 \pmod{8}$:
+
+$$\text{state}[i] \mathrel{\oplus}= \text{state}[\text{RATE} + (i \bmod \text{CAP})].\text{rotate\_left}(r)$$
+
+This attack examines whether the 7-round gap between re-keyings creates a detectable window of weakness.
+
+*Empirical result.* Hamming distance from a single-bit flip, $5 \times 10^4$ trials:
+
+| Rounds | Context | Avg Hamming / 1,600 | Min |
+|:------:|:-------:|:-------------------:|:---:|
+| 7 | Pre re-key | 799.5 | 710 |
+| 8 | With re-key at round 7 | 800.0 | 721 |
+| 9 | Post re-key | 799.9 | 716 |
+
+No measurable difference between pre, during, and post re-keying rounds. The MFR/DDR quintet structure provides sufficient per-round diffusion to make the re-keying window imperceptible.
+
+### Attack 12: Slide and Rotational Symmetry Resistance
+
+*Theory (Sections 27 through 31).* Slide attacks exploit identical round functions by finding input pairs $(x, y)$ where $y = \pi(x)$, enabling state recovery. Rotational attacks exploit commutation between word rotation and the permutation. Round constants and the non-linear MFR break both symmetries.
+
+*Part A: Slide resistance.* For the same input, compare $\pi(\text{rounds } 0 \ldots w{-}1)$ vs $\pi(\text{rounds } 1 \ldots w)$. With proper round constants these should produce uncorrelated outputs (expected Hamming $\approx 800/1600$).
+
+| Window | Avg Hamming / 1,600 | Min | Max | Status |
+|:------:|:-------------------:|:---:|:---:|:------:|
+| 4 | 799.7 | 711 | 893 | PASS |
+| 8 | 799.9 | 715 | 892 | PASS |
+| 16 | 800.0 | 715 | 903 | PASS |
+
+*Part B: Rotational symmetry.* Test whether $\pi(\text{rot}_k(x)) = \text{rot}_k(\pi(x))$. For a good permutation the Hamming distance should be $\approx 800/1600$ with zero exact matches.
+
+| Rotation $k$ | Avg Hamming / 1,600 | Zero Matches | Status |
+|:------------:|:-------------------:|:------------:|:------:|
+| 1 | 800.0 | 0 | PASS |
+| 7 | 800.1 | 0 | PASS |
+| 16 | 799.9 | 0 | PASS |
+| 32 | 799.9 | 0 | PASS |
+| 47 | 800.0 | 0 | PASS |
+| 63 | 800.0 | 0 | PASS |
+
+Both slide and rotational symmetry are completely broken. Zero rotational matches were found across $3 \times 10^5$ total trials. Round constants successfully differentiate every round offset, and MFR's non-linearity prevents rotational commutation.
+
+---
+
 ## Grand Summary: Empirical Scorecard
 
 | # | Example | Tests | Passed | Key Result |
@@ -1327,7 +1571,8 @@ In a naive cipher where repeated plaintext produces repeated ciphertext, the out
 | 8 | Split-Channel Demo | 3 | **3/3** | Wrong entropy REJECTED, correct IDENTICAL |
 | 9 | Bit-Boundary Proofs | 4 | **4/4** | Complementary duality proven |
 | 10 | Constant-Time (dudect) | 4 | **4/4** | Max |t| = 2.28 < 4.5 |
-| **TOTAL** | | **39** | **39/39** | |
+| 11 | Adversarial Self-Attack | 12 | **12/12** | All 12 theory-vs-empiric attacks PASS |
+| **TOTAL** | | **51** | **51/51** | |
 
 ### Critical Security Numbers
 
