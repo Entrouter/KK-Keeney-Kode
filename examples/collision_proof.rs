@@ -1,15 +1,14 @@
-/// COLLISION PROOF: Demonstrates a zero-cost hash collision in kk_hash.
-///
-/// Root cause: word 6 (bytes 48-55) occupies the "b position" in ALL
-/// three quintet phases (row 1, column 1, diagonal 0). The `b | 1`
-/// masking in MFR makes bit 0 of the b-argument invisible. Therefore
-/// the differential Δ = {word 6, bit 0} is a FIXED POINT of the
-/// permutation: kk_permute(S ⊕ Δ) = kk_permute(S) ⊕ Δ for ALL S.
-///
-/// Attack: For any 2-block message M1||M2, flipping byte 48 bit 0 in
-/// BOTH blocks cancels the differential after the second absorption,
-/// producing identical internal state and thus identical hash output.
-
+// COLLISION PROOF: Demonstrates a zero-cost hash collision in kk_hash.
+//
+// Root cause: word 6 (bytes 48-55) occupies the "b position" in ALL
+// three quintet phases (row 1, column 1, diagonal 0). The `b | 1`
+// masking in MFR makes bit 0 of the b-argument invisible. Therefore
+// the differential Δ = {word 6, bit 0} is a FIXED POINT of the
+// permutation: kk_permute(S ⊕ Δ) = kk_permute(S) ⊕ Δ for ALL S.
+//
+// Attack: For any 2-block message M1||M2, flipping byte 48 bit 0 in
+// BOTH blocks cancels the differential after the second absorption,
+// producing identical internal state and thus identical hash output.
 use kk_crypto::kk_mix::kk_hash;
 
 fn main() {
@@ -28,8 +27,8 @@ fn main() {
     // Block 1 spans bytes [0..152), byte 48 is word 6 of block 1
     // Block 2 spans bytes [152..304), byte 48+152 = 200 is word 6 of block 2
     let mut m2 = m1.clone();
-    m2[48] ^= 0x01;        // flip bit 0 of word 6, block 1
-    m2[152 + 48] ^= 0x01;  // flip bit 0 of word 6, block 2
+    m2[48] ^= 0x01; // flip bit 0 of word 6, block 1
+    m2[152 + 48] ^= 0x01; // flip bit 0 of word 6, block 2
 
     // Messages are distinct
     assert_ne!(m1, m2, "messages must differ");
@@ -59,7 +58,7 @@ fn main() {
     } else {
         println!("[NO COLLISION] hashes differ. Finding not confirmed.");
         // Print XOR to see the difference
-        let xor: Vec<u8> = h1.iter().zip(h2.iter()).map(|(a,b)| a^b).collect();
+        let xor: Vec<u8> = h1.iter().zip(h2.iter()).map(|(a, b)| a ^ b).collect();
         println!("H1 ^ H2 = {}", hex(&xor));
     }
 }
