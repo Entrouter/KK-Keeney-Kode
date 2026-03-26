@@ -64,7 +64,7 @@ fn ddr16(a: u16, b: u16) -> u16 {
 #[inline(always)]
 fn mfr64(a: u64, b: u64) -> u64 {
     let p = a.wrapping_mul(b | 1);
-    p ^ (p >> 32)
+    p ^ (p >> 32) ^ b
 }
 
 struct Xorshift64(u64);

@@ -26,15 +26,15 @@ fn main() {
         [3, 9, 10, 16, 22],
         [4, 5, 11, 17, 23],
     ];
+    const DDR_MIX: u64 = 0xB5C0FBCFEC4D3B2F;
     #[inline(always)]
     fn mfr(a: u64, b: u64, rot: u32) -> u64 {
         let p = a.wrapping_mul(b | 1);
-        (p ^ (p >> 32)).rotate_left(rot)
+        (p ^ (p >> 32) ^ b).rotate_left(rot)
     }
     #[inline(always)]
     fn ddr(a: u64, b: u64) -> u64 {
-        let f = b ^ (b >> 32);
-        let s = (f ^ (f >> 16) ^ (f >> 8)) & 63;
+        let s = (b.wrapping_mul(DDR_MIX)) >> 58;
         let mut v = a;
         let m = 0u64.wrapping_sub(s & 1);
         v = (v & !m) | (v.rotate_left(1) & m);

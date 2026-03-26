@@ -76,45 +76,39 @@ const KK_IV: [u64; STATE_WORDS] = [
 
 type KkState = [u64; STATE_WORDS];
 
+/// DDR selector hash constant: floor(frac(cbrt(5)) * 2^64).
+const DDR_MIX: u64 = 0xB5C0FBCFEC4D3B2F;
+
 #[inline(always)]
 fn mfr(a: u64, b: u64, rot: u32) -> u64 {
     let product = a.wrapping_mul(b | 1);
-    let folded = product ^ (product >> 32);
+    let folded = product ^ (product >> 32) ^ b;
     folded.rotate_left(rot)
 }
 
 #[inline(always)]
 fn ddr(a: u64, b: u64) -> u64 {
-    let folded = b ^ (b >> 32);
-    let s = (folded ^ (folded >> 16) ^ (folded >> 8)) & 63;
-    let mut r = a;
-    // Branchless conditional rotations
-    if s & 1 != 0 {
-        r = r.rotate_left(1);
-    }
-    if s & 2 != 0 {
-        r = r.rotate_left(2);
-    }
-    if s & 4 != 0 {
-        r = r.rotate_left(4);
-    }
-    if s & 8 != 0 {
-        r = r.rotate_left(8);
-    }
-    if s & 16 != 0 {
-        r = r.rotate_left(16);
-    }
-    if s & 32 != 0 {
-        r = r.rotate_left(32);
-    }
-    r
+    let s = (b.wrapping_mul(DDR_MIX)) >> 58;
+    let mut v = a;
+    let m = 0u64.wrapping_sub(s & 1);
+    v = (v & !m) | (v.rotate_left(1) & m);
+    let m = 0u64.wrapping_sub((s >> 1) & 1);
+    v = (v & !m) | (v.rotate_left(2) & m);
+    let m = 0u64.wrapping_sub((s >> 2) & 1);
+    v = (v & !m) | (v.rotate_left(4) & m);
+    let m = 0u64.wrapping_sub((s >> 3) & 1);
+    v = (v & !m) | (v.rotate_left(8) & m);
+    let m = 0u64.wrapping_sub((s >> 4) & 1);
+    v = (v & !m) | (v.rotate_left(16) & m);
+    let m = 0u64.wrapping_sub((s >> 5) & 1);
+    v = (v & !m) | (v.rotate_left(32) & m);
+    v
 }
 
 /// Extract the 6-bit rotation selector from DDR's second argument
 #[inline(always)]
 fn ddr_selector(b: u64) -> u64 {
-    let folded = b ^ (b >> 32);
-    (folded ^ (folded >> 16) ^ (folded >> 8)) & 63
+    (b.wrapping_mul(DDR_MIX)) >> 58
 }
 
 #[inline(always)]
