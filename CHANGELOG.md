@@ -4,6 +4,12 @@ All notable changes to KK-Crypto will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.2] - 2026-03-26
+
+### Fixed
+- ePrint reference number corrected from 108500 to 108538 in README badge and body text.
+- Documentation table updated (Combined Paper replaces old Specification/Whitepaper entries) so crates.io displays current docs.
+
 ## [Unreleased]
 
 ### Added

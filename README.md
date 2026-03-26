@@ -25,7 +25,7 @@ NOTICE: Removal of this header is a violation of the license.
 [![License](https://img.shields.io/badge/license-Apache--2.0%20%2B%20Additional%20Terms-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-2021-orange.svg)](https://www.rust-lang.org)
 [![no_std](https://img.shields.io/badge/no__std-compatible-green.svg)](#no_std-support)
-[![ePrint](https://img.shields.io/badge/ePrint-2026%2F108500-blue.svg)](https://eprint.iacr.org/2026/108538)
+[![ePrint](https://img.shields.io/badge/ePrint-2026%2F108538-blue.svg)](https://eprint.iacr.org/2026/108538)
 
 ---
 
@@ -89,7 +89,7 @@ KK occupies a previously empty point in the design space:
 
 KK is positioned as a **diversity candidate**: not as a replacement for established standards, but as an independently designed construction for systems requiring algorithmic heterogeneity, table-free constant-time execution, built-in temporal binding, or a sponge-based suite with a non-S-box algebraic lineage.
 
-> For the full design rationale, analysis, and formal specification, see the [Combined Paper](docs/KK_COMBINED_PAPER.md) or [ePrint 2026/108500](https://eprint.iacr.org/2026/108500).
+> For the full design rationale, analysis, and formal specification, see the [Combined Paper](docs/KK_COMBINED_PAPER.md) or [ePrint 2026/108538](https://eprint.iacr.org/2026/108538).
 
 ---
 

@@ -7,9 +7,9 @@
 
 [package]
 name = "kk-crypto"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
-authors = ["John Keeney"]
+authors = ["John A Keeney"]
 description = "KK (Keeney Kode), A novel cryptographic primitive where symbol values are temporal functions of universal entropy"
 license-file = "LICENSE"
 repository = "https://github.com/Entrouter/KK-Keeney-Kode"
