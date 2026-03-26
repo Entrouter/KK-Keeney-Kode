@@ -438,9 +438,6 @@ kk-crypto = { version = "0.1", default-features = false }
 | Document | Description |
 |----------|-------------|
 | **[Combined Paper](docs/KK_COMBINED_PAPER.md)** | **Primary reference.** Full design, analysis, specification, and performance in one document. Also available as [PDF](docs/KK_COMBINED_PAPER.pdf) and on [ePrint (2026/108538)](https://eprint.iacr.org/2026/108538). |
-| [Specification](docs/KK_SPECIFICATION.md) | Formal mathematical specification with LaTeX notation (also included in the combined paper) |
-| [Whitepaper](docs/KK_WHITEPAPER.md) | Empirical analysis, design rationale, and performance data |
-| [Formulation](docs/kk_formulation.md) | Mathematical formulation and proofs |
 | [Test Vectors](docs/KK_TEST_VECTORS.md) | Deterministic reference vectors for cross-language implementation |
 | [Integration Guide](docs/integration-guide.md) | Examples for all codec modes, streaming, sessions, EKA |
 | [Technical Flex](docs/real_flex.md) | Full technical breakdown and competitive analysis |
