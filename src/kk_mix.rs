@@ -19,14 +19,20 @@
 //! ```text
 //! MFR(a, b, rot):
 //!   product = a ×₆₄ (b | 1), modular multiply (|1 guarantees bijectivity)
-//!   folded  = product ⊕ (product >> 32), fold high bits into low
+//!   folded  = product ⊕ (product >> 32) ⊕ b, fold and re-inject raw b
 //!   result  = folded <<< rot, rotate for diffusion
 //! ```
+//!
+//! The `⊕ b` re-injection ensures every bit of `b` influences the output,
+//! including bit 0 which is masked by the `|1` bijectivity guard.
+//! Without it, a word permanently at the b-position across multiple phases
+//! would have an invariant differential at bit 0.
 //!
 //! **Data-Dependent Rotation (DDR):**
 //! ```text
 //! DDR(a, b):
-//!   result = a <<< (b & 63), rotation distance from the data itself
+//!   selector = (b × DDR_MIX) >> 58, multiplicative hash to 6-bit distance
+//!   result   = a <<< selector
 //! ```
 //!
 //! DDR is cryptanalytic poison: differential analysis must track all 64
@@ -172,12 +178,19 @@ pub(crate) const KK_IV: [u64; STATE_WORDS] = [
 pub type KkState = [u64; STATE_WORDS];
 
 /// Diagonal index patterns for the 5×5 grid.
+///
+/// Each diagonal contains 5 words at positions (row, (row+k) % 5) for k=0..4.
+/// The quintet ordering is ROTATED by one position relative to row order,
+/// so that no word occupies the same quintet position (a/b/c/d/e) in both
+/// the column and diagonal phases. Without this rotation, words on the main
+/// diagonal (0, 6, 12, 18, 24) would be at the same position in all three
+/// phases, creating structural weaknesses in diffusion.
 const DIAGS: [[usize; 5]; 5] = [
-    [0, 6, 12, 18, 24],
-    [1, 7, 13, 19, 20],
-    [2, 8, 14, 15, 21],
-    [3, 9, 10, 16, 22],
-    [4, 5, 11, 17, 23],
+    [24, 0, 6, 12, 18],
+    [20, 1, 7, 13, 19],
+    [21, 2, 8, 14, 15],
+    [22, 3, 9, 10, 16],
+    [23, 4, 5, 11, 17],
 ];
 
 // ─────────────────────────────────────────────────────────────────
@@ -187,14 +200,19 @@ const DIAGS: [[usize; 5]; 5] = [
 /// The Multiply-Fold-Rotate operation.
 ///
 /// 1. `a ×₆₄ (b | 1)`, wrapping multiply, `| 1` ensures odd (bijective)
-/// 2. `⊕ (>> 32)`, fold high bits into low, breaking multiplicative structure
+/// 2. `⊕ (>> 32) ⊕ b`, fold high into low AND re-inject raw b
 /// 3. `<<< rot`, rotate for diffusion
+///
+/// The `⊕ b` step ensures all 64 bits of `b` affect the output.
+/// Without it, `b | 1` erases bit 0, and any word that occupies the
+/// b-position in multiple quintet phases would have an invariant
+/// differential at that bit (a structural collision).
 ///
 /// This is one of two non-linear building blocks of the KK system.
 #[inline(always)]
 fn mfr(a: u64, b: u64, rot: u32) -> u64 {
     let product = a.wrapping_mul(b | 1);
-    let folded = product ^ (product >> 32);
+    let folded = product ^ (product >> 32) ^ b;
     folded.rotate_left(rot)
 }
 
@@ -202,11 +220,18 @@ fn mfr(a: u64, b: u64, rot: u32) -> u64 {
 //  DDR, Data-Dependent Rotation (novel)
 // ─────────────────────────────────────────────────────────────────
 
+/// DDR selector hash constant: floor(frac(∛5) × 2^64).
+/// "Nothing up my sleeve": derived from the cube root of 5.
+/// Cube roots are algebraically independent from the square roots used
+/// in KK_IV, ensuring no relationship between DDR mixing and the IV.
+const DDR_MIX: u64 = 0xB5C0FBCFEC4D3B2F;
+
 /// Data-Dependent Rotation: rotate `a` by a distance derived from `b`.
 ///
-/// The rotation amount is the low 6 bits of `b` (range 0–63).
-/// This makes the permutation structure depend on the data flowing
-/// through it, cryptanalytic poison for differential analysis.
+/// The selector is the top 6 bits of `b × DDR_MIX`, a multiplicative hash
+/// that ensures ALL 64 bits of `b` influence the rotation distance.
+/// This eliminates the dead-bit problem of XOR-fold selectors, where
+/// 28 of 64 single-bit positions produced identical rotation amounts.
 ///
 /// Any differential trail must account for all 64 possible rotation
 /// distances simultaneously, causing exponential path explosion.
@@ -222,14 +247,9 @@ fn mfr(a: u64, b: u64, rot: u32) -> u64 {
 /// without constant-time barrel shifters).
 #[inline(always)]
 fn ddr(a: u64, b: u64) -> u64 {
-    // Fold all 64 bits into the 6-bit rotation selector.
-    // Without folding, only b's low 6 bits determined the rotation,
-    // so a difference confined to higher bytes of b (e.g. byte 6)
-    // would be invisible to ddr - breaking diffusion for state
-    // words that always occupy the "c" position in quintet_round
-    // across all three phases (notably word 12, the grid center).
-    let folded = b ^ (b >> 32);
-    let s = (folded ^ (folded >> 16) ^ (folded >> 8)) & 63;
+    // Multiplicative hash: ALL 64 bits of b affect the 6-bit selector.
+    // Top-bit extraction (>> 58) gives the best-mixed bits of the product.
+    let s = (b.wrapping_mul(DDR_MIX)) >> 58;
     let mut v = a;
     // Each step: branchless conditional rotation by 2^i.
     // mask = 0 (no rotate) or all-ones (rotate), computed without branching.
@@ -1500,7 +1520,7 @@ mod tests {
         let h = kk_hash(b"");
         assert_eq!(
             hex::encode(h),
-            "04a533c98a06efc6ce3ce4273c99b676c55c50f3161594449ef19247a252bbc0",
+            "2081a4b4103da0f32a5bbcb8228bc36a19c631800f932f00f94d85c695a545f6",
             "REGRESSION: kk_hash(\"\") output changed"
         );
     }
@@ -1510,7 +1530,7 @@ mod tests {
         let h = kk_hash(b"KK-Keeney-Kode");
         assert_eq!(
             hex::encode(h),
-            "100c04af52b0ec527808338bfff3929a1be6a90d6853b9327f842771a6458577",
+            "a2c79f9fb85d9a500c3754f69845e626f235f33fb3185f414cde68a28744a191",
             "REGRESSION: kk_hash(\"KK-Keeney-Kode\") output changed"
         );
     }
@@ -1520,7 +1540,7 @@ mod tests {
         let h = kk_hash(&[0xABu8; 1024]);
         assert_eq!(
             hex::encode(h),
-            "ed936c3519aba2752dc4e73869a28c05adeae814acc6bee0b327699e9407c7e7",
+            "f12befd96fc0610f7bda952265a85b080a5b1bc89867b2967e678ff82ae80c14",
             "REGRESSION: kk_hash([0xAB; 1024]) output changed"
         );
     }
@@ -1530,7 +1550,7 @@ mod tests {
         let tag = kk_mac(b"secret-key-2026", b"authenticate this");
         assert_eq!(
             hex::encode(tag),
-            "d8c313255d0e7094a413ccc5bd62593c95388fd6e4eb05e90828d02f5202ed87",
+            "f193a05de470757c5bd755249df610219f1ac4eba5cb7144d1f26671b0d5acfe",
             "REGRESSION: kk_mac output changed"
         );
     }
@@ -1540,7 +1560,7 @@ mod tests {
         let k = kk_kdf(b"master-key", b"salt-value", b"kdf-context", 32);
         assert_eq!(
             hex::encode(k),
-            "7c1901d8f3c246d7275231886891b8ed39a942ebca1a2c41cf98b6acf5feaec6",
+            "9d94dc8417cafb791fdc403e6968b7a83ca2426ca591b1a598eb4b6b2d68ee46",
             "REGRESSION: kk_kdf output changed"
         );
     }

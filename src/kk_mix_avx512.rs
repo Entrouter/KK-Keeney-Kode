@@ -51,12 +51,15 @@ impl core::ops::DerefMut for KkState8 {
 }
 
 /// Diagonal index patterns for the 5×5 grid (mirrors scalar DIAGS).
+///
+/// Quintet ordering is ROTATED by one position relative to row order,
+/// breaking column=diagonal position alignment. See scalar DIAGS comment.
 const DIAGS: [[usize; 5]; 5] = [
-    [0, 6, 12, 18, 24],
-    [1, 7, 13, 19, 20],
-    [2, 8, 14, 15, 21],
-    [3, 9, 10, 16, 22],
-    [4, 5, 11, 17, 23],
+    [24, 0, 6, 12, 18],
+    [20, 1, 7, 13, 19],
+    [21, 2, 8, 14, 15],
+    [22, 3, 9, 10, 16],
+    [23, 4, 5, 11, 17],
 ];
 
 // ─────────────────────────────────────────────────────────────────
@@ -109,7 +112,10 @@ pub(crate) unsafe fn store_8_states(packed: &KkState8) -> [KkState; 8] {
 //  MFR ×8, Multiply-Fold-Rotate, 8 lanes
 // ─────────────────────────────────────────────────────────────────
 
-/// Vectorized MFR: `a ×₆₄ (b | 1)`, fold, rotate left by `rot`.
+/// Vectorized MFR: `a ×₆₄ (b | 1)`, fold, re-inject b, rotate by `rot`.
+///
+/// The `^ b` re-injection ensures all 64 bits of `b` affect the output,
+/// including bit 0 which is masked by the `| 1` bijectivity guard.
 ///
 /// # Safety
 /// Requires AVX-512F + AVX-512DQ (for `_mm512_mullo_epi64`).
@@ -121,8 +127,9 @@ unsafe fn mfr_x8(a: __m512i, b: __m512i, rot: u32) -> __m512i {
     let b_odd = _mm512_or_si512(b, _mm512_set1_epi64(1));
     // product = a wrapping_mul (b | 1)
     let product = _mm512_mullo_epi64(a, b_odd);
-    // fold = product ^ (product >> 32)
+    // fold = product ^ (product >> 32) ^ b   (re-inject raw b)
     let folded = _mm512_xor_si512(product, _mm512_srli_epi64(product, 32));
+    let folded = _mm512_xor_si512(folded, b);
     // rotate left by rot (broadcast to all lanes for rolv)
     let vrot = _mm512_set1_epi64(rot as i64);
     _mm512_rolv_epi64(folded, vrot)
@@ -135,24 +142,21 @@ unsafe fn mfr_x8(a: __m512i, b: __m512i, rot: u32) -> __m512i {
 /// Vectorized DDR: rotate each lane of `a` left by a rotation amount derived
 /// from ALL 64 bits of each lane of `b`.
 ///
-/// Folds `b ^ (b >> 32) ^ (b >> 16) ^ (b >> 8)` then masks to 6 bits,
-/// matching the scalar `ddr()` fix that ensures full-word sensitivity.
+/// Uses multiplicative hash `(b × DDR_MIX) >> 58` for the 6-bit selector,
+/// matching the scalar `ddr()`. This eliminates the 28/64 dead-bit problem
+/// of the older XOR-fold selector.
 ///
 /// # Safety
-/// Requires AVX-512F.
+/// Requires AVX-512F + AVX-512DQ (for `_mm512_mullo_epi64`).
 #[cfg(target_arch = "x86_64")]
 #[inline]
-#[target_feature(enable = "avx512f")]
+#[target_feature(enable = "avx512f,avx512dq")]
 unsafe fn ddr_x8(a: __m512i, b: __m512i) -> __m512i {
-    // Fold all 64 bits into the rotation selector (matches scalar ddr exactly)
-    // Scalar: let folded = b ^ (b >> 32);
-    //         let s = (folded ^ (folded >> 16) ^ (folded >> 8)) & 63;
-    let folded = _mm512_xor_si512(b, _mm512_srli_epi64(b, 32));
-    let shift = _mm512_xor_si512(
-        _mm512_xor_si512(folded, _mm512_srli_epi64(folded, 16)),
-        _mm512_srli_epi64(folded, 8),
-    );
-    let shift = _mm512_and_si512(shift, _mm512_set1_epi64(63));
+    // Multiplicative hash: ALL 64 bits of b affect the 6-bit selector.
+    // DDR_MIX = floor(frac(∛5) × 2^64) = 0xB5C0FBCFEC4D3B2F
+    let ddr_mix = _mm512_set1_epi64(0xB5C0FBCFEC4D3B2Fu64 as i64);
+    let product = _mm512_mullo_epi64(b, ddr_mix);
+    let shift = _mm512_srli_epi64(product, 58);
     // Variable rotate left: each lane independently
     _mm512_rolv_epi64(a, shift)
 }

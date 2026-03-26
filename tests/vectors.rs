@@ -57,28 +57,28 @@ fn from_hex32(s: &str) -> [u8; 32] {
 #[test]
 fn test_vector_kk_hash_empty() {
     let got = kk_hash(b"");
-    let want = from_hex32("04a533c98a06efc6ce3ce4273c99b676c55c50f3161594449ef19247a252bbc0");
+    let want = from_hex32("2081a4b4103da0f32a5bbcb8228bc36a19c631800f932f00f94d85c695a545f6");
     assert_eq!(got, want);
 }
 
 #[test]
 fn test_vector_kk_hash_one_byte() {
     let got = kk_hash(&[0x42]);
-    let want = from_hex32("da19e1beb58c23aab39dcafef9bad389364d3d11bc0629379ac85e7121ec099a");
+    let want = from_hex32("a69fbef6758d1deb48d7cc9b7243c7ca413180d3ff829bee7ab1b0fa51099c2b");
     assert_eq!(got, want);
 }
 
 #[test]
 fn test_vector_kk_hash_abc() {
     let got = kk_hash(b"abc");
-    let want = from_hex32("01cb6567315b935c09b5f1a67bbb11e7a81af313a48673771d8df473dac293d1");
+    let want = from_hex32("781254de54b9026781fa5dd4f9ed02e966a0ef81ae0187727276b93cf19ce849");
     assert_eq!(got, want);
 }
 
 #[test]
 fn test_vector_kk_hash_32_zeros() {
     let got = kk_hash(&[0u8; 32]);
-    let want = from_hex32("37ba255285179e3a6f6d8bff60f6633ac7a4430da0a4ae7223fe9de4a2de906b");
+    let want = from_hex32("94c859282ef2524fd4392df55a42da74413465ea732706cab1f75f96fb9e7eef");
     assert_eq!(got, want);
 }
 
@@ -86,14 +86,14 @@ fn test_vector_kk_hash_32_zeros() {
 fn test_vector_kk_hash_64_ascending() {
     let input: Vec<u8> = (0..64u8).collect();
     let got = kk_hash(&input);
-    let want = from_hex32("ede4342b33d7f61e7923ce2b013931d89dcbd6429756e2cae31ed30f0bdc8d27");
+    let want = from_hex32("932f9e8b614bf3d6aef52e65172427ce929d9878c4e6f656cb7435b632550134");
     assert_eq!(got, want);
 }
 
 #[test]
 fn test_vector_kk_hash_128_xff() {
     let got = kk_hash(&[0xFFu8; 128]);
-    let want = from_hex32("507ec1af5b83509863eb5207b5b839d64a98462f0d39443217bb0cc231a7df83");
+    let want = from_hex32("d16e0ddae353437d936aa2beade2fc8f6f2b0cf20af3ce62ae5400ab2c6d0c68");
     assert_eq!(got, want);
 }
 
@@ -101,28 +101,28 @@ fn test_vector_kk_hash_128_xff() {
 fn test_vector_kk_hash_1024_pattern() {
     let input: Vec<u8> = (0..=255u8).cycle().take(1024).collect();
     let got = kk_hash(&input);
-    let want = from_hex32("ce76c6f1d136af7761cfb53d1b7bc4d18d86125bfa7bad1445c00e03abafaee3");
+    let want = from_hex32("1eadb6b509a40532695dd982aedb150bd72c11a86a836a868ad55d0c915aed37");
     assert_eq!(got, want);
 }
 
 #[test]
 fn test_vector_kk_hash_64_zeros() {
     let got = kk_hash(&[0u8; 64]);
-    let want = from_hex32("b83788779871169dcbc5fb20da0b6c8d48b54d39c05a8c8f4b6d2b5828e07166");
+    let want = from_hex32("2db0b45e77e81c22729a635e87a04e79864ad0f2ff65d40b1c81920149182900");
     assert_eq!(got, want);
 }
 
 #[test]
 fn test_vector_kk_hash_32_xff() {
     let got = kk_hash(&[0xFFu8; 32]);
-    let want = from_hex32("ad67b1ddc16965ecfb8cbc63a1c38a9b6d7b35d0100cbe2e522d686b3a8c0f3a");
+    let want = from_hex32("956235eb083a08f2a3c01a38d53256946e22d7f176ee2765b8c63522896daa86");
     assert_eq!(got, want);
 }
 
 #[test]
 fn test_vector_kk_hash_utf8_hello() {
     let got = kk_hash("Hello, 世界! 🌍".as_bytes());
-    let want = from_hex32("13369518d7cabb030ddb210ed5ff593209dd105caa4e9cd8ddde57e7dccb7f6c");
+    let want = from_hex32("6355350e6d2f52830da2e338419fff19269a08b25c323bb2bef5b220c0fb42ed");
     assert_eq!(got, want);
 }
 
@@ -131,7 +131,7 @@ fn test_vector_kk_hash_utf8_hello() {
 #[test]
 fn test_vector_kk_kdf_basic_32() {
     let out = kk_kdf(b"secret-key", b"salt-value", b"info-string", 32);
-    let want = from_hex("e38cb42abc73a49122f792dd4b243e56b7eede78a24275c20738f02792edcc94");
+    let want = from_hex("a073324f9f40942784c237d9a55842709a12d8a6a681f20aac88646e07998dc7");
     assert_eq!(out, want);
 }
 
@@ -139,8 +139,8 @@ fn test_vector_kk_kdf_basic_32() {
 fn test_vector_kk_kdf_basic_64() {
     let out = kk_kdf(b"secret-key", b"salt-value", b"info-string", 64);
     let want = from_hex(
-        "e38cb42abc73a49122f792dd4b243e56b7eede78a24275c20738f02792edcc94\
-         1cb06e3219199539e179db66bdab68c5748bf0c5a3bfa940e760000bdd6b6ab1",
+        "a073324f9f40942784c237d9a55842709a12d8a6a681f20aac88646e07998dc7\
+         bf2496a240f3ca95475e10c605edcbdcf5256bf1b9db5eba824c54c05e4b140e",
     );
     assert_eq!(out, want);
 }
@@ -148,14 +148,14 @@ fn test_vector_kk_kdf_basic_64() {
 #[test]
 fn test_vector_kk_kdf_empty_salt() {
     let out = kk_kdf(b"key", b"", b"info", 32);
-    let want = from_hex("d8ee9f9b5af750639711fb1309d57fe79d91c64cc1f89f2e97c7a760c9a64371");
+    let want = from_hex("e595c9a2b5fc2580bf50fa46b36569913afddcc3880a0387e0d1a541a29efb45");
     assert_eq!(out, want);
 }
 
 #[test]
 fn test_vector_kk_kdf_empty_info() {
     let out = kk_kdf(b"key", b"salt", b"", 32);
-    let want = from_hex("8bb41b65caa5d0ccceb8ea5905b08b73e001ac2ce79a117da69e83998dab97d1");
+    let want = from_hex("18bd800ec382f4d0f3ee5f928288d6c9cae3e34ca35fa873f32bfc8dd30d6e31");
     assert_eq!(out, want);
 }
 
@@ -163,7 +163,7 @@ fn test_vector_kk_kdf_empty_info() {
 fn test_vector_kk_kdf_long_key() {
     let key = vec![0xABu8; 128];
     let out = kk_kdf(&key, b"salt", b"info", 32);
-    let want = from_hex("d05b9a4ee71ca5f3ef8f86b998bcb8201dd6e43f2ce7f661c2e213fccef942b5");
+    let want = from_hex("ff4e8a1f64c4775e6ac379851a2247a46e85d1bce8daa21f5c8a75c2bfded7c2");
     assert_eq!(out, want);
 }
 
@@ -171,14 +171,14 @@ fn test_vector_kk_kdf_long_key() {
 fn test_vector_kk_kdf_long_salt() {
     let salt = vec![0xCDu8; 128];
     let out = kk_kdf(b"key", &salt, b"info", 32);
-    let want = from_hex("299fa3bf11e2fef52de1c75a51423cffbeea5ea71ebc11ffaadaff42137e6a9e");
+    let want = from_hex("16593f462261aa86b35557ca3811a72043e11433f52194ea221c73f10845f5b3");
     assert_eq!(out, want);
 }
 
 #[test]
 fn test_vector_kk_kdf_16_bytes() {
     let out = kk_kdf(b"key", b"salt", b"short", 16);
-    let want = from_hex("9db5ac7d34ff30a8f2fc58bc3b440ada");
+    let want = from_hex("5292629b4866b5fe500dbae118dd104b");
     assert_eq!(out, want);
 }
 
@@ -186,10 +186,10 @@ fn test_vector_kk_kdf_16_bytes() {
 fn test_vector_kk_kdf_128_bytes() {
     let out = kk_kdf(b"key", b"salt", b"long-output", 128);
     let want = from_hex(
-        "2fb81c9b7514a28ab4b05bfbc71fdf3e7f21a75cc91962459d459524a3276815\
-         aa2f68dac23cfc1670e36b37cf42445bcd5e6e1aea05bf680c9ab86410e0ca1f\
-         c50695f14a177fbf89f4c4ffd724309ba26672f14d97a2f3c64eac4f266e388f\
-         5e8431b6b345eb72f2ee3643ebea406f3ecc5d4623ac517baba2a6551df8db25",
+        "cd120c10311925e8a28d8d26f1cd610037753c6b7aff47b618d209f6576958b3\
+         983c0016bc394b31cd151e2fca332c29bdc7323b85016ace325afd7108bb0b1f\
+         ab1c462b6aabe5a4eb30e1d073f9d780e6e8a0a0699fd7c41c2eee8d7289ed5e\
+         9e5deed7c72349a9d23ad726e829a8aed9b7d6bcc588d17dee61645c29a17c51",
     );
     assert_eq!(out, want);
 }
@@ -199,14 +199,14 @@ fn test_vector_kk_kdf_128_bytes() {
 #[test]
 fn test_vector_kk_mac_basic() {
     let tag = kk_mac(b"mac-key", b"message-to-authenticate");
-    let want = from_hex32("e73f40f74a03f180aace3bccfddf086df5fb89efbcdab368454f04bb1975a779");
+    let want = from_hex32("7563661cc20bbb3665dc28ecb6c887ba3d61aa8ca20ab6fd28cc9685d8e7accc");
     assert_eq!(tag, want);
 }
 
 #[test]
 fn test_vector_kk_mac_empty_msg() {
     let tag = kk_mac(b"mac-key", b"");
-    let want = from_hex32("df2f287497c167010c682795143d935e1c70e057799300b710dfafa250a86b81");
+    let want = from_hex32("b210c5dedea708cf562473e3f7b48dc7b3a6083a3d5dd2ece1c40f89293614dd");
     assert_eq!(tag, want);
 }
 
@@ -214,7 +214,7 @@ fn test_vector_kk_mac_empty_msg() {
 fn test_vector_kk_mac_long_msg() {
     let msg = vec![0x55u8; 256];
     let tag = kk_mac(b"mac-key", &msg);
-    let want = from_hex32("36219aa06c61f96c5926d8bba94be5833a21fc7d2dda5c56de7553b388f78cfb");
+    let want = from_hex32("dfb93106ee2a23b50e22b58c1ce831487a15bfbcec7d5c2a4920ba0ec9129d64");
     assert_eq!(tag, want);
 }
 
@@ -222,21 +222,21 @@ fn test_vector_kk_mac_long_msg() {
 fn test_vector_kk_mac_long_key() {
     let key = vec![0xAAu8; 64];
     let tag = kk_mac(&key, b"short message");
-    let want = from_hex32("c7c0b167160ae524b2d2f13d254d805b1957c8d7d43b2ec5cc3c6d59ea5a3879");
+    let want = from_hex32("88d89bc09cb26f480946fab69bcfa0382acd00f78904d54977ed21128f5a8ad1");
     assert_eq!(tag, want);
 }
 
 #[test]
 fn test_vector_kk_mac_single_byte() {
     let tag = kk_mac(b"k", b"m");
-    let want = from_hex32("9345e56e858c171f4ea6e683bc36e5985bbb480889711dedba92eb0ba476423e");
+    let want = from_hex32("dc9f3e2e89d8c3024713279d39fc3e784f1b46611ca24344b8792de826d1de04");
     assert_eq!(tag, want);
 }
 
 #[test]
 fn test_vector_kk_mac_binary() {
     let tag = kk_mac(&[0x00, 0xFF, 0x80], &[0x01, 0x02, 0x03, 0x04]);
-    let want = from_hex32("41b038c43ed76b9a92d3b6f8e3c2280794c1199ce2602c4c62993e6b33bf7eb1");
+    let want = from_hex32("2682565b04d18bdc196680a309cf99a2a422d8cb5173d1fc528de05ffc8aad52");
     assert_eq!(tag, want);
 }
 
@@ -246,7 +246,7 @@ fn test_vector_kk_mac_binary() {
 fn test_vector_kk_mac_with_entropy_basic() {
     let snap = make_snapshot(0);
     let tag = kk_mac_with_entropy(b"mac-key", b"message", &snap.bytes);
-    let want = from_hex32("bf7cfd10fb92b6a3ba09bb51ea41d59b4a6d3c38bb156f7a3f02a5993d18ac24");
+    let want = from_hex32("3eacbe0c97ac764bb64b4b4029f37e89f88c92f61da9fb17636acccbd35d3977");
     assert_eq!(tag, want);
 }
 
@@ -255,7 +255,7 @@ fn test_vector_kk_mac_with_entropy_long() {
     let snap = make_snapshot(0);
     let msg = vec![0x55u8; 256];
     let tag = kk_mac_with_entropy(b"mac-key", &msg, &snap.bytes);
-    let want = from_hex32("8152ff3a06e28a204dc61d19eb4d501c82c2e18aed3387b5968eef49c198f589");
+    let want = from_hex32("ff8592168320c47c9f82d256d2fa028f0bcc11cc614db76b8cfc44229c7480f2");
     assert_eq!(tag, want);
 }
 
@@ -263,7 +263,7 @@ fn test_vector_kk_mac_with_entropy_long() {
 fn test_vector_kk_mac_with_entropy_snap1() {
     let snap = make_snapshot(1);
     let tag = kk_mac_with_entropy(b"mac-key", b"message", &snap.bytes);
-    let want = from_hex32("f4d793a91818ded823f05616c9e01821fac3dc04efd5b4c88f448d90b077a7b8");
+    let want = from_hex32("472fd5cbf1649455d81d1023cf15961231b645a79b3ccdd9bf42a25c0ee72b67");
     assert_eq!(tag, want);
 }
 
@@ -274,13 +274,13 @@ fn test_vector_kk_permute_all_zeros() {
     let mut state: KkState = [0u64; 25];
     kk_permute(&mut state);
     // Expected output as 25 × 8 bytes = 200-byte hex
-    let want_hex = "e582af7a2d6fe6bb8e2af9c30cbd668d5e5d357ada6d1a1e7e5de5640cfa0fc1\
-         fff6c6e933a7be99c82ffb3c999ad72e214c205fe29ed271728c5972c9bf91ec\
-         28cae91ebe18c484a78ed9439235397ad98e46ce5b371cf26afe7a71661932ce\
-         0145d6f370056da3d467906207ddd169512add34d2d797b8f67646a9d34a1c2e\
-         00000000000000003992133aa53fb34f00000000000000000000000000000000\
-         1165aa51b525350eeeace4e3a4b76fec4b32c1ee3c2bb2df0000000000000000\
-         caf151e5e4d938b3";
+    let want_hex = "b92e82ee838a507bd21fdd437efc90adf9db823d6506f6043c4c3937d5f1fc82\
+         b029a959e50941f76f94bb24f78f3c6028e2dff1b25a73d8afd20706e139e0e1\
+         7aab13271513df228b6d37d21e56ebe65adf302c9ceb6ad0bd7e460600eb91a0\
+         a5d857a91521c21f6fefbaf4f4315f93daf8a1394652463bcadf505164bad999\
+         247dbdb059c16ceab2a0586d76bbcd942e864ed0ed6913379892864d1700f091\
+         7516cf78858b01f33e0c2668a8a5813eb84b243e85e9313f3493876943187df7\
+         d7d785afbabc0105";
     let want_bytes = from_hex(want_hex);
     let want: KkState = core::array::from_fn(|i| {
         let b = &want_bytes[i * 8..(i + 1) * 8];
@@ -293,13 +293,13 @@ fn test_vector_kk_permute_all_zeros() {
 fn test_vector_kk_permute_ascending() {
     let mut state: KkState = core::array::from_fn(|i| i as u64);
     kk_permute(&mut state);
-    let want_hex = "05121470107bc01cb74ca6140bc9c92cde01c354fa1ae47498e8791ddab9e066\
-         9d962762c182cf1b3bb210feefef9e5fc4529b0478b58ec06eff2c687fdd7dcb\
-         4010c3f3e0011e8bdd9dd53d97b330fa18205b89737c8f07f1a6c808910525e6\
-         a312925c5782db38299c81886d816a4fc25ba9011c5c1bb81f98a729d93a0b14\
-         bf63d8422cdfccbef8e918a863b28354a5076a9472560c59bbf600e6228d0bf9\
-         7189c413efd374d26ba04d7b18c766e450973d6cfcbfc35e961e2a134c7fba64\
-         63ca9198aa423aa3";
+    let want_hex = "6781c0c9165f451e86b468dbbda9ce929a037c1bcf9d7c7774f1bccd94032027\
+         8dd9a138aa72a4998d98e460e9973d46910a93a6bbb5eda75af87d84796c7a24\
+         ced27386b19cd8de1f227bea4e2401c8e40379de3702bbba2d33a38789e2a1aa\
+         2092c8fa4a93d0a51221068977dba355026affe98aa7cca316be88bac56029b0\
+         0fb3d3eb001fdcb85aaff374be45aaa8d03069302000520747fdd9c8d156c77f\
+         ebc26ab4a7bba3e061ce047f495e3f90dfbc646995acc83f67bbf5a2ce545eb6\
+         f221d0c8bd3d8bcd";
     let want_bytes = from_hex(want_hex);
     let want: KkState = core::array::from_fn(|i| {
         let b = &want_bytes[i * 8..(i + 1) * 8];
@@ -313,13 +313,13 @@ fn test_vector_kk_permute_custom_rotations_snap0() {
     let rots = rotations_from_entropy(&make_snapshot(0).bytes);
     let mut state: KkState = [0u64; 25];
     kk_permute_with_schedule(&mut state, &rots);
-    let want_hex = "773aec528fe93fbbd2aa91aafc05ae031c9f986f5fd634930b352aadcf6892aa\
-         9b3120a33ef25d3d919dbd1d6cc3c0a696291846cc9860bb2778cdcccab1da6d\
-         5e733b5c622a2e66b83027b59920bfef2af61c1a0de7f857705eb4e0c513e9f4\
-         e68751dccead1edb3fcf48a96b5f909d36657f0aad37dfa402c2f0c2d2e4ca68\
-         00000000000000007bc448c602c8d628000000000000000000000000000000004\
-         3df812e4a935e7328c6a1f11672f85b7d424032fd7264c200000000000000003\
-         cc4a374f0ba2637";
+    let want_hex = "2767ad8f3dcf4c42baf4d126d3ef826ac6135af36ae6b9a1b77ba42f018dcd5a\
+         d0018d8fa16f9dcc718bff87356137192488e355d36fe68f2dd8d66f071b6a47\
+         4b58e6a28b62f3c8e1d2d0b6ea0ed0ec3b2fe17b2ece8549f8ba7b68ffab6310\
+         ea228885bfd8939882ae132b78b27eee1641dc6d6b37f7306582f8b25980aa28\
+         46b294c4ab2d5779b420a581c0cdce52ebaae0fb7c3e40901be5642070af3b90\
+         68ce40fe489aa4fce4a6be1b7457f57e204a0de91548e088fd80b7c376f982c2\
+         594afba6fd82851e";
     let want_bytes = from_hex(want_hex);
     let want: KkState = core::array::from_fn(|i| {
         let b = &want_bytes[i * 8..(i + 1) * 8];
@@ -333,13 +333,13 @@ fn test_vector_kk_permute_custom_rotations_snap2() {
     let rots = rotations_from_entropy(&make_snapshot(2).bytes);
     let mut state: KkState = [0u64; 25];
     kk_permute_with_schedule(&mut state, &rots);
-    let want_hex = "03e7630b17d18e841b2a2f8d5430f2a1e54a5c375f66ad0dcb7d8f36f38142d2\
-         48b6866df717e1c61b4e2de41ee32ca944079866e1be230fc8f19e20e4507ef9\
-         242381e52e4e4497a77f94fc3961d03c555a7a4ad197234ff51bcb6b3499d86f\
-         0ac4b0c20a565c15e5aeb7383993d27bfcbc6c7018037dd291160e79f8fea926\
-         00000000000000004bc911201ed72fc5000000000000000000000000000000006\
-         47f400a1486b42376979cf8ca184c9dd376361a8aa3721b00000000000000007\
-         e6442bd5f7ba6a4";
+    let want_hex = "460a09bc4f80931653b1a07259da977040589cb505c3b0b0e439d0389d1ad72b\
+         5af954f07086a7bc0c0ddc0de127be31fe5412a5c1815e9fe675e9774ef2ea49\
+         2d21e47672e607d88e361f3a7f8e78fd8f1128df6fc59a874b64aea15441daa7\
+         da153c3ab2f1def1a56ea5a66eb0d8edc0709b368cfbcc45747d22fba448e95c\
+         3c1573ac95138552f7863b3b4d81642c2ddfb3a387ad4e1a809da1e3c0dcf92e\
+         7daf2b4dd8632c41db6450a68328d0a477dd57dc152ed3a25d2fd79438aee345\
+         e552b52a631dff47";
     let want_bytes = from_hex(want_hex);
     let want: KkState = core::array::from_fn(|i| {
         let b = &want_bytes[i * 8..(i + 1) * 8];
@@ -425,8 +425,8 @@ fn test_vector_rotations_from_entropy_snap2() {
 fn test_vector_encode_hello() {
     let snap = make_snapshot(0);
     let packet = encode_with_snapshot(b"shared-secret", b"Hello, KK!", snap).unwrap();
-    let want_ct = from_hex("bb27129666cc32a682ec");
-    let want_mac = from_hex32("8f5f2c5010a31fd253ef659c5e4009bdcc88501fda539c5ab0c6a6658072f39b");
+    let want_ct = from_hex("c5b0ed5c8133a6faf2a5");
+    let want_mac = from_hex32("da71d91f9f597380637c062e70e51ca92f8846f32c24adc92a7c27918d373c19");
     assert_eq!(packet.ciphertext, want_ct);
     assert_eq!(packet.commitment.mac, want_mac);
     let recovered = decode(b"shared-secret", &packet).unwrap();
@@ -437,8 +437,8 @@ fn test_vector_encode_hello() {
 fn test_vector_encode_binary() {
     let snap = make_snapshot(1);
     let packet = encode_with_snapshot(b"key-two", &[0x00, 0xFF, 0x80, 0x7F], snap).unwrap();
-    let want_ct = from_hex("e153fd55");
-    let want_mac = from_hex32("4e09bde27661e7c754275a6617bae799422c9117cf24a816f4011d4a71c2c6d5");
+    let want_ct = from_hex("b59b8aa0");
+    let want_mac = from_hex32("6102cceee9305e39587b6946d18b85ddc61b9207fc1f9d310c7d712c8d24b891");
     assert_eq!(packet.ciphertext, want_ct);
     assert_eq!(packet.commitment.mac, want_mac);
     let recovered = decode(b"key-two", &packet).unwrap();
@@ -451,9 +451,9 @@ fn test_vector_encode_long() {
     let plaintext = b"The quick brown fox jumps over the lazy dog";
     let packet = encode_with_snapshot(b"key-three", plaintext, snap).unwrap();
     let want_ct = from_hex(
-        "08f3c2a10e74a1fa59b66557f603bb370dc56075f45f57cc88f150fef67b2662153c63daa95372cdd07906",
+        "b4e89c42bcc35ce1cf1691c56ce91d25df806b35552d5a6b9a0b3cc97b404a82784589c80edcfc8cd1aef8",
     );
-    let want_mac = from_hex32("e197fc2127d74fdccd56843bf3049409d6d5d8dec1c8f41eded3389c6bce38ff");
+    let want_mac = from_hex32("4943ca880883c5afbe9e01b6d60eedfcd4f42785143b3278f00a5e87e9c8d37a");
     assert_eq!(packet.ciphertext, want_ct);
     assert_eq!(packet.commitment.mac, want_mac);
     let recovered = decode(b"key-three", &packet).unwrap();
@@ -464,8 +464,8 @@ fn test_vector_encode_long() {
 fn test_vector_encode_single_byte() {
     let snap = make_snapshot(3);
     let packet = encode_with_snapshot(b"k", b"X", snap).unwrap();
-    let want_ct = from_hex("60");
-    let want_mac = from_hex32("1d4976e00e5c5dca7437a270e538080d1815a96f528d417970eb710e5a94352a");
+    let want_ct = from_hex("57");
+    let want_mac = from_hex32("9cb0206ec34dc9b3718efd044118f8cf59c3e169b80cda6e01fa7507c05bc0b9");
     assert_eq!(packet.ciphertext, want_ct);
     assert_eq!(packet.commitment.mac, want_mac);
     let recovered = decode(b"k", &packet).unwrap();
@@ -479,8 +479,8 @@ fn test_vector_encode_aead_basic() {
     let snap = make_snapshot(0);
     let packet =
         encode_aead_with_snapshot(b"shared-secret", b"Hello AEAD!", b"header-v1", snap).unwrap();
-    let want_ct = from_hex("bb27129666c053a8888928");
-    let want_mac = from_hex32("be90d081d0792edf1ce6b684806628324c6debc8a552098d0871b7960072d59c");
+    let want_ct = from_hex("c5b0ed5c813fc7f4f8c077");
+    let want_mac = from_hex32("7893aaa3cd9d560a37e862902c25e8e2f804c4b0e8c86211ddf3c7b324a92786");
     assert_eq!(packet.ciphertext, want_ct);
     assert_eq!(packet.commitment.mac, want_mac);
     let recovered = decode_aead(b"shared-secret", &packet).unwrap();
@@ -491,8 +491,8 @@ fn test_vector_encode_aead_basic() {
 fn test_vector_encode_aead_empty_aad() {
     let snap = make_snapshot(1);
     let packet = encode_aead_with_snapshot(b"key-two", b"payload", b"", snap).unwrap();
-    let want_ct = from_hex("91cd044613df0e");
-    let want_mac = from_hex32("7494b84b0a9d5e3c4dc3d4b3a833fe30d1cb903ef3c6e68d1f0d977b7a9d74c7");
+    let want_ct = from_hex("c50573b33ee9ab");
+    let want_mac = from_hex32("6f3e114e75351f2458bdc000c07f410ab2ac4a0c0a8bdb4e8d68a93140520ad8");
     assert_eq!(packet.ciphertext, want_ct);
     assert_eq!(packet.commitment.mac, want_mac);
     let recovered = decode_aead(b"key-two", &packet).unwrap();
@@ -504,8 +504,8 @@ fn test_vector_encode_aead_long_aad() {
     let snap = make_snapshot(2);
     let aad = vec![0xAAu8; 64];
     let packet = encode_aead_with_snapshot(b"key-three", b"msg", &aad, snap).unwrap();
-    let want_ct = from_hex("31e8c0");
-    let want_mac = from_hex32("697023636a5a268ea100e27985ff5cc25999e0e10d31fda7430de332bce77e04");
+    let want_ct = from_hex("8df39e");
+    let want_mac = from_hex32("aa1a7341723f1258f8a7c1e711541654c101f55118a1e71822f1ea722c280821");
     assert_eq!(packet.ciphertext, want_ct);
     assert_eq!(packet.commitment.mac, want_mac);
     let recovered = decode_aead(b"key-three", &packet).unwrap();
@@ -519,9 +519,9 @@ fn test_vector_rope_ratchet_sequential_steps() {
     let mut ratchet = RopeRatchet::new(b"session-secret", b"alice-to-bob").unwrap();
 
     let want_keys = [
-        from_hex32("9aecc651565bc8b5451d24344d2872de3b1b90cddbcb9298d124dbdd38935219"),
-        from_hex32("6c1449a4f1961bd105c37288ef40cabd75021b53ab4e29c753f17528fc5aaad6"),
-        from_hex32("65c91bc85c35ba075a85b4025a7d38ed1d6c312fb2d0bc5f75b4343d60d67257"),
+        from_hex32("46529734b3e5b0c63e6ebfdb9aef4d5cb32635efe198f5ebab862c50c496bcc2"),
+        from_hex32("679104ec780d54fba831507a7b26013e5bd248da56f216b051a7bf0a35df04d7"),
+        from_hex32("57310684fed2eaa5665cfc680db0753936999e2d2f3cfff47d72bfeca2eabc3a"),
     ];
 
     for (i, want_key) in want_keys.iter().enumerate() {
@@ -542,7 +542,7 @@ fn test_vector_rope_ratchet_step0_key() {
     let mut ratchet = RopeRatchet::new(b"session-secret", b"alice-to-bob").unwrap();
     let snap = make_snapshot(0);
     let (key, step) = ratchet.advance_with_snapshot(snap).unwrap();
-    let want = from_hex32("9aecc651565bc8b5451d24344d2872de3b1b90cddbcb9298d124dbdd38935219");
+    let want = from_hex32("46529734b3e5b0c63e6ebfdb9aef4d5cb32635efe198f5ebab862c50c496bcc2");
     assert_eq!(key, want);
     assert_eq!(step.counter, 1);
 }
@@ -554,7 +554,7 @@ fn test_vector_rope_ratchet_step2_key() {
     let _ = ratchet.advance_with_snapshot(make_snapshot(0)).unwrap();
     let _ = ratchet.advance_with_snapshot(make_snapshot(1)).unwrap();
     let (key, step) = ratchet.advance_with_snapshot(make_snapshot(2)).unwrap();
-    let want = from_hex32("65c91bc85c35ba075a85b4025a7d38ed1d6c312fb2d0bc5f75b4343d60d67257");
+    let want = from_hex32("57310684fed2eaa5665cfc680db0753936999e2d2f3cfff47d72bfeca2eabc3a");
     assert_eq!(key, want);
     assert_eq!(step.counter, 3);
 }
