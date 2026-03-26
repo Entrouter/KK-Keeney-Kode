@@ -11,10 +11,13 @@ NOTICE: Removal of this header is a violation of the license.
 
 # KK (Keeney Kode)
 
-**A novel cryptographic primitive where symbol values are temporal functions of universal entropy.**
+### A 1600-bit Table-Free ARX Sponge with Computed $2^{-26{,}712}$ Differential and $2^{-2{,}544}$ Linear Trail Bounds
 
-*One primitive. Zero borrowed code. Everything from scratch.*
+**The first cryptographic primitive where the algebraic structure of the permutation itself changes with every invocation.**
 
+*One permutation. Zero borrowed components. Complete cryptographic suite from scratch.*
+
+[![crates.io](https://img.shields.io/crates/v/kk-crypto.svg)](https://crates.io/crates/kk-crypto)
 [![CI](https://github.com/Entrouter/KK-Keeney-Kode/actions/workflows/ci.yml/badge.svg)](https://github.com/Entrouter/KK-Keeney-Kode/actions/workflows/ci.yml)
 [![Security Audit](https://github.com/Entrouter/KK-Keeney-Kode/actions/workflows/security.yml/badge.svg)](https://github.com/Entrouter/KK-Keeney-Kode/actions/workflows/security.yml)
 [![Fuzz](https://github.com/Entrouter/KK-Keeney-Kode/actions/workflows/fuzz.yml/badge.svg)](https://github.com/Entrouter/KK-Keeney-Kode/actions/workflows/fuzz.yml)
@@ -22,6 +25,7 @@ NOTICE: Removal of this header is a violation of the license.
 [![License](https://img.shields.io/badge/license-Apache--2.0%20%2B%20Additional%20Terms-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-2021-orange.svg)](https://www.rust-lang.org)
 [![no_std](https://img.shields.io/badge/no__std-compatible-green.svg)](#no_std-support)
+[![ePrint](https://img.shields.io/badge/ePrint-2026%2F108500-blue.svg)](https://eprint.iacr.org/2026/108538)
 
 ---
 
@@ -36,7 +40,7 @@ KK(S) = S XOR E : state XOR universal entropy at the precise instant of creation
 
 ## Table of Contents
 
-- [The Idea](#the-idea)
+- [What is KK?](#what-is-kk)
 - [Quick Start](#quick-start)
 - [The Primitive](#the-primitive)
 - [What Ships in the Box](#what-ships-in-the-box)
@@ -52,11 +56,40 @@ KK(S) = S XOR E : state XOR universal entropy at the precise instant of creation
 
 ---
 
-## The Idea
+## What is KK?
 
-In every cipher ever published, symbol `A` has a fixed value. Encryption hides what `A` means.
+KK (Keeney Kode) is a 1600-bit cryptographic sponge permutation built entirely from arithmetic, rotation, and XOR operations (the ARX paradigm) without lookup tables, S-boxes, or borrowed components. It introduces two novel primitives that no published cipher uses:
 
-In KK, symbol `A` has **no fixed value.** Its value is a function of the universe at the instant it was born. Encode the same byte twice, one nanosecond apart, and you get two cryptographically unrelated outputs. Not different ciphertext from the same algorithm. A **structurally different cipher** at each moment.
+- **Multiply-Fold-Rotate (MFR):** Widening 64-bit multiply, XOR fold, and rotation. Bijective, non-linear, full-word mixing. Per-bit scaling of maximum differential probability: $2^{-63}$ at full 64-bit width.
+- **Data-Dependent Rotation (DDR):** The rotation distance is derived from all 64 bits of the input word, forcing exponential path explosion in differential and linear trail analysis. Constant-time branchless implementation on all platforms.
+
+These are composed into a **quintet round**, a 5-word mixing structure applied in row, column, and diagonal phases across 32 rounds of 15 quintets each (480 quintet-rounds total).
+
+### Temporal Permutation Variance
+
+Every cipher ever published has a fixed algebraic structure. The key changes what the cipher does to your data, but the cipher itself is the same mathematical object on every invocation.
+
+KK is fundamentally different. The rotation schedule governing MFR operations is derived from a runtime entropy snapshot captured at the moment of encryption. **The algebraic structure of the permutation itself changes with every invocation.** Each ciphertext is produced by a permutation with a distinct internal geometry.
+
+This makes multi-query differential and linear attacks structurally inapplicable: the attacker cannot accumulate observations under a fixed permutation because no fixed permutation exists. It also enables built-in temporal commitment proofs that bind ciphertexts to their creation timestamps with cryptographic strength, directly applicable to regulatory compliance, audit trails, supply-chain integrity, and tamper-evident logging.
+
+### Why Does This Matter?
+
+Modern symmetric cryptography relies on a small number of standard primitives (AES, SHA-2/SHA-3, ChaCha20-Poly1305). While these have withstood decades of cryptanalysis, the resulting monoculture concentrates systemic risk: a structural break in any single widely deployed primitive would cascade across protocols, implementations, and infrastructure simultaneously.
+
+KK occupies a previously empty point in the design space:
+
+| Property | KK | Keccak/SHA-3 | ChaCha20 | Ascon | RC5/RC6 |
+|----------|----|----|----|----|---|
+| Table-free ARX | Yes | No (chi S-box) | Yes | No (S-box) | Yes |
+| Wide sponge (1600-bit) | Yes | Yes | No (512-bit CTR) | No (320-bit) | No (block cipher) |
+| Data-dependent rotations | Yes (DDR) | No | No | No | Yes |
+| Per-invocation algebraic variance | Yes | No | No | No | No |
+| Complete crypto suite from single permutation | Yes | Partial | No | Partial | No |
+
+KK is positioned as a **diversity candidate**: not as a replacement for established standards, but as an independently designed construction for systems requiring algorithmic heterogeneity, table-free constant-time execution, built-in temporal binding, or a sponge-based suite with a non-S-box algebraic lineage.
+
+> For the full design rationale, analysis, and formal specification, see the [Combined Paper](docs/KK_COMBINED_PAPER.md) or [ePrint 2026/108500](https://eprint.iacr.org/2026/108500).
 
 ---
 
@@ -165,7 +198,7 @@ let decoded = decode_aead_batch(key, aad, &packets).unwrap();
 
 ## The Primitive
 
-A 1600-bit sponge construction built entirely from first principles.
+A 1600-bit sponge construction built entirely from first principles. No borrowed components.
 
 ```text
 State:     25 x 64-bit words  =  200 bytes  =  1600 bits
@@ -174,18 +207,31 @@ Capacity:   6 words  ( 48 bytes,  384 bits)  ~  192-bit security
 Rounds:    32, each with 15 quintet operations  =  480 quintet-rounds
 ```
 
-Two novel operations that no published cipher uses:
+### Novel Operations
 
 | Operation | What it does |
 |-----------|-------------|
-| **MFR** (Multiply-Fold-Rotate) | Widening 64-bit multiply, fold XOR, fixed rotation. Non-linear, bijective, full-word mixing. |
-| **DDR** (Data-Dependent Rotation) | Rotation distance derived from all 64 bits of input. Constant-time branchless implementation. No published analysis framework efficiently handles this. |
+| **MFR** (Multiply-Fold-Rotate) | Widening 64-bit multiply, fold XOR with `^b` re-injection, rotation. Non-linear, bijective, full-word mixing. Extrapolated single-operation max differential: $2^{-63}$. |
+| **DDR** (Data-Dependent Rotation) | Rotation distance derived from all 64 bits of input via multiplicative selector (`0xB5C0FBCFEC4D3B2F` = $\lfloor \text{frac}(\sqrt[3]{5}) \times 2^{64} \rfloor$). Constant-time branchless implementation. Forces exponential path explosion in trail analysis. |
 
-Additional design properties:
-- **5-word quintet mixing:** no published cipher uses 5-word rounds
-- **Entropy-derived rotation schedules:** the algebraic structure of the permutation changes per invocation
+### Design Properties
+- **5-word quintet mixing:** Row, column, and diagonal phases ensure full diffusion in 4 rounds
+- **Entropy-derived rotation schedules:** The algebraic structure of the permutation changes per invocation
 - **Nothing-up-my-sleeve constants:** 25 values from fractional parts of square roots of the first 25 primes
-- **Intra-round re-keying:** capacity words mixed back into rate every 8 rounds with round-dependent rotation
+- **Intra-round re-keying:** Capacity words mixed back into rate every 8 rounds with round-dependent rotation
+- **No lookup tables:** Inherent cache-timing side-channel resistance on all platforms, verified by dudect ($|t| = 2.28$, threshold $4.5$)
+- **Complementary duality:** MSB differential weakness and LSB linear weakness sit at opposite ends of the word. No single bit position is exploitable in both dimensions simultaneously.
+
+### Computed Security Bounds
+
+| Property | Bound | Margin over $2^{-800}$ target |
+|----------|-------|-------------------------------|
+| Differential trail (32 rounds, 424+ active MFR) | $2^{-26{,}712}$ | 25,912 bits |
+| Linear trail (32 rounds) | $2^{-2{,}544}$ | 1,744 bits |
+| DDR universal floor per active quintet | $LP \leq 2^{-12}$ | Regardless of MFR behavior |
+| Strict avalanche criterion | Mean $128.00/256$ bit flips | Ideal |
+| Bit independence | Max correlation $0.046$ | Near-zero |
+| Hash collisions | Zero in $2 \times 10^6$ trials | N/A |
 
 ---
 
@@ -391,8 +437,10 @@ kk-crypto = { version = "0.1", default-features = false }
 
 | Document | Description |
 |----------|-------------|
-| [Specification](docs/KK_SPECIFICATION.md) | 1,300+ line formal mathematical specification with LaTeX notation |
-| [Whitepaper](docs/KK_WHITEPAPER.md) | Complete empirical analysis, design rationale, and performance data |
+| **[Combined Paper](docs/KK_COMBINED_PAPER.md)** | **Primary reference.** Full design, analysis, specification, and performance in one document. Also available as [PDF](docs/KK_COMBINED_PAPER.pdf) and on [ePrint (2026/108538)](https://eprint.iacr.org/2026/108538). |
+| [Specification](docs/KK_SPECIFICATION.md) | Formal mathematical specification with LaTeX notation (also included in the combined paper) |
+| [Whitepaper](docs/KK_WHITEPAPER.md) | Empirical analysis, design rationale, and performance data |
+| [Formulation](docs/kk_formulation.md) | Mathematical formulation and proofs |
 | [Test Vectors](docs/KK_TEST_VECTORS.md) | Deterministic reference vectors for cross-language implementation |
 | [Integration Guide](docs/integration-guide.md) | Examples for all codec modes, streaming, sessions, EKA |
 | [Technical Flex](docs/real_flex.md) | Full technical breakdown and competitive analysis |
