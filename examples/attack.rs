@@ -1,3 +1,4 @@
+#![allow(clippy::needless_range_loop)]
 //! KK Cryptanalysis: adversarial self-attack
 //!
 //! Attempts to find weaknesses in the KK permutation by:
@@ -20,28 +21,56 @@ const RATE_WORDS: usize = 19;
 const CAPACITY_WORDS: usize = 6;
 
 const DEFAULT_ROTATIONS: [[u32; 2]; 15] = [
-    [7, 41], [13, 29], [19, 37], [23, 43], [3, 53],
-    [11, 47], [17, 39], [5, 59], [31, 49], [9, 51],
-    [15, 33], [21, 45], [27, 35], [1, 57], [25, 55],
+    [7, 41],
+    [13, 29],
+    [19, 37],
+    [23, 43],
+    [3, 53],
+    [11, 47],
+    [17, 39],
+    [5, 59],
+    [31, 49],
+    [9, 51],
+    [15, 33],
+    [21, 45],
+    [27, 35],
+    [1, 57],
+    [25, 55],
 ];
 
 const DIAGS: [[usize; 5]; 5] = [
-    [0,  6, 12, 18, 24],
-    [1,  7, 13, 19, 20],
-    [2,  8, 14, 15, 21],
-    [3,  9, 10, 16, 22],
-    [4,  5, 11, 17, 23],
+    [0, 6, 12, 18, 24],
+    [1, 7, 13, 19, 20],
+    [2, 8, 14, 15, 21],
+    [3, 9, 10, 16, 22],
+    [4, 5, 11, 17, 23],
 ];
 
 const KK_IV: [u64; STATE_WORDS] = [
-    0x6A09E667F3BCC908, 0xBB67AE8584CAA73B, 0x3C6EF372FE94F82B,
-    0xA54FF53A5F1D36F1, 0x510E527FADE682D1, 0x9B05688C2B3E6C1F,
-    0x1F83D9ABFB41BD6B, 0x5BE0CD19137E2179, 0xCBBB9D5DC1059ED8,
-    0x629A292A367CD507, 0x9159015A3070DD17, 0x152FECD8F70E5939,
-    0x67332667FFC00B31, 0x8EB44A8768581511, 0xDB0C2E0D64F98FA7,
-    0x47B5481DBEFA4FA4, 0xAE5F9156E7B6D99B, 0xCF6C85D39D1A1E15,
-    0x2F73477D6A4563CA, 0x6D1826CAFD82E1ED, 0x8B43D4570A51B936,
-    0xE360B596DC380C3F, 0x1C456002CE13E9F8, 0x6F19633143A0AF0E,
+    0x6A09E667F3BCC908,
+    0xBB67AE8584CAA73B,
+    0x3C6EF372FE94F82B,
+    0xA54FF53A5F1D36F1,
+    0x510E527FADE682D1,
+    0x9B05688C2B3E6C1F,
+    0x1F83D9ABFB41BD6B,
+    0x5BE0CD19137E2179,
+    0xCBBB9D5DC1059ED8,
+    0x629A292A367CD507,
+    0x9159015A3070DD17,
+    0x152FECD8F70E5939,
+    0x67332667FFC00B31,
+    0x8EB44A8768581511,
+    0xDB0C2E0D64F98FA7,
+    0x47B5481DBEFA4FA4,
+    0xAE5F9156E7B6D99B,
+    0xCF6C85D39D1A1E15,
+    0x2F73477D6A4563CA,
+    0x6D1826CAFD82E1ED,
+    0x8B43D4570A51B936,
+    0xE360B596DC380C3F,
+    0x1C456002CE13E9F8,
+    0x6F19633143A0AF0E,
     0xD94EBEB1AB313933,
 ];
 
@@ -60,12 +89,24 @@ fn ddr(a: u64, b: u64) -> u64 {
     let s = (folded ^ (folded >> 16) ^ (folded >> 8)) & 63;
     let mut r = a;
     // Branchless conditional rotations
-    if s & 1 != 0 { r = r.rotate_left(1); }
-    if s & 2 != 0 { r = r.rotate_left(2); }
-    if s & 4 != 0 { r = r.rotate_left(4); }
-    if s & 8 != 0 { r = r.rotate_left(8); }
-    if s & 16 != 0 { r = r.rotate_left(16); }
-    if s & 32 != 0 { r = r.rotate_left(32); }
+    if s & 1 != 0 {
+        r = r.rotate_left(1);
+    }
+    if s & 2 != 0 {
+        r = r.rotate_left(2);
+    }
+    if s & 4 != 0 {
+        r = r.rotate_left(4);
+    }
+    if s & 8 != 0 {
+        r = r.rotate_left(8);
+    }
+    if s & 16 != 0 {
+        r = r.rotate_left(16);
+    }
+    if s & 32 != 0 {
+        r = r.rotate_left(32);
+    }
     r
 }
 
@@ -90,28 +131,61 @@ fn kk_permute_n(state: &mut KkState, rotations: &[[u32; 2]; 15], rounds: usize) 
         // Row phase
         for (row, rot) in rotations.iter().enumerate().take(5) {
             let base = row * 5;
-            let (mut s0, mut s1, mut s2, mut s3, mut s4) =
-                (state[base], state[base+1], state[base+2], state[base+3], state[base+4]);
+            let (mut s0, mut s1, mut s2, mut s3, mut s4) = (
+                state[base],
+                state[base + 1],
+                state[base + 2],
+                state[base + 3],
+                state[base + 4],
+            );
             quintet_round(&mut s0, &mut s1, &mut s2, &mut s3, &mut s4, *rot);
-            state[base] = s0; state[base+1] = s1; state[base+2] = s2;
-            state[base+3] = s3; state[base+4] = s4;
+            state[base] = s0;
+            state[base + 1] = s1;
+            state[base + 2] = s2;
+            state[base + 3] = s3;
+            state[base + 4] = s4;
         }
         // Column phase
         for col in 0..5usize {
-            let (mut s0, mut s1, mut s2, mut s3, mut s4) =
-                (state[col], state[col+5], state[col+10], state[col+15], state[col+20]);
-            quintet_round(&mut s0, &mut s1, &mut s2, &mut s3, &mut s4, rotations[5 + col]);
-            state[col] = s0; state[col+5] = s1; state[col+10] = s2;
-            state[col+15] = s3; state[col+20] = s4;
+            let (mut s0, mut s1, mut s2, mut s3, mut s4) = (
+                state[col],
+                state[col + 5],
+                state[col + 10],
+                state[col + 15],
+                state[col + 20],
+            );
+            quintet_round(
+                &mut s0,
+                &mut s1,
+                &mut s2,
+                &mut s3,
+                &mut s4,
+                rotations[5 + col],
+            );
+            state[col] = s0;
+            state[col + 5] = s1;
+            state[col + 10] = s2;
+            state[col + 15] = s3;
+            state[col + 20] = s4;
         }
         // Diagonal phase
         for d in 0..5usize {
             let [i0, i1, i2, i3, i4] = DIAGS[d];
             let (mut s0, mut s1, mut s2, mut s3, mut s4) =
                 (state[i0], state[i1], state[i2], state[i3], state[i4]);
-            quintet_round(&mut s0, &mut s1, &mut s2, &mut s3, &mut s4, rotations[10 + d]);
-            state[i0] = s0; state[i1] = s1; state[i2] = s2;
-            state[i3] = s3; state[i4] = s4;
+            quintet_round(
+                &mut s0,
+                &mut s1,
+                &mut s2,
+                &mut s3,
+                &mut s4,
+                rotations[10 + d],
+            );
+            state[i0] = s0;
+            state[i1] = s1;
+            state[i2] = s2;
+            state[i3] = s3;
+            state[i4] = s4;
         }
         // Round constant injection
         state[0] = state[0].wrapping_add(round);
@@ -133,21 +207,30 @@ fn hamming_distance_u64(a: u64, b: u64) -> u32 {
 }
 
 fn state_hamming(a: &KkState, b: &KkState) -> u32 {
-    a.iter().zip(b.iter()).map(|(x, y)| hamming_distance_u64(*x, *y)).sum()
+    a.iter()
+        .zip(b.iter())
+        .map(|(x, y)| hamming_distance_u64(*x, *y))
+        .sum()
 }
 
 fn capacity_hamming(a: &KkState, b: &KkState) -> u32 {
-    (RATE_WORDS..STATE_WORDS).map(|i| hamming_distance_u64(a[i], b[i])).sum()
+    (RATE_WORDS..STATE_WORDS)
+        .map(|i| hamming_distance_u64(a[i], b[i]))
+        .sum()
 }
 
 fn rate_hamming(a: &KkState, b: &KkState) -> u32 {
-    (0..RATE_WORDS).map(|i| hamming_distance_u64(a[i], b[i])).sum()
+    (0..RATE_WORDS)
+        .map(|i| hamming_distance_u64(a[i], b[i]))
+        .sum()
 }
 
 /// Simple xorshift64 PRNG for reproducible tests
 struct Rng(u64);
 impl Rng {
-    fn new(seed: u64) -> Self { Self(seed) }
+    fn new(seed: u64) -> Self {
+        Self(seed)
+    }
     fn next(&mut self) -> u64 {
         self.0 ^= self.0 << 13;
         self.0 ^= self.0 >> 7;
@@ -156,7 +239,9 @@ impl Rng {
     }
     fn random_state(&mut self) -> KkState {
         let mut s = [0u64; STATE_WORDS];
-        for w in s.iter_mut() { *w = self.next(); }
+        for w in s.iter_mut() {
+            *w = self.next();
+        }
         s
     }
 }
@@ -179,7 +264,9 @@ fn attack_1_ddr_collision() {
     for _ in 0..trials {
         let b = rng.next();
         let delta = rng.next(); // random non-zero difference
-        if delta == 0 { continue; }
+        if delta == 0 {
+            continue;
+        }
         let b2 = b ^ delta;
         if ddr_selector(b) == ddr_selector(b2) {
             collisions += 1;
@@ -347,9 +434,13 @@ fn attack_4_sac() {
 
     // Test a representative set of input bit positions
     let test_positions: Vec<(usize, usize)> = vec![
-        (0, 0), (0, 31), (0, 63),    // word 0 (rate, first)
-        (9, 0), (9, 32),              // word 9 (rate, middle)
-        (18, 0), (18, 63),            // word 18 (rate, last)
+        (0, 0),
+        (0, 31),
+        (0, 63), // word 0 (rate, first)
+        (9, 0),
+        (9, 32), // word 9 (rate, middle)
+        (18, 0),
+        (18, 63), // word 18 (rate, last)
     ];
 
     let mut worst_bias = 0.0f64;
@@ -395,12 +486,17 @@ fn attack_4_sac() {
             worst_pos = (in_word, in_bit, max_bit);
         }
 
-        println!("  Input word[{in_word}] bit {in_bit}: max_bias={max_dev:.6} at output bit {max_bit}");
+        println!(
+            "  Input word[{in_word}] bit {in_bit}: max_bias={max_dev:.6} at output bit {max_bit}"
+        );
     }
 
     // Statistical threshold: for 20000 trials, 3-sigma deviation is ~0.0106
     let sigma3 = 3.0 / (2.0 * (trials as f64).sqrt());
-    println!("\n  Worst bias overall: {worst_bias:.6} (at in_w={}, in_b={}, out_b={})", worst_pos.0, worst_pos.1, worst_pos.2);
+    println!(
+        "\n  Worst bias overall: {worst_bias:.6} (at in_w={}, in_b={}, out_b={})",
+        worst_pos.0, worst_pos.1, worst_pos.2
+    );
     println!("  3-sigma threshold: {sigma3:.6}");
     if worst_bias > sigma3 * 2.0 {
         println!("  !! SAC VIOLATION: bias exceeds 6-sigma !!");
@@ -448,8 +544,14 @@ fn attack_5_mfr_bias() {
 
         // 3-sigma for 5M trials
         let sigma3 = 3.0 / (2.0 * (trials as f64).sqrt());
-        let flag = if max_bias > sigma3 * 2.0 { " !! BIASED" } else { "" };
-        println!("  rot={rot:2}: max_bias={max_bias:.7} at bit {max_bit:2} (3sig={sigma3:.7}){flag}");
+        let flag = if max_bias > sigma3 * 2.0 {
+            " !! BIASED"
+        } else {
+            ""
+        };
+        println!(
+            "  rot={rot:2}: max_bias={max_bias:.7} at bit {max_bit:2} (3sig={sigma3:.7}){flag}"
+        );
     }
     println!();
 }
@@ -653,14 +755,20 @@ fn attack_9_quintet_differential() {
         quintet_round(&mut a1, &mut b1, &mut c1, &mut d1, &mut e1, rot);
         quintet_round(&mut a2, &mut b2, &mut c2, &mut d2, &mut e2, rot);
 
-        let h = hamming_distance_u64(a1, a2) + hamming_distance_u64(b1, b2)
-            + hamming_distance_u64(c1, c2) + hamming_distance_u64(d1, d2)
+        let h = hamming_distance_u64(a1, a2)
+            + hamming_distance_u64(b1, b2)
+            + hamming_distance_u64(c1, c2)
+            + hamming_distance_u64(d1, d2)
             + hamming_distance_u64(e1, e2);
         hamming_dist[h as usize] += 1;
     }
 
-    let avg_h: f64 = hamming_dist.iter().enumerate()
-        .map(|(h, &count)| h as f64 * count as f64).sum::<f64>() / trials as f64;
+    let avg_h: f64 = hamming_dist
+        .iter()
+        .enumerate()
+        .map(|(h, &count)| h as f64 * count as f64)
+        .sum::<f64>()
+        / trials as f64;
     let min_h = hamming_dist.iter().position(|&c| c > 0).unwrap();
     let max_h = hamming_dist.iter().rposition(|&c| c > 0).unwrap();
 
@@ -669,7 +777,10 @@ fn attack_9_quintet_differential() {
 
     // Check: did we ever see Hamming distance = 0 (perfect collision)?
     if hamming_dist[0] > 0 {
-        println!("    !! COLLISION FOUND: {0} cases with zero difference !!", hamming_dist[0]);
+        println!(
+            "    !! COLLISION FOUND: {0} cases with zero difference !!",
+            hamming_dist[0]
+        );
     }
 
     // Check low-hamming events
@@ -694,11 +805,15 @@ fn attack_9_quintet_differential() {
         quintet_round(&mut a1, &mut b1, &mut c1, &mut d1, &mut e1, rot);
         quintet_round(&mut a2, &mut b2, &mut c2, &mut d2, &mut e2, rot);
 
-        let h = hamming_distance_u64(a1, a2) + hamming_distance_u64(b1, b2)
-            + hamming_distance_u64(c1, c2) + hamming_distance_u64(d1, d2)
+        let h = hamming_distance_u64(a1, a2)
+            + hamming_distance_u64(b1, b2)
+            + hamming_distance_u64(c1, c2)
+            + hamming_distance_u64(d1, d2)
             + hamming_distance_u64(e1, e2);
         total_h += h as u64;
-        if h == 0 { zero_out += 1; }
+        if h == 0 {
+            zero_out += 1;
+        }
     }
 
     let a_avg = total_h as f64 / trials as f64;
@@ -734,7 +849,9 @@ fn attack_10_ddr_differential() {
         let b = rng.next();
         let delta_a = rng.next();
         let delta_b = rng.next();
-        if delta_b == 0 { continue; }
+        if delta_b == 0 {
+            continue;
+        }
 
         let s1 = ddr_selector(b);
         let s2 = ddr_selector(b ^ delta_b);
@@ -755,9 +872,14 @@ fn attack_10_ddr_differential() {
 
     let pred_rate = if selector_collisions > 0 {
         exact_predictions as f64 / selector_collisions as f64
-    } else { 0.0 };
+    } else {
+        0.0
+    };
 
-    println!("  Selector collisions: {selector_collisions} / {trials} ({:.4})", selector_collisions as f64 / trials as f64);
+    println!(
+        "  Selector collisions: {selector_collisions} / {trials} ({:.4})",
+        selector_collisions as f64 / trials as f64
+    );
     println!("  Exact predictions when selector collides: {exact_predictions} / {selector_collisions} ({pred_rate:.6})");
     if pred_rate > 0.99 {
         println!("  [CONFIRMED] DDR differential is perfectly predictable when selector collides");
@@ -780,7 +902,11 @@ fn attack_11_rekey_window() {
     // vs 8 rounds (re-keying at round 7)
     // Does the re-keying at round 8 measurably improve diffusion?
 
-    for (label, round_count) in [("7 (no rekey)", 7), ("8 (with rekey at 7)", 8), ("9 (post-rekey)", 9)] {
+    for (label, round_count) in [
+        ("7 (no rekey)", 7),
+        ("8 (with rekey at 7)", 8),
+        ("9 (post-rekey)", 9),
+    ] {
         let mut total_h = 0u64;
         let mut min_h = u32::MAX;
 
