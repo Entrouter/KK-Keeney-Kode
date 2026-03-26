@@ -1,0 +1,7 @@
+{
+  "devDependencies": {
+    "katex": "^0.16.43",
+    "marked-katex-extension": "^5.1.7",
+    "puppeteer": "^24.40.0"
+  }
+}

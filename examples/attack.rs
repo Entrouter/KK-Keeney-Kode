@@ -8,6 +8,12 @@
 //!   4. Avalanche defect detection
 //!   5. MFR algebraic bias search
 //!   6. Round-constant-free word distinguisher
+//!   7. Row 4 capacity mixing asymmetry
+//!   8. KDF squeeze gap analysis
+//!   9. Quintet differential propagation
+//!  10. DDR full differential
+//!  11. Intra-round re-keying window
+//!  12. Slide / rotational symmetry resistance
 //!
 //! Run: cargo run --release --example attack
 
@@ -924,6 +930,184 @@ fn attack_11_rekey_window() {
     println!();
 }
 
+// ───────────────────────── ATTACK 12 ────────────────────────────
+// Slide and rotational symmetry resistance
+//
+// Slide attack: if the round function is identical across rounds,
+// an attacker can "slide" two evaluations offset by one round. The
+// round constants should completely break this. We verify by running
+// the permutation starting from different round offsets and checking
+// that the outputs are uncorrelated.
+//
+// Rotational symmetry: if rotating every state word by the same
+// amount k produces a correspondingly rotated output, an attacker
+// gains a related-state shortcut. We verify this does NOT hold.
+
+/// Permute state for rounds [start..start+count), with round constants
+/// injected using the round index (so round constants differ per offset).
+fn kk_permute_range(state: &mut KkState, rotations: &[[u32; 2]; 15], start: u64, count: u64) {
+    for round in start..start + count {
+        // Row phase
+        for (row, rot) in rotations.iter().enumerate().take(5) {
+            let base = row * 5;
+            let (mut s0, mut s1, mut s2, mut s3, mut s4) = (
+                state[base],
+                state[base + 1],
+                state[base + 2],
+                state[base + 3],
+                state[base + 4],
+            );
+            quintet_round(&mut s0, &mut s1, &mut s2, &mut s3, &mut s4, *rot);
+            state[base] = s0;
+            state[base + 1] = s1;
+            state[base + 2] = s2;
+            state[base + 3] = s3;
+            state[base + 4] = s4;
+        }
+        // Column phase
+        for col in 0..5usize {
+            let (mut s0, mut s1, mut s2, mut s3, mut s4) = (
+                state[col],
+                state[col + 5],
+                state[col + 10],
+                state[col + 15],
+                state[col + 20],
+            );
+            quintet_round(
+                &mut s0,
+                &mut s1,
+                &mut s2,
+                &mut s3,
+                &mut s4,
+                rotations[5 + col],
+            );
+            state[col] = s0;
+            state[col + 5] = s1;
+            state[col + 10] = s2;
+            state[col + 15] = s3;
+            state[col + 20] = s4;
+        }
+        // Diagonal phase
+        for d in 0..5usize {
+            let [i0, i1, i2, i3, i4] = DIAGS[d];
+            let (mut s0, mut s1, mut s2, mut s3, mut s4) =
+                (state[i0], state[i1], state[i2], state[i3], state[i4]);
+            quintet_round(
+                &mut s0,
+                &mut s1,
+                &mut s2,
+                &mut s3,
+                &mut s4,
+                rotations[10 + d],
+            );
+            state[i0] = s0;
+            state[i1] = s1;
+            state[i2] = s2;
+            state[i3] = s3;
+            state[i4] = s4;
+        }
+        // Round constant injection
+        state[0] = state[0].wrapping_add(round);
+        state[4] = state[4].wrapping_add(round.wrapping_mul(0x9E3779B97F4A7C15));
+        state[12] = state[12].wrapping_add(round.wrapping_mul(0xB7E151628AED2A6A));
+        state[20] = state[20].wrapping_add(round.wrapping_mul(0x243F6A8885A2F7A4));
+        state[24] = state[24].wrapping_add(round.wrapping_mul(0x298B075B4B6A5240));
+        // Intra-round re-keying every 8 rounds
+        if round % 8 == 7 {
+            for i in 0..RATE_WORDS {
+                state[i] ^= state[RATE_WORDS + (i % CAPACITY_WORDS)].rotate_left(round as u32);
+            }
+        }
+    }
+}
+
+fn rotate_state(state: &KkState, k: u32) -> KkState {
+    let mut out = [0u64; STATE_WORDS];
+    for i in 0..STATE_WORDS {
+        out[i] = state[i].rotate_left(k);
+    }
+    out
+}
+
+fn attack_12_slide_rotational() {
+    println!("=== ATTACK 12: Slide / Rotational Symmetry Resistance ===");
+    let mut rng = Rng::new(0xA5A5_5A5A_1357_2468);
+    let trials = 100_000;
+
+    // ── Part A: Slide resistance ──
+    // For the same input state, compare perm(rounds 0..8) vs perm(rounds 1..9).
+    // With proper round constants these should be completely unrelated.
+    // Metric: Hamming distance between the two outputs (expect ~800/1600).
+    println!("  Part A: Slide resistance (offset round windows)");
+    for window_len in [4u64, 8, 16] {
+        let mut total_h = 0u64;
+        let mut min_h = u32::MAX;
+        let mut max_h = 0u32;
+
+        for _ in 0..trials {
+            let state = rng.random_state();
+
+            let mut s0 = state;
+            kk_permute_range(&mut s0, &DEFAULT_ROTATIONS, 0, window_len);
+
+            let mut s1 = state;
+            kk_permute_range(&mut s1, &DEFAULT_ROTATIONS, 1, window_len);
+
+            let h = state_hamming(&s0, &s1);
+            total_h += h as u64;
+            min_h = min_h.min(h);
+            max_h = max_h.max(h);
+        }
+
+        let avg = total_h as f64 / trials as f64;
+        let pass = avg > 700.0 && avg < 900.0 && min_h > 400;
+        println!(
+            "    window={window_len}: avg_hamming={avg:.1}/1600  min={min_h}  max={max_h}  {}",
+            if pass { "[OK]" } else { "[WARN]" }
+        );
+    }
+
+    // ── Part B: Rotational symmetry resistance ──
+    // For rotation amount k, check: perm(rot_k(state)) != rot_k(perm(state))
+    // Metric: Hamming distance between perm(rot_k(state)) and rot_k(perm(state))
+    // If the cipher has rotational symmetry, distance would be ~0.
+    // For a good cipher, distance should be ~800/1600 (half bits differ).
+    println!("  Part B: Rotational symmetry resistance");
+    let rot_trials = 50_000;
+    for k in [1u32, 7, 16, 32, 47, 63] {
+        let mut total_h = 0u64;
+        let mut zero_count = 0u64;
+
+        for _ in 0..rot_trials {
+            let state = rng.random_state();
+
+            // Path 1: permute, then rotate output
+            let mut s_perm = state;
+            kk_permute_n(&mut s_perm, &DEFAULT_ROTATIONS, 32);
+            let rotated_output = rotate_state(&s_perm, k);
+
+            // Path 2: rotate input, then permute
+            let rotated_input = rotate_state(&state, k);
+            let mut s_rot_perm = rotated_input;
+            kk_permute_n(&mut s_rot_perm, &DEFAULT_ROTATIONS, 32);
+
+            let h = state_hamming(&rotated_output, &s_rot_perm);
+            total_h += h as u64;
+            if h == 0 {
+                zero_count += 1;
+            }
+        }
+
+        let avg = total_h as f64 / rot_trials as f64;
+        let pass = avg > 700.0 && avg < 900.0 && zero_count == 0;
+        println!(
+            "    k={k:>2}: avg_hamming={avg:.1}/1600  zero_matches={zero_count}  {}",
+            if pass { "[OK]" } else { "[WARN]" }
+        );
+    }
+    println!();
+}
+
 // ─────────────────────── MAIN ───────────────────────────────────
 
 fn main() {
@@ -945,6 +1129,7 @@ fn main() {
     attack_9_quintet_differential();
     attack_10_ddr_differential();
     attack_11_rekey_window();
+    attack_12_slide_rotational();
 
     let elapsed = start.elapsed();
     println!("═══════════════════════════════════════════════════════════");
