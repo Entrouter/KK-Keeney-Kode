@@ -7,6 +7,9 @@ See the LICENSE file in the project root for full license information.
 NOTICE: Removal of this header is a violation of the license.
 -->
 
+> [!NOTE]
+> This document contains mathematical notation that may not render correctly in all Markdown viewers. For correct rendering of all equations and tables, view the [PDF version](KK_COMBINED_PAPER.pdf) or the [ePrint submission (2026/108538)](https://eprint.iacr.org/2026/108538).
+
 # KK: A Table-Free ARX Sponge with Computed $2^{-26{,}712}$ Differential and $2^{-2{,}544}$ Linear Trail Bounds
 
 ## Design, Analysis, Specification, and Performance

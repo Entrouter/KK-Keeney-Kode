@@ -4,6 +4,12 @@ All notable changes to KK-Crypto will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.3] - 2026-03-26
+
+### Fixed
+- Replace LaTeX math expressions in README with plain text/Unicode for correct rendering on crates.io and GitHub
+- Add PDF/ePrint rendering note banner to Combined Paper for GitHub viewers
+
 ## [0.1.2] - 2026-03-26
 
 ### Fixed

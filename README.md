@@ -11,7 +11,7 @@ NOTICE: Removal of this header is a violation of the license.
 
 # KK (Keeney Kode)
 
-### A 1600-bit Table-Free ARX Sponge with Computed $2^{-26{,}712}$ Differential and $2^{-2{,}544}$ Linear Trail Bounds
+### A 1600-bit Table-Free ARX Sponge with Computed 2^(-26,712) Differential and 2^(-2,544) Linear Trail Bounds
 
 **The first cryptographic primitive where the algebraic structure of the permutation itself changes with every invocation.**
 
@@ -60,7 +60,7 @@ KK(S) = S XOR E : state XOR universal entropy at the precise instant of creation
 
 KK (Keeney Kode) is a 1600-bit cryptographic sponge permutation built entirely from arithmetic, rotation, and XOR operations (the ARX paradigm) without lookup tables, S-boxes, or borrowed components. It introduces two novel primitives that no published cipher uses:
 
-- **Multiply-Fold-Rotate (MFR):** Widening 64-bit multiply, XOR fold, and rotation. Bijective, non-linear, full-word mixing. Per-bit scaling of maximum differential probability: $2^{-63}$ at full 64-bit width.
+- **Multiply-Fold-Rotate (MFR):** Widening 64-bit multiply, XOR fold, and rotation. Bijective, non-linear, full-word mixing. Per-bit scaling of maximum differential probability: 2^(-63) at full 64-bit width.
 - **Data-Dependent Rotation (DDR):** The rotation distance is derived from all 64 bits of the input word, forcing exponential path explosion in differential and linear trail analysis. Constant-time branchless implementation on all platforms.
 
 These are composed into a **quintet round**, a 5-word mixing structure applied in row, column, and diagonal phases across 32 rounds of 15 quintets each (480 quintet-rounds total).
@@ -211,24 +211,24 @@ Rounds:    32, each with 15 quintet operations  =  480 quintet-rounds
 
 | Operation | What it does |
 |-----------|-------------|
-| **MFR** (Multiply-Fold-Rotate) | Widening 64-bit multiply, fold XOR with `^b` re-injection, rotation. Non-linear, bijective, full-word mixing. Extrapolated single-operation max differential: $2^{-63}$. |
-| **DDR** (Data-Dependent Rotation) | Rotation distance derived from all 64 bits of input via multiplicative selector (`0xB5C0FBCFEC4D3B2F` = $\lfloor \text{frac}(\sqrt[3]{5}) \times 2^{64} \rfloor$). Constant-time branchless implementation. Forces exponential path explosion in trail analysis. |
+| **MFR** (Multiply-Fold-Rotate) | Widening 64-bit multiply, fold XOR with `^b` re-injection, rotation. Non-linear, bijective, full-word mixing. Extrapolated single-operation max differential: 2^(-63). |
+| **DDR** (Data-Dependent Rotation) | Rotation distance derived from all 64 bits of input via multiplicative selector (`0xB5C0FBCFEC4D3B2F` = ⌊frac(∛5) × 2⁶⁴⌋). Constant-time branchless implementation. Forces exponential path explosion in trail analysis. |
 
 ### Design Properties
 - **5-word quintet mixing:** Row, column, and diagonal phases ensure full diffusion in 4 rounds
 - **Entropy-derived rotation schedules:** The algebraic structure of the permutation changes per invocation
 - **Nothing-up-my-sleeve constants:** 25 values from fractional parts of square roots of the first 25 primes
 - **Intra-round re-keying:** Capacity words mixed back into rate every 8 rounds with round-dependent rotation
-- **No lookup tables:** Inherent cache-timing side-channel resistance on all platforms, verified by dudect ($|t| = 2.28$, threshold $4.5$)
+- **No lookup tables:** Inherent cache-timing side-channel resistance on all platforms, verified by dudect (|t| = 2.28, threshold 4.5)
 - **Complementary duality:** MSB differential weakness and LSB linear weakness sit at opposite ends of the word. No single bit position is exploitable in both dimensions simultaneously.
 
 ### Computed Security Bounds
 
-| Property | Bound | Margin over $2^{-800}$ target |
+| Property | Bound | Margin over 2^(-800) target |
 |----------|-------|-------------------------------|
-| Differential trail (32 rounds, 424+ active MFR) | $2^{-26{,}712}$ | 25,912 bits |
-| Linear trail (32 rounds) | $2^{-2{,}544}$ | 1,744 bits |
-| DDR universal floor per active quintet | $LP \leq 2^{-12}$ | Regardless of MFR behavior |
+| Differential trail (32 rounds, 424+ active MFR) | 2^(-26,712) | 25,912 bits |
+| Linear trail (32 rounds) | 2^(-2,544) | 1,744 bits |
+| DDR universal floor per active quintet | LP ≤ 2^(-12) | Regardless of MFR behavior |
 | Strict avalanche criterion | Mean $128.00/256$ bit flips | Ideal |
 | Bit independence | Max correlation $0.046$ | Near-zero |
 | Hash collisions | Zero in $2 \times 10^6$ trials | N/A |
