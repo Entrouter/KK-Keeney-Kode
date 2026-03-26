@@ -38,7 +38,7 @@ On an AMD Ryzen 9 9950X3D (16 cores / 32 threads, Zen 5, AVX-512, 5.35 GHz boost
 
 KK is positioned as a diversity candidate: not as a replacement for established standards, but as an independently designed construction available for systems requiring algorithmic heterogeneity, table-free constant-time execution, built-in temporal binding, or a sponge-based authenticated encryption suite with a non-S-box algebraic lineage. Potential deployment contexts include defense-in-depth encryption layers, embedded and IoT systems where AES-NI is unavailable, compliance-sensitive applications requiring cryptographic timestamps, secure messaging protocols requiring forward secrecy, and environments preparing for post-quantum transition by diversifying their cryptographic foundations.
 
-KK has not undergone third-party cryptanalysis. The trail bounds rely on scaling extrapolation from reduced word sizes, not closed-form proofs at full 64-bit width. No formal indifferentiability proof has been attempted. This paper is an invitation to the cryptographic community to analyse, attack, and improve this construction. A complete formal specification sufficient for independent reimplementation is included, covering all algorithmic definitions, wire format diagrams for 11 packet types, security claims with explicit limitations, and a code-to-specification cross-reference table.
+KK has not undergone third-party cryptanalysis. The trail bounds rely on scaling extrapolation from reduced word sizes, not closed-form proofs at full 64-bit width. Under the standard ideal permutation assumption, the sponge indifferentiability theorem [7] applied to KK's 384-bit capacity establishes 192-bit generic security in the same formal framework as SHA-3. This paper is an invitation to the cryptographic community to analyse, attack, and improve this construction. A complete formal specification sufficient for independent reimplementation is included, covering all algorithmic definitions, wire format diagrams for 11 packet types, security claims with explicit limitations, and a code-to-specification cross-reference table.
 
 **Keywords:** sponge construction, ARX, data-dependent rotation, differential cryptanalysis, linear cryptanalysis, temporal binding, authenticated encryption, algorithmic diversity, cache-timing resistance
 
@@ -98,7 +98,7 @@ Mouha and Preneel [24] and Leurent [25] have developed specialized techniques fo
 
 ### Sponge Security Proofs
 
-Jovanovic, Luykx, and Mennink [23] proved that sponge-based authenticated encryption can achieve security beyond the $2^{c/2}$ birthday bound when the underlying permutation is modeled as ideal. KK's capacity of 384 bits targets $2^{192}$ generic security, consistent with this framework. The present work does not attempt a formal indifferentiability proof for the KK permutation; the security analysis rests on computational evidence (exhaustive DDT/LAT at reduced widths and empirical testing at full width) rather than provable security reductions. Establishing such a proof, or identifying structural barriers to one, remains an explicit open problem.
+Jovanovic, Luykx, and Mennink [23] proved that sponge-based authenticated encryption can achieve security beyond the $2^{c/2}$ birthday bound when the underlying permutation is modeled as ideal. KK's capacity of 384 bits targets $2^{192}$ generic security, consistent with this framework. The *Formal Security Foundation* section below applies the Bertoni et al. sponge indifferentiability theorem [7] to KK's parameters, establishing a conditional 192-bit security bound under the ideal permutation model. The security analysis is further supported by computational evidence (exhaustive DDT/LAT at reduced widths and empirical testing at full width). Proving that the KK permutation satisfies the ideality assumption remains an explicit open problem, as it does for every deployed sponge-based primitive including Keccak [8].
 
 ---
 
@@ -145,6 +145,9 @@ The principal contributions of this work are:
 15. [Sponge Construction Details](#15-sponge-construction-details)
 16. [Packet Formats](#16-packet-formats)
 17. [Quantum Key Distribution Integration](#17-quantum-key-distribution-integration)
+
+### Formal Security Foundation
+- [Conditional Indifferentiability Result](#formal-security-foundation-conditional-indifferentiability)
 
 ### Part II - Empirical Security Analysis
 18. [Primitive Under Test](#18-primitive-under-test)
@@ -597,6 +600,30 @@ The BB84 module was tested under two scenarios:
 | Eve correct guesses | 2,072/4,096 (~50%, no better than chance) |
 
 The 24.5% error rate under eavesdropping exceeds the 10% threshold, triggering automatic abort. Eve's interception provides no usable information about the final key.
+
+---
+
+## Formal Security Foundation: Conditional Indifferentiability
+
+The security of sponge-based constructions rests on a foundational result by Bertoni, Daemen, Peeters, and Van Assche [4, 7], who proved that a sponge using an ideal permutation is indifferentiable from a random oracle. This is the theorem that provides SHA-3 with its provable security guarantees.
+
+**Theorem (Bertoni et al. [7]).** Let $f$ be a random permutation on $\{0, 1\}^b$. The sponge construction $\mathrm{Sponge}[f, r, c]$ with rate $r$ and capacity $c = b - r$ is indifferentiable from a random oracle with distinguishing advantage bounded by
+
+$$\epsilon \leq \frac{q(q+1)}{2^{c+1}}$$
+
+where $q$ is the total number of queries to the construction and its underlying permutation.
+
+**Application to KK.** The KK sponge operates on a 1600-bit state ($b = 1600$) partitioned into a 1216-bit rate ($r = 19 \times 64$) and a 384-bit capacity ($c = 6 \times 64 = 384$). Under the ideal permutation assumption, the bound becomes
+
+$$\epsilon \leq \frac{q^2}{2^{385}}$$
+
+which remains negligible for up to $q \approx 2^{192}$ queries. This yields **192-bit security** against generic distinguishing, collision, and preimage attacks in the random oracle model. The 384-bit capacity places KK's generic security in the same class as SHA-384 and provides a 64-bit margin above the 128-bit level targeted by most deployed systems.
+
+**Inherited mode security.** Under this conditional result, all sponge-derived KK modes inherit standard generic bounds: collision resistance up to $2^{c/2} = 2^{192}$, preimage resistance up to $2^c = 2^{384}$, and PRF/MAC security up to $2^{c/2}$ queries. The authenticated encryption modes additionally inherit the sponge AEAD bounds established by Jovanovic, Luykx, and Mennink [23].
+
+**The permutation ideality assumption.** This result is conditional on the KK permutation being indistinguishable from a random permutation. No concrete permutation has ever been proven to satisfy this assumption; doing so would resolve fundamental open problems in complexity theory. The Keccak-f[1600] permutation underlying SHA-3 relies on the same unproven assumption, and the Keccak team's security case rests on computational evidence (differential trail bounds, algebraic degree analysis, and symmetry arguments) rather than a formal reduction [8]. The same holds for every deployed ARX primitive: ChaCha20, BLAKE2/BLAKE3, Gimli, and Ascon all assume their respective permutations are sufficiently close to ideal.
+
+The empirical analysis in Part II provides computational evidence supporting this assumption for the KK permutation: exhaustive DDT/LAT analysis at 8-bit and 16-bit word widths yields proven trail bounds of $2^{-26{,}712}$ (differential) and $2^{-2{,}544}$ (linear), with margins of 25,912 and 1,744 bits above the $2^{-800}$ security target. All standard statistical distinguishers saturate at their expected values. This evidence is structurally comparable to the evidence supporting the ideality assumptions for the permutations listed above.
 
 ---
 ---
@@ -1808,7 +1835,7 @@ The specifics of our integration architecture are proprietary, but the core cryp
 
 Intellectual honesty is more important than marketing.
 
-**KK is not formally proven.** Empirical results are strong, but formal security reductions to hard problems have not been established. This is future work.
+**KK has a conditional, not unconditional, security proof.** The sponge indifferentiability theorem [7] establishes 192-bit generic security under the ideal permutation assumption, the same framework as SHA-3. Proving that the KK permutation (or any concrete permutation, including Keccak-f) satisfies this assumption remains an open problem. The empirical evidence in Part II supports the assumption but does not constitute a formal reduction.
 
 **KK has not been third-party audited.** The cryptographic community is invited to scrutinise, attack, and break KK. That is how confidence in a cipher is built.
 
@@ -1826,7 +1853,7 @@ Intellectual honesty is more important than marketing.
 
 Empirical testing is necessary but not sufficient. These tests can *disqualify* a primitive (any failure is fatal), but they cannot *prove* security. Specific limitations:
 
-1. **No formal security proof.** There is no reduction from the KK permutation to a known hard mathematical problem (e.g., the discrete logarithm problem, lattice problems). SHA-3's Keccak has a formal capacity-based security bound; KK does not yet have an analogous proof.
+1. **Conditional, not unconditional, security proof.** The sponge indifferentiability theorem provides KK with the same capacity-based security framework as SHA-3 (192-bit bound from 384-bit capacity). However, there is no reduction from the KK permutation to a known hard mathematical problem (e.g., the discrete logarithm problem, lattice problems), and no concrete permutation, including Keccak-f, has ever been proven ideal.
 
 2. **Computational differential and linear analysis only.** Sections 27–28 provide computational differential and linear trail searches with 2^16 – 2^20 samples. Sections 29–30 strengthen this with exhaustive DDT/LAT computation at reduced word sizes and proven trail bounds (differential: $2^{-26{,}712}$; linear: $2^{-2{,}544}$), but the 64-bit extrapolations rely on scaling models. Full enumeration of all characteristics across 32 rounds of a 1600-bit state is computationally infeasible; formal arguments (e.g., wide-trail strategy proofs) would provide additional guarantees.
 
