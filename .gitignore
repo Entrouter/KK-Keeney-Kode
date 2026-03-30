@@ -10,6 +10,7 @@ docs/fonts/
 docs/*.html
 docs/.md-to-pdf.js
 docs/package.json
+generate_pdf.js
 docs/KK_WHITEPAPER.md
 docs/KK_WHITEPAPER.pdf
 docs/KK_SPECIFICATION.md
