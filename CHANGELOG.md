@@ -4,6 +4,28 @@ All notable changes to KK-Crypto will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.5] - 2026-03-30
+
+### Added
+- Width-scaling validation suite (`analysis/width_scaling_test.py`): 16-bit and 32-bit KK models confirming DDR equipartition as algebraic invariant (χ² = 0.0000 at all widths, 4.29 billion inputs at 32-bit)
+- Analysis scripts: `attack_validation.py`, `bit_level_verify.py`, `ddr_bias_test.py`
+- `docs/ATTACK_VALIDATION_RESULTS.md`: comprehensive attack validation report with 8 test categories
+
+### Changed
+- Updated all 5 documentation files with width-scaling validation results:
+  - KK_COMBINED_PAPER.md: new §31.6, updated §29.11/§40/§41, scorecard 57→62
+  - KK_WHITEPAPER.md: new §31.6, updated §29.10/§40/§41
+  - KK_SPECIFICATION.md: new §16.5, updated §13.8 limitations
+  - NUMERICAL_ANALYSIS_REPORT.md: new §9 subsection, scorecard 40→45
+  - ATTACK_VALIDATION_RESULTS.md: Test 8 width-scaling, updated summary
+
+## [0.1.4] - 2026-03-28
+
+### Added
+- Exhaustive bit-boundary proof analysis (Sections 29–31)
+- Formal DDT/LAT trail bounds and complementary duality theorems
+- Adversarial self-attack validation suite
+
 ## [0.1.3] - 2026-03-26
 
 ### Fixed
