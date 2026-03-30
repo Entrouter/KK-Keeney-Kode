@@ -1,14 +1,18 @@
-// COLLISION PROOF: Demonstrates a zero-cost hash collision in kk_hash.
+// COLLISION PROOF: Tests whether flipping word 6 bit 0 produces a hash collision.
 //
-// Root cause: word 6 (bytes 48-55) occupies the "b position" in ALL
-// three quintet phases (row 1, column 1, diagonal 0). The `b | 1`
-// masking in MFR makes bit 0 of the b-argument invisible. Therefore
-// the differential Δ = {word 6, bit 0} is a FIXED POINT of the
-// permutation: kk_permute(S ⊕ Δ) = kk_permute(S) ⊕ Δ for ALL S.
+// Background: MFR uses `b | 1` to guarantee an odd (bijective) multiplier,
+// which masks bit 0 of the b-argument. Word 6 occupies the b-position in
+// the row and column phases. Without countermeasures, this could create
+// an invariant differential.
 //
-// Attack: For any 2-block message M1||M2, flipping byte 48 bit 0 in
-// BOTH blocks cancels the differential after the second absorption,
-// producing identical internal state and thus identical hash output.
+// Mitigations:
+//   1. MFR re-injects raw `b` via `product ^ (product >> 32) ^ b`,
+//      so all 64 bits of b (including bit 0) influence the output.
+//   2. The diagonal quintet ordering is rotated: DIAGS[0] = [24, 0, 6, 12, 18],
+//      so word 6 is at the c-position (not b) in the diagonal phase.
+//
+// Result: NO COLLISION — hashes differ completely. The `⊕ b` countermeasure
+// and diagonal rotation close this structural concern.
 use kk_crypto::kk_mix::kk_hash;
 
 fn main() {
