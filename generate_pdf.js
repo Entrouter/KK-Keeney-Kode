@@ -4,12 +4,16 @@ const path = require('path');
 const katex = require('katex');
 const puppeteer = require('puppeteer');
 
+// --- Resolve input file from CLI argument ---
+const inputFile = process.argv[2] || 'docs/KK_COMBINED_PAPER.md';
+const baseName = path.basename(inputFile, '.md');
+
 // --- Step 1: Use pandoc to convert markdown to HTML ---
 // Pandoc's parser correctly preserves math inside $...$ and $$...$$ delimiters,
 // unlike `marked` which mangles underscores, pipes, and backslash sequences.
-console.log('Step 1: Converting markdown to HTML via pandoc...');
+console.log(`Step 1: Converting ${inputFile} to HTML via pandoc...`);
 const rawHtml = execSync(
-	'pandoc docs/KK_COMBINED_PAPER.md -t html5 --mathjax --standalone --wrap=none',
+	`pandoc ${inputFile} -t html5 --mathjax --standalone --wrap=none`,
 	{ encoding: 'utf8', maxBuffer: 50 * 1024 * 1024, cwd: __dirname }
 );
 
@@ -123,7 +127,7 @@ html = html.replace(/<script[^>]*mathjax[^>]*>[\s\S]*?<\/script>/gi, '');
 html = html.replace(/<script[^>]*type="text\/x-mathjax[^>]*>[\s\S]*?<\/script>/gi, '');
 
 // Write intermediate HTML for debugging
-const htmlPath = path.resolve(__dirname, 'docs/KK_COMBINED_PAPER_render.html');
+const htmlPath = path.resolve(__dirname, `docs/${baseName}_render.html`);
 fs.writeFileSync(htmlPath, html);
 console.log(`  Wrote intermediate HTML: ${htmlPath}`);
 
@@ -138,7 +142,7 @@ console.log('Step 4: Rendering PDF with Puppeteer...');
 
 	await page.setContent(html, { waitUntil: 'networkidle0', timeout: 60000 });
 
-	const pdfPath = path.resolve(__dirname, 'docs/KK_COMBINED_PAPER.pdf');
+	const pdfPath = path.resolve(__dirname, `docs/${baseName}.pdf`);
 	await page.pdf({
 		path: pdfPath,
 		format: 'A4',

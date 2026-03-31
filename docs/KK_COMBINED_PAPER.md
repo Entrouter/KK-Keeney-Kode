@@ -1225,7 +1225,7 @@ $$LP_\text{DDR}(n) = \frac{1}{n^2}$$
 >
 > $$(2^{-2})^{424} = 2^{-848}, \qquad \text{margin: } 48 \text{ bits}$$
 >
-> *This is the weakest bound, when an attacker targets bit 1 exclusively.*
+> *This is the weakest bound, when an attacker targets bit 1 exclusively. However, Bound B is a worst-case abstraction that assumes the attacker maintains a bit-1 linear trail through all 424 MFR operations. In practice, the DDR operation between every MFR pair rotates the state by a data-dependent distance, destroying bit-position persistence: a trail entering at bit 1 is rotated to an arbitrary bit position $k$, where LP scales as $2^{-2k}$ (§30.3). The probability that DDR preserves bit position 1 across 212 consecutive quintets is $(1/64)^{212} = 2^{-1{,}272}$. Thus Bound B is not achievable in the full permutation — it serves as a theoretical worst-case envelope. The realistic bound is Bound C below.*
 >
 > **(C) Combined MFR + DDR.** For each quintet, MFR bit-1 LP ($2^{-4}$ for two MFR) $\times$ DDR LP ($2^{-12}$) gives $2^{-16}$ per quintet:
 >
