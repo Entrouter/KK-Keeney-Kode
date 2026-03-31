@@ -25,8 +25,6 @@ NOTICE: Removal of this header is a violation of the license.
 [![License](https://img.shields.io/badge/license-Apache--2.0%20%2B%20Additional%20Terms-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-2021-orange.svg)](https://www.rust-lang.org)
 [![no_std](https://img.shields.io/badge/no__std-compatible-green.svg)](#no_std-support)
-[![ePrint](https://img.shields.io/badge/ePrint-2026%2F108538-blue.svg)](https://eprint.iacr.org/2026/108538)
-
 ---
 
 ```text
