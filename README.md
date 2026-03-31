@@ -87,7 +87,7 @@ KK occupies a previously empty point in the design space:
 
 KK is positioned as a **diversity candidate**: not as a replacement for established standards, but as an independently designed construction for systems requiring algorithmic heterogeneity, table-free constant-time execution, built-in temporal binding, or a sponge-based suite with a non-S-box algebraic lineage.
 
-> For the full design rationale, analysis, and formal specification, see the [Combined Paper](docs/KK_COMBINED_PAPER.md) or [ePrint 2026/108538](https://eprint.iacr.org/2026/108538).
+> For the full design rationale, analysis, and formal specification, see the [Combined Paper](docs/KK_COMBINED_PAPER.md)
 
 ---
 
@@ -466,7 +466,7 @@ kk-crypto = { version = "0.1", default-features = false }
 
 | Document | Description |
 |----------|-------------|
-| **[Combined Paper](docs/KK_COMBINED_PAPER.md)** | **Primary reference.** Full design, analysis, specification, and performance in one document. Also available as [PDF](docs/KK_COMBINED_PAPER.pdf) and on [ePrint (2026/108538)](https://eprint.iacr.org/2026/108538). |
+| **[Combined Paper](docs/KK_COMBINED_PAPER.md)** | **Primary reference.** Full design, analysis, specification, and performance in one document. Also available as [PDF](docs/KK_COMBINED_PAPER.pdf) 
 | [Test Vectors](docs/KK_TEST_VECTORS.md) | Deterministic reference vectors for cross-language implementation |
 | [Integration Guide](docs/integration-guide.md) | Examples for all codec modes, streaming, sessions, EKA |
 | [Technical Flex](docs/real_flex.md) | Full technical breakdown and competitive analysis |
